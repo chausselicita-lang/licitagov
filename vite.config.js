@@ -1,0 +1,50 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+
+export default defineConfig({
+  base: '/licitagov/',
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icons/icon-192.png', 'icons/icon-512.png', 'icons/logo-source.jpeg'],
+      manifest: {
+        name: 'LicitaGov — Gestão de Licitações',
+        short_name: 'LicitaGov',
+        description: 'Sistema de Gestão de Licitações Públicas — Lei 14.133/2021',
+        theme_color: '#080b14',
+        background_color: '#080b14',
+        display: 'standalone',
+        start_url: '/licitagov/',
+        scope: '/licitagov/',
+        orientation: 'any',
+        icons: [
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpeg,jpg,woff2}'],
+        navigateFallback: '/licitagov/',
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'gfonts', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'supabase', networkTimeoutSeconds: 10 },
+          },
+        ],
+      },
+    }),
+  ],
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+  },
+});
