@@ -12,15 +12,15 @@ const C = {
   card:    "#131728",
   border:  "#1e2440",
   accent:  "#4f7cff",
-  accent2: "#00d4aa",
-  gold:    "#f5a623",
-  red:     "#f04e4e",
-  green:   "#22c55e",
-  amber:   "#f59e0b",
-  purple:  "#8b5cf6",
+  accent2: "#00bfa4",   // was #00d4aa — menos neon
+  gold:    "#e09830",   // was #f5a623 — âmbar-dourado mais suave
+  red:     "#e04848",   // was #f04e4e — vermelho menos saturado
+  green:   "#20a84e",   // was #22c55e — verde menos neon
+  amber:   "#d49020",   // was #f59e0b — âmbar mais suave
+  purple:  "#7c52e0",   // was #8b5cf6 — roxo levemente mais fundo
   text:    "#f0f2ff",
-  sub:     "#5a6490",
-  subL:    "#8892b0",
+  sub:     "#7080a8",   // was #5a6490 — mais claro para legibilidade WCAG
+  subL:    "#9099be",   // was #8892b0 — ligeiramente mais claro
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
@@ -37,6 +37,41 @@ const calcMediana = arr => {
   return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
 };
 const uid = () => Math.random().toString(36).slice(2,10);
+
+/* ── SVG ICON SYSTEM ───────────────────────────────────────── */
+function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
+  const d = {
+    dashboard:  <><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></>,
+    processos:  <><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>,
+    atas:       <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>,
+    contratos:  <><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></>,
+    cotacoes:   <><circle cx="12" cy="12" r="10"/><path d="M12 8v1m0 6v1"/><path d="M14.5 9.5a2.5 2.5 0 0 0-5 0c0 1.4.9 2.2 2.5 2.5s2.5 1.1 2.5 2.5a2.5 2.5 0 0 1-5 0"/></>,
+    relatorios: <><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></>,
+    claude:     <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
+    attach:     <><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></>,
+    send:       <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+    close:      <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+    warning:    <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+    settings:   <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    print:      <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
+    install:    <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+    menu:       <><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>,
+    user:       <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    back:       <><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>,
+    plus:       <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+    search:     <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+    check:      <><polyline points="20 6 9 17 4 12"/></>,
+    image:      <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>,
+    file:       <><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
+    key:        <><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></>,
+    robot:      <><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+      {d[name] || null}
+    </svg>
+  );
+}
 
 const STORAGE_KEY = "licitagov_data_v2";
 
@@ -94,16 +129,27 @@ const SEED = {
 
 function Badge({ label, color }) {
   const map = {
-    "Vigente":"#22c55e","A vencer":"#f59e0b","Encerrado":"#5a6490","Vencido":"#f04e4e",
-    "Homologado":"#22c55e","Em andamento":"#4f7cff","Publicado":"#00d4aa",
-    "Planejamento":"#f59e0b","Revogado":"#f04e4e","Suspenso":"#8b5cf6",
-    "Finalizada":"#22c55e","Em coleta":"#4f7cff","Rascunho":"#5a6490",
+    "Vigente":      "#20a84e",
+    "A vencer":     "#d49020",
+    "Encerrado":    "#6878a0",
+    "Vencido":      "#e04848",
+    "Homologado":   "#20a84e",
+    "Em andamento": "#4f7cff",
+    "Publicado":    "#00bfa4",
+    "Planejamento": "#d49020",
+    "Revogado":     "#e04848",
+    "Suspenso":     "#7c52e0",
+    "Finalizada":   "#20a84e",
+    "Em coleta":    "#4f7cff",
+    "Rascunho":     "#7080a8",
   };
   const c = color || map[label] || C.subL;
   return (
     <span style={{
-      background:c+"22", color:c, border:`1px solid ${c}44`,
-      borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:700, letterSpacing:0.3,
+      background: c+"2e", color: c, border: `1px solid ${c}55`,
+      borderRadius: 20, padding: "3px 12px",
+      fontSize: 12, fontWeight: 700, letterSpacing: 0.6,
+      textTransform: "uppercase",
     }}>{label}</span>
   );
 }
@@ -202,21 +248,18 @@ function EmptyState({ icon, title, sub }) {
   );
 }
 
-function KpiCard({ icon, label, value, sub, color=C.accent }) {
+function KpiCard({ label, value, sub, color=C.accent }) {
   return (
     <div style={{
-      background:C.card, border:`1px solid ${C.border}`, borderRadius:16,
-      padding:"18px 20px", display:"flex", alignItems:"center", gap:16,
+      background: C.card,
+      border: `1px solid ${C.border}`,
+      borderLeft: `3px solid ${color}`,
+      borderRadius: 12,
+      padding: "18px 20px",
     }}>
-      <div style={{
-        width:48, height:48, borderRadius:14, background:color+"22",
-        display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0,
-      }}>{icon}</div>
-      <div style={{ minWidth:0 }}>
-        <div style={{ fontSize:12, color:C.sub, fontWeight:600, marginBottom:4 }}>{label}</div>
-        <div style={{ fontSize:20, fontWeight:800, color:C.text, fontFamily:"'Syne',sans-serif", lineHeight:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
-        {sub && <div style={{ fontSize:11, color:color, marginTop:4, fontWeight:600 }}>{sub}</div>}
-      </div>
+      <div style={{ fontSize: 11, color: C.sub, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: C.text, fontFamily: "'Syne',sans-serif", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: C.sub, marginTop: 8 }}>{sub}</div>}
     </div>
   );
 }
@@ -235,38 +278,40 @@ function TabDashboard({ data }) {
 
   return (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:12, marginBottom:24 }}>
-        <KpiCard icon="📋" label="Processos Ativos" value={processos.filter(p=>p.fase!=="Encerrado").length} sub={`${processos.length} total`} color={C.accent} />
-        <KpiCard icon="📜" label="Atas Vigentes" value={atasVigentes} sub="Registro de Preços" color={C.accent2} />
-        <KpiCard icon="📄" label="Contratos Vigentes" value={contratos.filter(c=>c.status==="Vigente").length} sub={fmtBRL(valorContratos)} color={C.green} />
-        <KpiCard icon="💰" label="Cotações" value={cotacoes.length} sub="Pesquisas de preço" color={C.gold} />
-        <KpiCard icon="⚠️" label="A Vencer (30d)" value={vencendo.length} sub="Contratos" color={vencendo.length>0?C.red:C.green} />
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:12, marginBottom:28 }}>
+        <KpiCard label="Processos Ativos" value={processos.filter(p=>p.fase!=="Encerrado").length} sub={`${processos.length} total`} color={C.accent} />
+        <KpiCard label="Atas Vigentes" value={atasVigentes} sub="Registro de Preços" color={C.accent2} />
+        <KpiCard label="Contratos Vigentes" value={contratos.filter(c=>c.status==="Vigente").length} sub={fmtBRL(valorContratos)} color={C.green} />
+        <KpiCard label="Cotações" value={cotacoes.length} sub="Pesquisas de preço" color={C.gold} />
+        <KpiCard label="A Vencer (30d)" value={vencendo.length} sub="Contratos" color={vencendo.length>0?C.red:C.green} />
       </div>
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:20, marginBottom:16 }}>
-        <div style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif", marginBottom:14 }}>Processos Recentes</div>
+        <div style={{ fontSize:13, fontWeight:600, color:C.subL, marginBottom:14, textTransform:"uppercase", letterSpacing:0.8 }}>Processos Recentes</div>
         {processos.slice(0,4).map(p=>(
           <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.numero} — {p.objeto}</div>
-              <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>{p.modalidade} · {p.orgao}</div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.numero} — {p.objeto}</div>
+              <div style={{ fontSize:12, color:C.subL, marginTop:2 }}>{p.modalidade} · {p.orgao}</div>
             </div>
             <Badge label={p.fase} />
-            <div style={{ fontSize:13, fontWeight:700, color:C.accent, minWidth:80, textAlign:"right" }}>{fmtBRL(p.valor)}</div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.accent, minWidth:80, textAlign:"right" }}>{fmtBRL(p.valor)}</div>
           </div>
         ))}
       </div>
 
       {vencendo.length > 0 && (
         <div style={{ background:C.red+"11", border:`1px solid ${C.red}33`, borderRadius:16, padding:20 }}>
-          <div style={{ fontSize:14, fontWeight:800, color:C.red, marginBottom:12 }}>⚠️ Contratos a vencer em 30 dias</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:C.red, marginBottom:12 }}>
+            <Icon name="warning" size={14} color={C.red} /> Contratos a vencer em 30 dias
+          </div>
           {vencendo.map(c=>(
             <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${C.red}22`, flexWrap:"wrap", gap:8 }}>
               <div>
-                <div style={{ fontSize:13, fontWeight:700 }}>{c.numero} — {c.objeto}</div>
-                <div style={{ fontSize:11, color:C.sub }}>{c.fornecedor}</div>
+                <div style={{ fontSize:14, fontWeight:700 }}>{c.numero} — {c.objeto}</div>
+                <div style={{ fontSize:12, color:C.subL }}>{c.fornecedor}</div>
               </div>
-              <div style={{ fontSize:12, color:C.red, fontWeight:700 }}>Vence em {diasParaVencer(c.fim)}d · {fmtDate(c.fim)}</div>
+              <div style={{ fontSize:13, color:C.red, fontWeight:700 }}>Vence em {diasParaVencer(c.fim)}d · {fmtDate(c.fim)}</div>
             </div>
           ))}
         </div>
@@ -321,11 +366,11 @@ function TabProcessos({ processos, setProcessos, toast }) {
                     <Badge label={p.fase} />
                   </div>
                   <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4 }}>{p.objeto}</div>
-                  <div style={{ fontSize:12, color:C.sub }}>{p.modalidade} · {p.orgao} · Abertura: {fmtDate(p.abertura)}</div>
+                  <div style={{ fontSize:13, color:C.subL }}>{p.modalidade} · {p.orgao} · Abertura: {fmtDate(p.abertura)}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
                   <div style={{ fontSize:18, fontWeight:800, color:C.accent2, fontFamily:"'Syne',sans-serif" }}>{fmtBRL(p.valor)}</div>
-                  <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>Valor estimado</div>
+                  <div style={{ fontSize:12, color:C.subL, marginTop:2 }}>Valor estimado</div>
                 </div>
               </div>
             </div>
@@ -390,10 +435,10 @@ function TabAtas({ atas, setAtas, toast }) {
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12, marginBottom:20 }}>
-          <KpiCard icon="🏢" label="Fornecedor" value={ata.fornecedor.split(" ").slice(0,2).join(" ")} color={C.accent} />
-          <KpiCard icon="💰" label="Valor Total" value={fmtBRL(ata.valorTotal)} color={C.accent2} />
-          <KpiCard icon="📊" label="Saldo" value={fmtBRL(ata.saldoDisponivel)} sub={`${(100-parseFloat(pctUsado)).toFixed(1)}% disponível`} color={C.green} />
-          <KpiCard icon="📅" label="Vigência" value={fmtDate(ata.vigencia)} sub={`${diasParaVencer(ata.vigencia)} dias`} color={diasParaVencer(ata.vigencia)<30?C.red:C.amber} />
+          <KpiCard label="Fornecedor" value={ata.fornecedor.split(" ").slice(0,2).join(" ")} color={C.accent} />
+          <KpiCard label="Valor Total" value={fmtBRL(ata.valorTotal)} color={C.accent2} />
+          <KpiCard label="Saldo" value={fmtBRL(ata.saldoDisponivel)} sub={`${(100-parseFloat(pctUsado)).toFixed(1)}% disponível`} color={C.green} />
+          <KpiCard label="Vigência" value={fmtDate(ata.vigencia)} sub={`${diasParaVencer(ata.vigencia)} dias`} color={diasParaVencer(ata.vigencia)<30?C.red:C.amber} />
         </div>
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:16, marginBottom:16 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
@@ -412,7 +457,7 @@ function TabAtas({ atas, setAtas, toast }) {
                 <thead>
                   <tr style={{ background:C.surface }}>
                     {["Descrição","Unidade","Qtd Reg.","Qtd Util.","Vlr Unit.","Saldo"].map(h=>(
-                      <th key={h} style={{ padding:"10px 14px", fontSize:11, color:C.sub, fontWeight:700, textAlign:"left", whiteSpace:"nowrap" }}>{h}</th>
+                      <th key={h} style={{ padding:"10px 14px", fontSize:12, color:C.subL, fontWeight:700, textAlign:"left", whiteSpace:"nowrap" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -425,7 +470,7 @@ function TabAtas({ atas, setAtas, toast }) {
                         <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600 }}>{it.descricao}</td>
                         <td style={{ padding:"12px 14px", fontSize:12, color:C.sub }}>{it.unidade}</td>
                         <td style={{ padding:"12px 14px", fontSize:13 }}>{it.qtdRegistrada.toLocaleString("pt-BR")}</td>
-                        <td style={{ padding:"12px 14px", fontSize:13, color:C.amber }}>{it.qtdUtilizada.toLocaleString("pt-BR")} <span style={{fontSize:10,color:C.sub}}>({pct}%)</span></td>
+                        <td style={{ padding:"12px 14px", fontSize:13, color:C.amber }}>{it.qtdUtilizada.toLocaleString("pt-BR")} <span style={{fontSize:11,color:C.subL}}>({pct}%)</span></td>
                         <td style={{ padding:"12px 14px", fontSize:13, color:C.accent2, fontWeight:700 }}>{fmtBRL(it.valorUnit)}</td>
                         <td style={{ padding:"12px 14px", fontSize:13, color:saldo<it.qtdRegistrada*0.1?C.red:C.green, fontWeight:700 }}>{saldo.toLocaleString("pt-BR")}</td>
                       </tr>
@@ -462,12 +507,12 @@ function TabAtas({ atas, setAtas, toast }) {
                       <Badge label={d>0?"Vigente":d===0?"Vence hoje":"Vencida"} />
                     </div>
                     <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4 }}>{a.objeto}</div>
-                    <div style={{ fontSize:12, color:C.sub }}>{a.fornecedor} · CNPJ {a.cnpj} · Vigência: {fmtDate(a.vigencia)}</div>
+                    <div style={{ fontSize:13, color:C.subL }}>{a.fornecedor} · CNPJ {a.cnpj} · Vigência: {fmtDate(a.vigencia)}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
                     <div style={{ fontSize:17, fontWeight:800, color:C.green, fontFamily:"'Syne',sans-serif" }}>{fmtBRL(a.saldoDisponivel)}</div>
-                    <div style={{ fontSize:11, color:C.sub }}>saldo disponível</div>
-                    <div style={{ fontSize:11, color:C.amber, marginTop:2 }}>{pct}% utilizado</div>
+                    <div style={{ fontSize:12, color:C.subL }}>saldo disponível</div>
+                    <div style={{ fontSize:12, color:C.amber, marginTop:2 }}>{pct}% utilizado</div>
                   </div>
                 </div>
                 <div style={{ marginTop:10, background:C.border, borderRadius:4, height:4, overflow:"hidden" }}>
@@ -555,11 +600,11 @@ function TabContratos({ contratos, setContratos, toast }) {
                   <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                     <span style={{ fontSize:15, fontWeight:800, color:C.accent, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
                     <Badge label={c.status} />
-                    {c.processo && <span style={{ fontSize:11, color:C.sub }}>Proc. {c.processo}</span>}
+                    {c.processo && <span style={{ fontSize:12, color:C.subL }}>Proc. {c.processo}</span>}
                   </div>
                   <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4 }}>{c.objeto}</div>
-                  <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor} · CNPJ {c.cnpj}</div>
-                  <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>
+                  <div style={{ fontSize:13, color:C.subL }}>{c.fornecedor} · CNPJ {c.cnpj}</div>
+                  <div style={{ fontSize:13, color:C.subL, marginTop:2 }}>
                     {fmtDate(c.inicio)} → {fmtDate(c.fim)}
                     {c.diasRestantes !== null && c.status !== "Encerrado" && (
                       <span style={{ marginLeft:8, color:c.status==="A vencer"?C.amber:c.status==="Vencido"?C.red:C.green, fontWeight:700 }}>
@@ -663,9 +708,9 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
             {cot.fornecedores.map((f,i)=>(
               <div key={f.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", flex:1, minWidth:140 }}>
-                <div style={{ fontSize:11, color:C.accent, fontWeight:700, marginBottom:2 }}>Fornecedor {i+1}</div>
+                <div style={{ fontSize:12, color:C.accent, fontWeight:700, marginBottom:2 }}>Fornecedor {i+1}</div>
                 <div style={{ fontSize:13, fontWeight:700 }}>{f.razao}</div>
-                <div style={{ fontSize:11, color:C.sub }}>{f.cnpj}</div>
+                <div style={{ fontSize:12, color:C.subL }}>{f.cnpj}</div>
               </div>
             ))}
           </div>
@@ -674,20 +719,20 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
           <div style={{ padding:"14px 18px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
             <span style={{ fontSize:14, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>Mapa de Preços</span>
-            <span style={{ fontSize:11, color:C.subL }}>Mediana conforme Lei 14.133/2021</span>
+            <span style={{ fontSize:12, color:C.subL }}>Mediana conforme Lei 14.133/2021</span>
           </div>
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
               <thead>
                 <tr style={{ background:C.surface }}>
-                  <th style={{ padding:"10px 14px", fontSize:11, color:C.sub, fontWeight:700, textAlign:"left" }}>Item</th>
-                  <th style={{ padding:"10px 14px", fontSize:11, color:C.sub, fontWeight:700, textAlign:"center" }}>Un.</th>
-                  <th style={{ padding:"10px 14px", fontSize:11, color:C.sub, fontWeight:700, textAlign:"center" }}>Qtd</th>
+                  <th style={{ padding:"10px 14px", fontSize:12, color:C.subL, fontWeight:700, textAlign:"left" }}>Item</th>
+                  <th style={{ padding:"10px 14px", fontSize:12, color:C.subL, fontWeight:700, textAlign:"center" }}>Un.</th>
+                  <th style={{ padding:"10px 14px", fontSize:12, color:C.subL, fontWeight:700, textAlign:"center" }}>Qtd</th>
                   {cot.fornecedores.map((f,i)=>(
-                    <th key={f.id} style={{ padding:"10px 14px", fontSize:11, color:C.accent, fontWeight:700, textAlign:"right" }}>F{i+1}</th>
+                    <th key={f.id} style={{ padding:"10px 14px", fontSize:12, color:C.accent, fontWeight:700, textAlign:"right" }}>F{i+1}</th>
                   ))}
-                  <th style={{ padding:"10px 14px", fontSize:11, color:C.gold, fontWeight:800, textAlign:"right", background:C.gold+"11" }}>MEDIANA</th>
-                  <th style={{ padding:"10px 14px", fontSize:11, color:C.accent2, fontWeight:800, textAlign:"right" }}>TOTAL REF.</th>
+                  <th style={{ padding:"10px 14px", fontSize:12, color:C.gold, fontWeight:800, textAlign:"right", background:C.gold+"11" }}>MEDIANA</th>
+                  <th style={{ padding:"10px 14px", fontSize:12, color:C.accent2, fontWeight:800, textAlign:"right" }}>TOTAL REF.</th>
                 </tr>
               </thead>
               <tbody>
@@ -781,7 +826,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                   display:"flex", alignItems:"center", justifyContent:"center",
                   fontSize:12, fontWeight:800, color:step>=i+1?"#fff":C.sub, transition:"all 0.2s",
                 }}>{step>i+1?"✓":i+1}</div>
-                <span style={{ fontSize:10, color:step===i+1?C.gold:C.sub, fontWeight:600, textAlign:"center" }}>{s}</span>
+                <span style={{ fontSize:11, color:step===i+1?C.gold:C.subL, fontWeight:600, textAlign:"center" }}>{s}</span>
               </div>
             ))}
           </div>
@@ -825,7 +870,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
               {itens.map((it,i)=>(
                 <div key={it.id} style={{ background:C.surface, borderRadius:12, padding:14 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-                    <span style={{ fontSize:11, fontWeight:800, color:C.gold, background:C.gold+"22", padding:"2px 8px", borderRadius:6 }}>ITEM {i+1}</span>
+                    <span style={{ fontSize:12, fontWeight:800, color:C.gold, background:C.gold+"22", padding:"3px 10px", borderRadius:6 }}>ITEM {i+1}</span>
                     {itens.length>1 && <Btn variant="outline" color={C.red} size="sm" onClick={()=>remItem(it.id)}>✕</Btn>}
                   </div>
                   <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr", gap:10, marginBottom:10 }}>
@@ -833,7 +878,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                     <Input label="Unidade" value={it.unidade} onChange={v=>updItem(it.id,"unidade",v)} placeholder="Un, Kg, L..." />
                     <Input label="Quantidade" value={it.qtd} onChange={v=>updItem(it.id,"qtd",v)} type="number" placeholder="0" />
                   </div>
-                  <div style={{ fontSize:11, color:C.subL, marginBottom:6, fontWeight:700 }}>Preços por fornecedor:</div>
+                  <div style={{ fontSize:12, color:C.subL, marginBottom:6, fontWeight:700 }}>Preços por fornecedor:</div>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:8 }}>
                     {fornecedores.filter(f=>f.razao.trim()).map((f,fi)=>(
                       <Input key={f.id} label={`F${fi+1}: ${f.razao.split(" ")[0]}`}
@@ -872,11 +917,11 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 function TabRelatorios({ data }) {
   const { processos, contratos, cotacoes, atas } = data;
   const reports = [
-    { icon:"📋", title:"Processos por Modalidade", color:C.accent, desc:"Distribuição e valores por tipo de licitação" },
-    { icon:"📄", title:"Contratos a Vencer", color:C.amber, desc:"Contratos nos próximos 30, 60 e 90 dias" },
-    { icon:"📜", title:"Saldo de Atas de RP", color:C.accent2, desc:"Utilização e saldo por fornecedor/item" },
-    { icon:"💰", title:"Mapa de Preços Consolidado", color:C.gold, desc:"Medianas por categoria de objeto" },
-    { icon:"📊", title:"Relatório Gerencial", color:C.purple, desc:"Visão geral de todos os processos e contratos" },
+    { icon:"processos",  title:"Processos por Modalidade",    color:C.accent,  desc:"Distribuição e valores por tipo de licitação" },
+    { icon:"contratos",  title:"Contratos a Vencer",          color:C.amber,   desc:"Contratos nos próximos 30, 60 e 90 dias" },
+    { icon:"atas",       title:"Saldo de Atas de RP",         color:C.accent2, desc:"Utilização e saldo por fornecedor/item" },
+    { icon:"cotacoes",   title:"Mapa de Preços Consolidado",  color:C.gold,    desc:"Medianas por categoria de objeto" },
+    { icon:"relatorios", title:"Relatório Gerencial",         color:C.purple,  desc:"Visão geral de todos os processos e contratos" },
   ];
 
   const byModalidade = processos.reduce((acc,p)=>{ acc[p.modalidade]=(acc[p.modalidade]||0)+1; return acc; },{});
@@ -892,16 +937,18 @@ function TabRelatorios({ data }) {
             onMouseEnter={e=>e.currentTarget.style.borderColor=r.color}
             onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}
             onClick={()=>window.print()}>
-            <div style={{ fontSize:28, marginBottom:10 }}>{r.icon}</div>
-            <div style={{ fontSize:14, fontWeight:800, color:r.color, fontFamily:"'Syne',sans-serif", marginBottom:4 }}>{r.title}</div>
-            <div style={{ fontSize:12, color:C.sub, marginBottom:12 }}>{r.desc}</div>
+            <div style={{ marginBottom:12, color:r.color }}>
+              <Icon name={r.icon} size={20} strokeWidth={1.6} color={r.color} />
+            </div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:4 }}>{r.title}</div>
+            <div style={{ fontSize:12, color:C.sub, marginBottom:14 }}>{r.desc}</div>
             <Btn color={r.color} variant="outline" size="sm">Gerar Relatório</Btn>
           </div>
         ))}
       </div>
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:20, marginBottom:14 }}>
-        <div style={{ fontSize:14, fontWeight:800, fontFamily:"'Syne',sans-serif", marginBottom:16 }}>Processos por Modalidade</div>
+        <div style={{ fontSize:13, fontWeight:600, color:C.subL, marginBottom:16, textTransform:"uppercase", letterSpacing:0.8 }}>Processos por Modalidade</div>
         {Object.entries(byModalidade).map(([mod,qtd])=>(
           <div key={mod} style={{ marginBottom:12 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -916,10 +963,10 @@ function TabRelatorios({ data }) {
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:10 }}>
-        <KpiCard icon="💼" label="Valor total contratos" value={fmtBRL(contratos.filter(c=>c.status==="Vigente").reduce((a,c)=>a+c.valor,0))} color={C.green} />
-        <KpiCard icon="🔖" label="Atas ativas" value={atas.filter(a=>diasParaVencer(a.vigencia)>0).length} color={C.accent2} />
-        <KpiCard icon="📝" label="Cotações realizadas" value={cotacoes.length} color={C.gold} />
-        <KpiCard icon="⚡" label="Processos ativos" value={processos.filter(p=>!["Revogado","Suspenso"].includes(p.fase)).length} color={C.accent} />
+        <KpiCard label="Valor total contratos" value={fmtBRL(contratos.filter(c=>c.status==="Vigente").reduce((a,c)=>a+c.valor,0))} color={C.green} />
+        <KpiCard label="Atas ativas" value={atas.filter(a=>diasParaVencer(a.vigencia)>0).length} color={C.accent2} />
+        <KpiCard label="Cotações realizadas" value={cotacoes.length} color={C.gold} />
+        <KpiCard label="Processos ativos" value={processos.filter(p=>!["Revogado","Suspenso"].includes(p.fase)).length} color={C.accent} />
       </div>
     </div>
   );
@@ -946,14 +993,16 @@ Responda sempre em português brasileiro, de forma clara, objetiva e juridicamen
 function TabClaude({ data }) {
   const [msgs, setMsgs] = useState([{
     role:"assistant",
-    content:"Olá! Sou o assistente LicitaGov com IA. Posso responder dúvidas sobre a Lei 14.133/2021, modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais. Configure sua chave de API abaixo e comece a perguntar! 🏛️"
+    content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nVocê também pode anexar imagens para análise. Configure sua chave de API abaixo para começar."
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attachments, setAttachments] = useState([]);
   const [apiKey, setApiKey] = useState(()=>localStorage.getItem("licitagov_claude_key")||"");
   const [keyDraft, setKeyDraft] = useState("");
   const [showKey, setShowKey] = useState(!localStorage.getItem("licitagov_claude_key"));
   const bottomRef = useRef(null);
+  const fileRef = useRef(null);
 
   useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[msgs]);
 
@@ -970,14 +1019,31 @@ function TabClaude({ data }) {
   };
 
   const send = async () => {
-    if (!input.trim() || loading) return;
+    if ((!input.trim() && !attachments.length) || loading) return;
     if (!apiKey) { setShowKey(true); return; }
 
-    const userMsg = { role:"user", content:input.trim() };
-    const history = [...msgs, userMsg];
-    setMsgs(history); setInput(""); setLoading(true);
+    let userContent;
+    if (attachments.length > 0) {
+      const parts = attachments.map(att => {
+        if (att.type.startsWith("image/")) {
+          return { type:"image", source:{ type:"base64", media_type:att.type, data:att.data.split(",")[1] } };
+        }
+        return null;
+      }).filter(Boolean);
+      parts.push({ type:"text", text: input.trim() || "Analise o conteúdo do arquivo anexado." });
+      userContent = parts;
+    } else {
+      userContent = input.trim();
+    }
 
-    const apiMsgs = history.map(m=>({ role:m.role, content:m.content }));
+    const displayMsg = { role:"user", content: input.trim() || "(arquivo anexado)", attachmentNames: attachments.map(a=>a.name) };
+    const apiMsg = { role:"user", content: userContent };
+    const apiHistory = [...msgs.filter(m=>typeof m.content==="string"), displayMsg]
+      .map(m=>({ role:m.role, content:m.content }));
+    apiHistory[apiHistory.length-1].content = userContent;
+
+    setMsgs(prev=>[...prev, displayMsg]);
+    setInput(""); setAttachments([]); setLoading(true);
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -992,7 +1058,7 @@ function TabClaude({ data }) {
           model: "claude-sonnet-4-6",
           max_tokens: 2048,
           system: CLAUDE_SYSTEM + buildCtx(),
-          messages: apiMsgs,
+          messages: apiHistory,
         }),
       });
 
@@ -1005,10 +1071,20 @@ function TabClaude({ data }) {
       const reply = json.content?.[0]?.text || "Sem resposta.";
       setMsgs(prev=>[...prev, { role:"assistant", content:reply }]);
     } catch(err) {
-      setMsgs(prev=>[...prev, { role:"assistant", content:`❌ **Erro:** ${err.message}\n\nVerifique sua chave de API em console.anthropic.com` }]);
+      setMsgs(prev=>[...prev, { role:"assistant", content:`Erro: ${err.message}\n\nVerifique sua chave de API em console.anthropic.com` }]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFile = (e) => {
+    Array.from(e.target.files).forEach(file => {
+      if (file.size > 5 * 1024 * 1024) return;
+      const reader = new FileReader();
+      reader.onload = ev => setAttachments(prev=>[...prev,{ id:uid(), name:file.name, type:file.type, data:ev.target.result }]);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
   };
 
   const SUGGESTIONS = [
@@ -1023,20 +1099,32 @@ function TabClaude({ data }) {
     <div style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start", gap:8, alignItems:"flex-start" }}>
       {m.role==="assistant" && (
         <div style={{
-          width:32, height:32, borderRadius:10, flexShrink:0, marginTop:2,
-          background:`linear-gradient(135deg,${C.accent},${C.accent2})`,
-          display:"flex", alignItems:"center", justifyContent:"center", fontSize:16,
-        }}>🤖</div>
+          width:30, height:30, borderRadius:8, flexShrink:0, marginTop:2,
+          background:C.accent+"20", display:"flex", alignItems:"center", justifyContent:"center", color:C.accent,
+        }}>
+          <Icon name="claude" size={14} strokeWidth={1.6} />
+        </div>
       )}
       <div style={{
-        maxWidth:"78%", padding:"10px 14px", borderRadius:16,
-        background: m.role==="user" ? C.accent : C.card,
-        border: m.role==="user" ? "none" : `1px solid ${C.border}`,
-        color: C.text, fontSize:13, lineHeight:1.65,
+        maxWidth:"78%", padding:"10px 14px", borderRadius:12,
+        background: m.role==="user" ? C.accent+"20" : C.surface,
+        border: `1px solid ${m.role==="user" ? C.accent+"44" : C.border}`,
+        color: C.text, fontSize:14, lineHeight:1.7,
         whiteSpace:"pre-wrap", wordBreak:"break-word",
-        borderBottomRightRadius: m.role==="user" ? 4 : 16,
-        borderBottomLeftRadius: m.role==="assistant" ? 4 : 16,
-      }}>{m.content}</div>
+        borderBottomRightRadius: m.role==="user" ? 4 : 12,
+        borderBottomLeftRadius: m.role==="assistant" ? 4 : 12,
+      }}>
+        {m.attachmentNames?.length > 0 && (
+          <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:8 }}>
+            {m.attachmentNames.map((name,i)=>(
+              <span key={i} style={{ display:"flex", alignItems:"center", gap:4, background:C.accent+"18", borderRadius:6, padding:"3px 8px", fontSize:11, color:C.accent }}>
+                <Icon name="file" size={11} /> {name}
+              </span>
+            ))}
+          </div>
+        )}
+        {m.content}
+      </div>
     </div>
   );
 
@@ -1044,63 +1132,65 @@ function TabClaude({ data }) {
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
       {/* Header */}
       <div style={{
-        background:`linear-gradient(135deg,${C.accent}18,${C.accent2}18)`,
-        border:`1px solid ${C.accent}33`, borderRadius:14, padding:"14px 18px",
+        background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"14px 18px",
         display:"flex", justifyContent:"space-between", alignItems:"center",
       }}>
         <div>
-          <div style={{ fontSize:16, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>
-            🤖 Suplementar com <span style={{color:C.accent}}>Claude</span> <span style={{color:C.accent2}}>IA</span>
+          <div style={{ fontSize:15, fontWeight:700, fontFamily:"'Syne',sans-serif", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="claude" size={16} color={C.accent} />
+            Assistente <span style={{color:C.accent}}>IA</span> — Lei 14.133/2021
           </div>
-          <div style={{ fontSize:12, color:C.subL, marginTop:2 }}>
-            Assistente especializado em Lei 14.133/2021 · claude-sonnet-4-6
-          </div>
+          <div style={{ fontSize:12, color:C.sub, marginTop:3 }}>claude-sonnet-4-6 · Suporte a anexos de imagem</div>
         </div>
-        <Btn variant="outline" color={C.subL} size="sm" onClick={()=>setShowKey(s=>!s)}>⚙️ API Key</Btn>
+        <button onClick={()=>setShowKey(s=>!s)} style={{
+          background:"none", border:`1px solid ${C.border}`, borderRadius:8,
+          padding:"7px 10px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", gap:6,
+          fontSize:12, fontFamily:"inherit", transition:"border-color 0.12s",
+        }}
+        onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+        onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+          <Icon name="key" size={13} /> API Key
+        </button>
       </div>
 
       {/* API Key panel */}
       {showKey && (
-        <div style={{ background:C.card, border:`1px solid ${C.accent}33`, borderRadius:12, padding:16 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C.accent, marginBottom:8 }}>🔑 Chave de API Claude (Anthropic)</div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+          <div style={{ fontSize:12, fontWeight:600, color:C.subL, marginBottom:10, textTransform:"uppercase", letterSpacing:0.8 }}>Chave de API Claude (Anthropic)</div>
           <div style={{ display:"flex", gap:8 }}>
             <input
               value={keyDraft || (showKey && !keyDraft ? "" : apiKey)}
               onChange={e=>setKeyDraft(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&saveKey()}
               type="password" placeholder="sk-ant-api03-..."
-              style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:9, padding:"9px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+              style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
               onFocus={e=>e.target.style.borderColor=C.accent}
               onBlur={e=>e.target.style.borderColor=C.border}
             />
-            <Btn onClick={saveKey} color={C.accent2} size="sm">Salvar</Btn>
+            <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
           </div>
-          <div style={{ fontSize:11, color:C.sub, marginTop:8 }}>
-            Armazenada apenas no seu navegador. Obtenha em:{" "}
+          <div style={{ fontSize:12, color:C.sub, marginTop:8 }}>
+            Armazenada no seu navegador. Obtenha em:{" "}
             <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{color:C.accent}}>console.anthropic.com</a>
           </div>
-          {apiKey && (
-            <div style={{ fontSize:11, color:C.green, marginTop:4, fontWeight:700 }}>
-              ✓ Chave configurada — {apiKey.slice(0,12)}...
-            </div>
-          )}
+          {apiKey && <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:600 }}>Chave configurada — {apiKey.slice(0,16)}...</div>}
         </div>
       )}
 
       {/* Messages */}
       <div style={{
-        background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
+        background:C.card, border:`1px solid ${C.border}`, borderRadius:12,
         padding:16, minHeight:300, maxHeight:460, overflowY:"auto",
         display:"flex", flexDirection:"column", gap:12,
       }}>
         {msgs.map((m,i)=><MsgBubble key={i} m={m} />)}
-
         {loading && (
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <div style={{ width:32, height:32, borderRadius:10, background:`linear-gradient(135deg,${C.accent},${C.accent2})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 16px", color:C.subL, fontSize:13 }}>
-              Consultando Lei 14.133/2021
-              <span style={{ display:"inline-block", animation:"dots 1.2s steps(3,end) infinite" }}>...</span>
+            <div style={{ width:30, height:30, borderRadius:8, background:C.accent+"20", display:"flex", alignItems:"center", justifyContent:"center", color:C.accent }}>
+              <Icon name="claude" size={14} strokeWidth={1.6} />
+            </div>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 16px", color:C.sub, fontSize:13 }}>
+              Consultando Lei 14.133/2021<span style={{ display:"inline-block", animation:"dots 1.2s steps(3,end) infinite" }}>...</span>
             </div>
           </div>
         )}
@@ -1109,43 +1199,67 @@ function TabClaude({ data }) {
 
       {/* Suggestions */}
       {msgs.length <= 1 && (
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {SUGGESTIONS.map(s=>(
             <button key={s} onClick={()=>setInput(s)} style={{
-              background:C.accent+"18", border:`1px solid ${C.accent}33`, borderRadius:20,
-              padding:"6px 12px", color:C.accent, fontSize:11, fontWeight:600,
-              cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s",
+              background:"transparent", border:`1px solid ${C.border}`, borderRadius:8,
+              padding:"5px 12px", color:C.subL, fontSize:12, fontWeight:400,
+              cursor:"pointer", fontFamily:"inherit", transition:"all 0.12s",
             }}
-            onMouseEnter={e=>{e.target.style.background=C.accent+"30";}}
-            onMouseLeave={e=>{e.target.style.background=C.accent+"18";}}>
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.subL; }}>
               {s}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input */}
+      {/* Attachment preview */}
+      {attachments.length > 0 && (
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {attachments.map(att=>(
+            <div key={att.id} style={{ display:"flex", alignItems:"center", gap:6, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"5px 10px", fontSize:12 }}>
+              <Icon name={att.type.startsWith("image/")?"image":"file"} size={13} color={C.accent} />
+              <span style={{ color:C.subL, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
+              <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.sub, padding:0, display:"flex", lineHeight:1 }}>
+                <Icon name="close" size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Input row */}
       <div style={{ display:"flex", gap:8 }}>
+        <input type="file" ref={fileRef} onChange={handleFile} accept="image/png,image/jpeg,image/gif,image/webp" multiple style={{display:"none"}} />
+        <button onClick={()=>fileRef.current?.click()} title="Anexar imagem" style={{
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:10,
+          padding:"0 14px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center",
+          transition:"border-color 0.12s, color 0.12s", flexShrink:0,
+        }}
+        onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+        onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
+          <Icon name="attach" size={16} />
+        </button>
         <input
-          value={input}
-          onChange={e=>setInput(e.target.value)}
+          value={input} onChange={e=>setInput(e.target.value)}
           onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
           placeholder={apiKey ? "Pergunte sobre licitações, Lei 14.133, contratos, RP..." : "Configure sua API Key para começar..."}
           style={{
-            flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:12,
-            padding:"12px 16px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none",
+            flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+            padding:"12px 16px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none",
           }}
           onFocus={e=>e.target.style.borderColor=C.accent}
           onBlur={e=>e.target.style.borderColor=C.border}
         />
-        <Btn onClick={send} disabled={loading||!input.trim()||!apiKey} color={C.accent}>
-          {loading ? "⏳" : "Enviar ↗"}
+        <Btn onClick={send} disabled={loading||(!input.trim()&&!attachments.length)||!apiKey} color={C.accent} style={{ padding:"0 18px", display:"flex", alignItems:"center", gap:6 }}>
+          <Icon name="send" size={14} color="#fff" />
         </Btn>
       </div>
 
       {!apiKey && (
         <div style={{ textAlign:"center", fontSize:12, color:C.sub }}>
-          ⬆️ Configure sua chave de API Claude acima para usar o assistente
+          Configure sua chave de API Claude acima para usar o assistente
         </div>
       )}
     </div>
@@ -1156,13 +1270,13 @@ function TabClaude({ data }) {
    APP ROOT
 ══════════════════════════════════════════════════════════════ */
 const TABS = [
-  { id:"dashboard",  icon:"🏛️", label:"Dashboard",  short:"Início" },
-  { id:"processos",  icon:"📋", label:"Processos",  short:"Proc." },
-  { id:"atas",       icon:"📜", label:"Ata de RP",  short:"Atas" },
-  { id:"contratos",  icon:"📄", label:"Contratos",  short:"Contr." },
-  { id:"cotacoes",   icon:"💰", label:"Cotações",   short:"Cot." },
-  { id:"relatorios", icon:"📊", label:"Relatórios", short:"Relat." },
-  { id:"claude",     icon:"🤖", label:"IA Claude",  short:"IA" },
+  { id:"dashboard",  icon:"dashboard",  label:"Dashboard",  short:"Início" },
+  { id:"processos",  icon:"processos",  label:"Processos",  short:"Proc." },
+  { id:"atas",       icon:"atas",       label:"Ata de RP",  short:"Atas" },
+  { id:"contratos",  icon:"contratos",  label:"Contratos",  short:"Contr." },
+  { id:"cotacoes",   icon:"cotacoes",   label:"Cotações",   short:"Cot." },
+  { id:"relatorios", icon:"relatorios", label:"Relatórios", short:"Relat." },
+  { id:"claude",     icon:"claude",     label:"IA Claude",  short:"IA" },
 ];
 
 export default function App() {
@@ -1213,15 +1327,15 @@ export default function App() {
 
   const NavItem = ({ t }) => (
     <button onClick={()=>{ setTab(t.id); setSideOpen(false); }} style={{
-      display:"flex", alignItems:"center", gap:10,
-      padding:"10px 12px", borderRadius:10, border:"none",
-      background:tab===t.id?C.accent+"22":"transparent",
-      borderLeft:tab===t.id?`3px solid ${C.accent}`:"3px solid transparent",
-      color:tab===t.id?C.accent:C.subL,
-      fontSize:13, fontWeight:tab===t.id?700:500,
-      cursor:"pointer", transition:"all 0.15s", textAlign:"left", width:"100%",
+      display: "flex", alignItems: "center", gap: 9,
+      padding: "9px 12px", borderRadius: 8, border: "none",
+      background: tab===t.id ? C.accent+"18" : "transparent",
+      color: tab===t.id ? C.accent : C.sub,
+      fontSize: 13, fontWeight: tab===t.id ? 600 : 400,
+      cursor: "pointer", transition: "background 0.12s, color 0.12s",
+      textAlign: "left", width: "100%",
     }}>
-      <span style={{ fontSize:16 }}>{t.icon}</span>
+      <Icon name={t.icon} size={15} strokeWidth={tab===t.id ? 2.1 : 1.6} />
       {t.label}
     </button>
   );
@@ -1232,36 +1346,29 @@ export default function App() {
       background:C.surface, borderRight:`1px solid ${C.border}`,
       display:"flex", flexDirection:"column", zIndex:30,
     }}>
-      <div style={{ padding:"24px 20px 20px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <img src="icons/icon-192.png" alt="LicitaGov"
-            style={{ width:40, height:40, borderRadius:12, objectFit:"cover" }}
-            onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }}
-          />
-          <div style={{ width:40, height:40, borderRadius:12, background:`linear-gradient(135deg,${C.accent},${C.accent2})`, display:"none", alignItems:"center", justifyContent:"center", fontSize:20 }}>⚖️</div>
-          <div>
-            <div style={{ fontSize:17, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>
-              <span style={{color:C.accent}}>Licita</span><span style={{color:C.accent2}}>Gov</span>
-            </div>
-            <div style={{ fontSize:10, color:C.sub, fontWeight:600 }}>Lei 14.133/2021</div>
-          </div>
+      <div style={{ padding:"20px 16px 16px", borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ fontSize:17, fontWeight:800, fontFamily:"'Syne',sans-serif", letterSpacing:-0.3 }}>
+          <span style={{color:C.text}}>Licita</span><span style={{color:C.accent}}>Gov</span>
         </div>
+        <div style={{ fontSize:11, color:C.sub, marginTop:3, fontWeight:400 }}>Lei 14.133 / 2021</div>
       </div>
-      <nav style={{ flex:1, padding:"12px 10px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
+      <nav style={{ flex:1, padding:"8px", display:"flex", flexDirection:"column", gap:1, overflowY:"auto" }}>
         {TABS.map(t=><NavItem key={t.id} t={t} />)}
       </nav>
       {deferredPrompt && (
-        <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.border}` }}>
+        <div style={{ padding:"10px 12px", borderTop:`1px solid ${C.border}` }}>
           <button onClick={installPWA} style={{
-            width:"100%", background:`linear-gradient(135deg,${C.accent},${C.accent2})`,
-            border:"none", borderRadius:10, padding:"9px 12px", color:"#fff",
-            fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-          }}>📲 Instalar App</button>
+            width:"100%", background:C.accent, border:"none", borderRadius:8,
+            padding:"9px 12px", color:"#fff", fontSize:12, fontWeight:600,
+            cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+          }}>
+            <Icon name="install" size={13} /> Instalar App
+          </button>
         </div>
       )}
-      <div style={{ padding:"14px 20px", borderTop:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:11, color:C.sub, lineHeight:1.5 }}>
-          <div style={{ fontWeight:700, color:C.subL, marginBottom:2 }}>Prefeitura Municipal</div>
+      <div style={{ padding:"12px 16px", borderTop:`1px solid ${C.border}` }}>
+        <div style={{ fontSize:11, color:C.sub, lineHeight:1.6 }}>
+          <div style={{ fontWeight:600, color:C.subL, marginBottom:1 }}>Prefeitura Municipal</div>
           Módulo de Licitações
         </div>
       </div>
@@ -1277,7 +1384,7 @@ export default function App() {
         ::-webkit-scrollbar-track{background:#0e1120;}
         ::-webkit-scrollbar-thumb{background:#1e2440;border-radius:3px;}
         button,input,select,textarea{font-family:inherit;}
-        input::placeholder,textarea::placeholder{color:#3a4060;}
+        input::placeholder,textarea::placeholder{color:#5a6890;}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
         @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
         @media print{
@@ -1309,47 +1416,51 @@ export default function App() {
         }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             {isMobile && (
-              <button onClick={()=>setSideOpen(s=>!s)} style={{ background:"none", border:"none", color:C.subL, fontSize:22, cursor:"pointer", padding:4 }}>☰</button>
+              <button onClick={()=>setSideOpen(s=>!s)} style={{ background:"none", border:"none", color:C.subL, cursor:"pointer", padding:4, display:"flex", alignItems:"center" }}>
+                <Icon name="menu" size={20} />
+              </button>
             )}
             {isMobile && (
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:17, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>
-                  <span style={{color:C.accent}}>Licita</span><span style={{color:C.accent2}}>Gov</span>
-                </span>
-              </div>
+              <span style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>
+                <span style={{color:C.text}}>Licita</span><span style={{color:C.accent}}>Gov</span>
+              </span>
             )}
             {!isMobile && (
               <div>
-                <div style={{ fontSize:20, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>
-                  {curTab?.icon} {curTab?.label}
+                <div style={{ fontSize:18, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>
+                  {curTab?.label}
                 </div>
-                <div style={{ fontSize:12, color:C.sub, marginTop:1 }}>
+                <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>
                   {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
                 </div>
               </div>
             )}
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {deferredPrompt && isMobile && (
               <button onClick={installPWA} style={{
-                background:`linear-gradient(135deg,${C.accent},${C.accent2})`,
-                border:"none", borderRadius:8, padding:"7px 12px", color:"#fff",
-                fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-              }}>📲 Instalar</button>
+                background:C.accent, border:"none", borderRadius:8, padding:"7px 12px", color:"#fff",
+                fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+                display:"flex", alignItems:"center", gap:5,
+              }}>
+                <Icon name="install" size={12} /> Instalar
+              </button>
             )}
             <div style={{
-              background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
-              padding:"6px 12px", fontSize:12, color:C.subL, fontWeight:600,
+              background:C.card, border:`1px solid ${C.border}`, borderRadius:8,
+              padding:"6px 12px", fontSize:12, color:C.subL, fontWeight:500,
+              display:"flex", alignItems:"center", gap:6,
             }}>
-              👤 {isMobile ? "Pregoeiro" : "Pregoeiro Municipal"}
+              <Icon name="user" size={13} color={C.sub} />
+              {isMobile ? "Pregoeiro" : "Pregoeiro Municipal"}
             </div>
           </div>
         </div>
 
         {/* Mobile tab title */}
         {isMobile && (
-          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.text }}>
-            {curTab?.icon} {curTab?.label}
+          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>
+            {curTab?.label}
           </div>
         )}
 
@@ -1376,13 +1487,13 @@ export default function App() {
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
               display:"flex", flexDirection:"column", alignItems:"center",
-              gap:2, padding:"6px 8px", border:"none",
-              background:tab===t.id?C.accent+"22":"transparent",
-              borderRadius:10, color:tab===t.id?C.accent:C.subL,
-              fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-              minWidth:40, transition:"all 0.15s",
+              gap:3, padding:"6px 8px", border:"none",
+              background: tab===t.id ? C.accent+"18" : "transparent",
+              borderRadius:8, color: tab===t.id ? C.accent : C.sub,
+              fontSize:9, fontWeight: tab===t.id ? 600 : 400,
+              cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s",
             }}>
-              <span style={{ fontSize:18 }}>{t.icon}</span>
+              <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} />
               {t.short}
             </button>
           ))}
