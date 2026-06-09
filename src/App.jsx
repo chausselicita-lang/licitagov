@@ -2,32 +2,31 @@ import { useState, useCallback, useEffect, useRef } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
    LICITAGOV — Sistema de Gestão de Licitações Públicas
-   Lei 14.133/2021 · Dark Premium · Clériston
-   Stack: React + Vite + Supabase + PWA
+   Lei 14.133/2021 · Light Professional · Clériston
 ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg:           "#111214",
-  surface:      "#18191c",
-  card:         "#18191c",
-  overlay:      "#1e2023",
-  subtle:       "#232529",
-  border:       "rgba(255,255,255,0.07)",
-  borderStrong: "rgba(255,255,255,0.13)",
-  accent:       "#4f7ef7",
-  accentHover:  "#3d6ef5",
-  accentSubtle: "rgba(79,126,247,0.12)",
-  accentBorder: "rgba(79,126,247,0.30)",
-  accent2:      "#00bfa4",
-  gold:         "#f5a623",
-  red:          "#f05252",
-  green:        "#34c97a",
-  amber:        "#f5a623",
-  purple:       "#7c52e0",
-  text:         "#f0f0f2",
-  sub:          "#9b9da6",
-  subL:         "#9b9da6",
-  tertiary:     "#5c5f6b",
+  bg:           "#f4f5f7",
+  surface:      "#ffffff",
+  card:         "#ffffff",
+  overlay:      "#f8f9fa",
+  subtle:       "#edf0f2",
+  border:       "rgba(0,0,0,0.09)",
+  borderStrong: "rgba(0,0,0,0.16)",
+  accent:       "#1a56db",
+  accentHover:  "#1344b8",
+  accentSubtle: "rgba(26,86,219,0.08)",
+  accentBorder: "rgba(26,86,219,0.20)",
+  accent2:      "#0e7490",
+  gold:         "#b45309",
+  red:          "#dc2626",
+  green:        "#15803d",
+  amber:        "#b45309",
+  purple:       "#6d28d9",
+  text:         "#111827",
+  sub:          "#6b7280",
+  subL:         "#6b7280",
+  tertiary:     "#9ca3af",
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
@@ -81,20 +80,14 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
 }
 
 const STORAGE_KEY = "licitagov_data_v2";
-
 function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
+  try { const r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r); } catch {}
   return null;
 }
-
 function saveData(data) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
 }
 
-/* ── SEED DATA ─────────────────────────────────────────────── */
 const SEED = {
   processos: [
     { id:"p1", numero:"001/2025", objeto:"Aquisição de combustíveis", modalidade:"Pregão Eletrônico", fase:"Homologado", valor:180000, abertura:"2025-03-10", orgao:"Secretaria de Obras" },
@@ -153,8 +146,8 @@ function Badge({ label, color }) {
   const c = color || map[label] || C.subL;
   return (
     <span style={{
-      background: c+"1f", color: c, border: `1px solid ${c}4d`,
-      borderRadius: 5, padding: "3px 8px",
+      background: c+"18", color: c, border: `1px solid ${c}44`,
+      borderRadius: 4, padding: "2px 8px",
       fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
       textTransform: "uppercase",
     }}>{label}</span>
@@ -163,32 +156,32 @@ function Badge({ label, color }) {
 
 function Btn({ children, onClick, color=C.accent, variant="solid", size="md", disabled=false, style:sx={} }) {
   const [hov,setHov]=useState(false);
-  const pad = size==="sm" ? "6px 12px" : size==="lg" ? "12px 28px" : "8px 16px";
-  const fs  = size==="sm" ? 12 : size==="lg" ? 15 : 13;
+  const pad = size==="sm" ? "5px 12px" : size==="lg" ? "11px 28px" : "8px 16px";
+  const fs  = size==="sm" ? 12 : size==="lg" ? 14 : 13;
   return (
     <button onClick={onClick} disabled={disabled}
       onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{
-        background: variant==="solid" ? (hov?color+"dd":color) : (hov?color+"18":"transparent"),
-        color: variant==="solid" ? "#f0f0f2" : color,
-        border: `1px solid ${color}${variant==="solid"?"":"55"}`,
-        borderRadius:7, padding:pad, fontSize:fs, fontWeight:500,
-        cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.5:1,
-        transition:"all 0.15s", fontFamily:"inherit", whiteSpace:"nowrap", ...sx,
+        background: variant==="solid" ? (hov?C.accentHover:color) : (hov?color+"12":"transparent"),
+        color: variant==="solid" ? "#ffffff" : color,
+        border: variant==="solid" ? "none" : `1px solid ${color}55`,
+        borderRadius:6, padding:pad, fontSize:fs, fontWeight:500,
+        cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.45:1,
+        transition:"all 0.14s", fontFamily:"inherit", whiteSpace:"nowrap", ...sx,
       }}>{children}</button>
   );
 }
 
 function Input({ label, value, onChange, type="text", placeholder="", required=false, style:sx={} }) {
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, ...sx }}>
-      {label && <label style={{ fontSize:12, color:C.subL, fontWeight:600 }}>{label}{required&&<span style={{color:C.red}}> *</span>}</label>}
+    <div style={{ display:"flex", flexDirection:"column", gap:4, ...sx }}>
+      {label && <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>{label}{required&&<span style={{color:C.red}}> *</span>}</label>}
       <input value={value} onChange={e=>onChange(e.target.value)} type={type} placeholder={placeholder}
         style={{
-          background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7,
-          padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit",
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+          padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit",
           outline:"none", width:"100%", boxSizing:"border-box",
-          transition:"border-color 0.15s, box-shadow 0.15s",
+          transition:"border-color 0.14s, box-shadow 0.14s",
         }}
         onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
         onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
@@ -199,12 +192,12 @@ function Input({ label, value, onChange, type="text", placeholder="", required=f
 
 function Select({ label, value, onChange, options, style:sx={} }) {
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, ...sx }}>
-      {label && <label style={{ fontSize:12, color:C.subL, fontWeight:600 }}>{label}</label>}
+    <div style={{ display:"flex", flexDirection:"column", gap:4, ...sx }}>
+      {label && <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>{label}</label>}
       <select value={value} onChange={e=>onChange(e.target.value)}
         style={{
-          background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7,
-          padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none",
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+          padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none",
         }}>
         {options.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
       </select>
@@ -216,9 +209,9 @@ function Modal({ title, onClose, children, wide=false }) {
   return (
     <div style={{
       position:"fixed", inset:0,
-      background:"rgba(0,0,0,0.55)",
-      backdropFilter:"blur(4px)",
-      WebkitBackdropFilter:"blur(4px)",
+      background:"rgba(0,0,0,0.35)",
+      backdropFilter:"blur(3px)",
+      WebkitBackdropFilter:"blur(3px)",
       zIndex:200,
       display:"flex", alignItems:"center", justifyContent:"center", padding:16,
     }} onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -226,13 +219,14 @@ function Modal({ title, onClose, children, wide=false }) {
         background:C.card, border:`1px solid ${C.borderStrong}`, borderRadius:12,
         padding:"28px 32px", width:"100%", maxWidth:wide?780:500,
         maxHeight:"90vh", overflowY:"auto",
+        boxShadow:"0 20px 48px rgba(0,0,0,0.18)",
       }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <span style={{ fontSize:17, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{title}</span>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", padding:4, borderRadius:5, transition:"color 0.12s" }}
+          <span style={{ fontSize:16, fontWeight:600, fontFamily:"'Syne',sans-serif", color:C.text }}>{title}</span>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", padding:4, borderRadius:4 }}
             onMouseEnter={e=>e.currentTarget.style.color=C.text}
             onMouseLeave={e=>e.currentTarget.style.color=C.sub}>
-            <Icon name="close" size={18} />
+            <Icon name="close" size={17} />
           </button>
         </div>
         {children}
@@ -241,15 +235,15 @@ function Modal({ title, onClose, children, wide=false }) {
   );
 }
 
-function Toast({ msg, type, onClose }) {
-  const c = type==="error"?C.red:type==="warn"?C.amber:C.green;
+function Toast({ msg, type }) {
+  const c = type==="error"?C.red:type==="warn"?C.gold:C.green;
   return (
     <div style={{
       position:"fixed", top:20, right:20, zIndex:500,
-      background:c, color:"#f0f0f2", borderRadius:10,
-      padding:"12px 20px", fontSize:13, fontWeight:600,
-      boxShadow:`0 4px 20px ${c}55`, maxWidth:320,
-      animation:"slideIn 0.25s ease",
+      background:c, color:"#fff", borderRadius:8,
+      padding:"11px 18px", fontSize:13, fontWeight:500,
+      boxShadow:`0 4px 16px ${c}44`, maxWidth:320,
+      animation:"slideIn 0.22s ease",
     }}>{msg}</div>
   );
 }
@@ -257,9 +251,9 @@ function Toast({ msg, type, onClose }) {
 function EmptyState({ icon, title, sub }) {
   return (
     <div style={{ textAlign:"center", padding:"48px 24px", color:C.sub }}>
-      <div style={{ fontSize:44, marginBottom:12 }}>{icon}</div>
-      <div style={{ fontSize:15, fontWeight:600, color:C.subL, marginBottom:6 }}>{title}</div>
-      <div style={{ fontSize:13 }}>{sub}</div>
+      <div style={{ fontSize:40, marginBottom:12 }}>{icon}</div>
+      <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4 }}>{title}</div>
+      <div style={{ fontSize:13, color:C.sub }}>{sub}</div>
     </div>
   );
 }
@@ -269,20 +263,20 @@ function KpiCard({ label, value, sub, color=C.accent }) {
     <div style={{
       background: C.card,
       border: `1px solid ${C.border}`,
-      borderLeft: `3px solid ${color}`,
-      borderRadius: 10,
-      padding: "20px 24px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+      borderTop: `3px solid ${color}`,
+      borderRadius: 8,
+      padding: "18px 20px",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
     }}>
-      <div style={{ fontSize: 11, color: C.sub, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: C.text, fontFamily: "'Syne',sans-serif", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: C.sub, marginTop: 8 }}>{sub}</div>}
+      <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
+      <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif", lineHeight:1.1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
+      {sub && <div style={{ fontSize:12, color:C.sub, marginTop:6 }}>{sub}</div>}
     </div>
   );
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: DASHBOARD
+   DASHBOARD
 ══════════════════════════════════════════════════════════════ */
 function TabDashboard({ data }) {
   const { processos, atas, contratos, cotacoes } = data;
@@ -295,7 +289,7 @@ function TabDashboard({ data }) {
 
   return (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:12, marginBottom:28 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))", gap:12, marginBottom:24 }}>
         <KpiCard label="Processos Ativos" value={processos.filter(p=>p.fase!=="Encerrado").length} sub={`${processos.length} total`} color={C.accent} />
         <KpiCard label="Atas Vigentes" value={atasVigentes} sub="Registro de Preços" color={C.accent2} />
         <KpiCard label="Contratos Vigentes" value={contratos.filter(c=>c.status==="Vigente").length} sub={fmtBRL(valorContratos)} color={C.green} />
@@ -303,30 +297,30 @@ function TabDashboard({ data }) {
         <KpiCard label="A Vencer (30d)" value={vencendo.length} sub="Contratos" color={vencendo.length>0?C.red:C.green} />
       </div>
 
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginBottom:16, boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:20, marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>Processos Recentes</div>
         {processos.slice(0,4).map(p=>(
-          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 0", borderBottom:`1px solid ${C.border}` }}>
+          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:14, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.numero} — {p.objeto}</div>
-              <div style={{ fontSize:12, color:C.subL, marginTop:3 }}>{p.modalidade} · {p.orgao}</div>
+              <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.numero} — {p.objeto}</div>
+              <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>{p.modalidade} · {p.orgao}</div>
             </div>
             <Badge label={p.fase} />
-            <div style={{ fontSize:14, fontWeight:600, color:C.accent, minWidth:80, textAlign:"right" }}>{fmtBRL(p.valor)}</div>
+            <div style={{ fontSize:13, fontWeight:600, color:C.accent, minWidth:80, textAlign:"right" }}>{fmtBRL(p.valor)}</div>
           </div>
         ))}
       </div>
 
       {vencendo.length > 0 && (
-        <div style={{ background:"rgba(240,82,82,0.07)", border:`1px solid rgba(240,82,82,0.20)`, borderRadius:12, padding:20 }}>
+        <div style={{ background:"rgba(220,38,38,0.05)", border:`1px solid rgba(220,38,38,0.18)`, borderRadius:8, padding:18 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:C.red, marginBottom:12 }}>
             <Icon name="warning" size={14} color={C.red} /> Contratos a vencer em 30 dias
           </div>
           {vencendo.map(c=>(
-            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid rgba(240,82,82,0.12)`, flexWrap:"wrap", gap:8 }}>
+            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid rgba(220,38,38,0.10)`, flexWrap:"wrap", gap:8 }}>
               <div>
-                <div style={{ fontSize:14, fontWeight:600 }}>{c.numero} — {c.objeto}</div>
-                <div style={{ fontSize:12, color:C.subL }}>{c.fornecedor}</div>
+                <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.numero} — {c.objeto}</div>
+                <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor}</div>
               </div>
               <div style={{ fontSize:13, color:C.red, fontWeight:600 }}>Vence em {diasParaVencer(c.fim)}d · {fmtDate(c.fim)}</div>
             </div>
@@ -338,7 +332,7 @@ function TabDashboard({ data }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: PROCESSOS
+   PROCESSOS
 ══════════════════════════════════════════════════════════════ */
 function TabProcessos({ processos, setProcessos, toast }) {
   const [modal, setModal] = useState(false);
@@ -367,7 +361,7 @@ function TabProcessos({ processos, setProcessos, toast }) {
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar processo..."
-          style={{ flex:1, minWidth:150, background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 14px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s" }}
+          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
         <Select value={filtroFase} onChange={setFiltroFase} options={fases} />
@@ -375,23 +369,23 @@ function TabProcessos({ processos, setProcessos, toast }) {
       </div>
 
       {filtered.length===0 ? <EmptyState icon="📋" title="Nenhum processo encontrado" sub="Cadastre um novo processo para começar" /> : (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {filtered.map(p=>(
-            <div key={p.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"16px 20px", boxShadow:"0 1px 3px rgba(0,0,0,0.25)", transition:"border-color 0.15s" }}
-              onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderStrong}
-              onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          {filtered.map((p,i)=>(
+            <div key={p.id} style={{ padding:"14px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", transition:"background 0.12s" }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1, minWidth:180 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:5, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:15, fontWeight:700, color:C.accent, fontFamily:"'Syne',sans-serif" }}>{p.numero}</span>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.accent, fontFamily:"'Syne',sans-serif" }}>{p.numero}</span>
                     <Badge label={p.fase} />
                   </div>
-                  <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4, lineHeight:1.5 }}>{p.objeto}</div>
-                  <div style={{ fontSize:13, color:C.subL }}>{p.modalidade} · {p.orgao} · Abertura: {fmtDate(p.abertura)}</div>
+                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{p.objeto}</div>
+                  <div style={{ fontSize:12, color:C.sub }}>{p.modalidade} · {p.orgao} · Abertura: {fmtDate(p.abertura)}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:18, fontWeight:700, color:C.accent2, fontFamily:"'Syne',sans-serif" }}>{fmtBRL(p.valor)}</div>
-                  <div style={{ fontSize:12, color:C.subL, marginTop:2 }}>Valor estimado</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:C.text }}>{fmtBRL(p.valor)}</div>
+                  <div style={{ fontSize:11, color:C.sub, marginTop:1 }}>Valor estimado</div>
                 </div>
               </div>
             </div>
@@ -427,7 +421,7 @@ function TabProcessos({ processos, setProcessos, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: ATA DE REGISTRO DE PREÇOS
+   ATAS
 ══════════════════════════════════════════════════════════════ */
 function TabAtas({ atas, setAtas, toast }) {
   const [modal, setModal] = useState(false);
@@ -451,34 +445,34 @@ function TabAtas({ atas, setAtas, toast }) {
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
           <Btn variant="outline" onClick={()=>setAtaAtiva(null)} color={C.sub} size="sm">← Voltar</Btn>
           <div>
-            <div style={{ fontSize:17, fontWeight:700, fontFamily:"'Syne',sans-serif" }}>{ata.numero}</div>
+            <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{ata.numero}</div>
             <div style={{ fontSize:12, color:C.sub }}>{ata.objeto}</div>
           </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12, marginBottom:20 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:12, marginBottom:18 }}>
           <KpiCard label="Fornecedor" value={ata.fornecedor.split(" ").slice(0,2).join(" ")} color={C.accent} />
           <KpiCard label="Valor Total" value={fmtBRL(ata.valorTotal)} color={C.accent2} />
           <KpiCard label="Saldo" value={fmtBRL(ata.saldoDisponivel)} sub={`${(100-parseFloat(pctUsado)).toFixed(1)}% disponível`} color={C.green} />
           <KpiCard label="Vigência" value={fmtDate(ata.vigencia)} sub={`${diasParaVencer(ata.vigencia)} dias`} color={diasParaVencer(ata.vigencia)<30?C.red:C.amber} />
         </div>
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16, boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-            <span style={{ fontSize:13, fontWeight:600 }}>Utilização da Ata</span>
+            <span style={{ fontSize:13, fontWeight:500, color:C.text }}>Utilização da Ata</span>
             <span style={{ fontSize:13, color:C.accent, fontWeight:600 }}>{pctUsado}% utilizado</span>
           </div>
-          <div style={{ background:C.border, borderRadius:4, height:6, overflow:"hidden" }}>
-            <div style={{ width:`${pctUsado}%`, height:"100%", background:`linear-gradient(90deg,${C.accent},${C.accent2})`, borderRadius:4, transition:"width 0.6s" }} />
+          <div style={{ background:C.subtle, borderRadius:4, height:6, overflow:"hidden" }}>
+            <div style={{ width:`${pctUsado}%`, height:"100%", background:C.accent, borderRadius:4, transition:"width 0.6s" }} />
           </div>
         </div>
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
-          <div style={{ padding:"14px 20px", borderBottom:`1px solid ${C.border}`, fontSize:14, fontWeight:700, fontFamily:"'Syne',sans-serif" }}>Itens da Ata</div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}`, fontSize:13, fontWeight:600, color:C.text }}>Itens da Ata</div>
           {(!ata.itens?.length) ? <EmptyState icon="📦" title="Sem itens cadastrados" sub="" /> : (
             <div style={{ overflowX:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
                 <thead>
                   <tr style={{ background:C.overlay }}>
                     {["Descrição","Unidade","Qtd Reg.","Qtd Util.","Vlr Unit.","Saldo"].map(h=>(
-                      <th key={h} style={{ padding:"10px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", whiteSpace:"nowrap", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</th>
+                      <th key={h} style={{ padding:"9px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", whiteSpace:"nowrap", textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -487,16 +481,15 @@ function TabAtas({ atas, setAtas, toast }) {
                     const saldo = it.qtdRegistrada - it.qtdUtilizada;
                     const pct = (it.qtdUtilizada/it.qtdRegistrada*100).toFixed(0);
                     return (
-                      <tr key={it.id}
-                        style={{ borderBottom:`1px solid ${C.border}`, background:i%2?"rgba(255,255,255,0.02)":"transparent", transition:"background 0.12s" }}
-                        onMouseEnter={e=>e.currentTarget.style.background=C.subtle}
-                        onMouseLeave={e=>e.currentTarget.style.background=i%2?"rgba(255,255,255,0.02)":"transparent"}>
-                        <td style={{ padding:"12px 16px", fontSize:13, fontWeight:600, color:C.text }}>{it.descricao}</td>
-                        <td style={{ padding:"12px 16px", fontSize:12, color:C.sub }}>{it.unidade}</td>
-                        <td style={{ padding:"12px 16px", fontSize:13, color:C.text }}>{it.qtdRegistrada.toLocaleString("pt-BR")}</td>
-                        <td style={{ padding:"12px 16px", fontSize:13, color:C.amber }}>{it.qtdUtilizada.toLocaleString("pt-BR")} <span style={{fontSize:11,color:C.subL}}>({pct}%)</span></td>
-                        <td style={{ padding:"12px 16px", fontSize:13, color:C.accent2, fontWeight:600 }}>{fmtBRL(it.valorUnit)}</td>
-                        <td style={{ padding:"12px 16px", fontSize:13, color:saldo<it.qtdRegistrada*0.1?C.red:C.green, fontWeight:600 }}>{saldo.toLocaleString("pt-BR")}</td>
+                      <tr key={it.id} style={{ borderBottom:`1px solid ${C.border}`, transition:"background 0.1s" }}
+                        onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <td style={{ padding:"11px 16px", fontSize:13, fontWeight:500, color:C.text }}>{it.descricao}</td>
+                        <td style={{ padding:"11px 16px", fontSize:12, color:C.sub }}>{it.unidade}</td>
+                        <td style={{ padding:"11px 16px", fontSize:13, color:C.text }}>{it.qtdRegistrada.toLocaleString("pt-BR")}</td>
+                        <td style={{ padding:"11px 16px", fontSize:13, color:C.gold }}>{it.qtdUtilizada.toLocaleString("pt-BR")} <span style={{fontSize:11,color:C.sub}}>({pct}%)</span></td>
+                        <td style={{ padding:"11px 16px", fontSize:13, color:C.accent2, fontWeight:500 }}>{fmtBRL(it.valorUnit)}</td>
+                        <td style={{ padding:"11px 16px", fontSize:13, color:saldo<it.qtdRegistrada*0.1?C.red:C.green, fontWeight:600 }}>{saldo.toLocaleString("pt-BR")}</td>
                       </tr>
                     );
                   })}
@@ -515,39 +508,38 @@ function TabAtas({ atas, setAtas, toast }) {
         <Btn onClick={()=>setModal(true)} color={C.accent2}>+ Nova Ata de RP</Btn>
       </div>
       {atas.length===0 ? <EmptyState icon="📜" title="Nenhuma Ata cadastrada" sub="Registre uma Ata de Registro de Preços" /> : (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {atas.map(a=>{
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          {atas.map((a,i)=>{
             const d = diasParaVencer(a.vigencia);
             const pct = ((a.valorTotal-a.saldoDisponivel)/a.valorTotal*100).toFixed(0);
             return (
               <div key={a.id} onClick={()=>setAtaAtiva(a.id)}
-                style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"16px 20px", cursor:"pointer", transition:"border-color 0.15s", boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent2}
-                onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                style={{ padding:"14px 18px", borderBottom:i<atas.length-1?`1px solid ${C.border}`:"none", cursor:"pointer", transition:"background 0.12s" }}
+                onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
                   <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:5, flexWrap:"wrap" }}>
-                      <span style={{ fontSize:15, fontWeight:700, color:C.accent2, fontFamily:"'Syne',sans-serif" }}>{a.numero}</span>
+                    <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:14, fontWeight:700, color:C.accent2, fontFamily:"'Syne',sans-serif" }}>{a.numero}</span>
                       <Badge label={d>0?"Vigente":d===0?"Vence hoje":"Vencida"} />
                     </div>
-                    <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4, lineHeight:1.5 }}>{a.objeto}</div>
-                    <div style={{ fontSize:13, color:C.subL }}>{a.fornecedor} · CNPJ {a.cnpj} · Vigência: {fmtDate(a.vigencia)}</div>
+                    <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{a.objeto}</div>
+                    <div style={{ fontSize:12, color:C.sub }}>{a.fornecedor} · CNPJ {a.cnpj} · Vigência: {fmtDate(a.vigencia)}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:17, fontWeight:700, color:C.green, fontFamily:"'Syne',sans-serif" }}>{fmtBRL(a.saldoDisponivel)}</div>
-                    <div style={{ fontSize:12, color:C.subL }}>saldo disponível</div>
-                    <div style={{ fontSize:12, color:C.amber, marginTop:2 }}>{pct}% utilizado</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:C.green }}>{fmtBRL(a.saldoDisponivel)}</div>
+                    <div style={{ fontSize:11, color:C.sub }}>saldo disponível</div>
+                    <div style={{ fontSize:11, color:C.gold, marginTop:1 }}>{pct}% utilizado</div>
                   </div>
                 </div>
-                <div style={{ marginTop:10, background:C.border, borderRadius:4, height:4, overflow:"hidden" }}>
-                  <div style={{ width:`${pct}%`, height:"100%", background:`linear-gradient(90deg,${C.accent2},${C.accent})` }} />
+                <div style={{ marginTop:10, background:C.subtle, borderRadius:3, height:3, overflow:"hidden" }}>
+                  <div style={{ width:`${pct}%`, height:"100%", background:C.accent2 }} />
                 </div>
               </div>
             );
           })}
         </div>
       )}
-
       {modal && (
         <Modal title="Nova Ata de Registro de Preços" onClose={()=>setModal(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -573,15 +565,13 @@ function TabAtas({ atas, setAtas, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: CONTRATOS
+   CONTRATOS
 ══════════════════════════════════════════════════════════════ */
 function TabContratos({ contratos, setContratos, toast }) {
   const [modal, setModal] = useState(false);
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState("Todos");
   const [form, setForm] = useState({ numero:"", objeto:"", fornecedor:"", cnpj:"", valor:"", inicio:"", fim:"", processo:"" });
-
-  const statusOptions = ["Todos","Vigente","A vencer","Encerrado","Vencido"];
 
   const filtered = contratos.filter(c=>{
     const ok = filtro==="Todos" || c.status===filtro;
@@ -610,42 +600,39 @@ function TabContratos({ contratos, setContratos, toast }) {
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar contrato..."
-          style={{ flex:1, minWidth:150, background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 14px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s" }}
+          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-        <Select value={filtro} onChange={setFiltro} options={statusOptions} />
+        <Select value={filtro} onChange={setFiltro} options={["Todos","Vigente","A vencer","Encerrado","Vencido"]} />
         <Btn onClick={()=>setModal(true)} color={C.green}>+ Novo Contrato</Btn>
       </div>
 
       {filtered.length===0 ? <EmptyState icon="📄" title="Nenhum contrato encontrado" sub="Cadastre contratos para acompanhar sua vigência" /> : (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {filtered.map(c=>(
-            <div key={c.id} style={{
-              background:C.card,
-              border:`1px solid ${c.status==="A vencer"?C.amber+"66":c.status==="Vencido"?C.red+"66":C.border}`,
-              borderRadius:10, padding:"16px 20px",
-              boxShadow:"0 1px 3px rgba(0,0,0,0.25)",
-            }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          {filtered.map((c,i)=>(
+            <div key={c.id} style={{ padding:"14px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${c.status==="A vencer"?C.gold:c.status==="Vencido"?C.red:c.status==="Vigente"?C.green:"transparent"}`, transition:"background 0.12s" }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:5, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:15, fontWeight:700, color:C.accent, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
                     <Badge label={c.status} />
-                    {c.processo && <span style={{ fontSize:12, color:C.subL }}>Proc. {c.processo}</span>}
+                    {c.processo && <span style={{ fontSize:12, color:C.sub }}>Proc. {c.processo}</span>}
                   </div>
-                  <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4, lineHeight:1.5 }}>{c.objeto}</div>
-                  <div style={{ fontSize:13, color:C.subL }}>{c.fornecedor} · CNPJ {c.cnpj}</div>
-                  <div style={{ fontSize:13, color:C.subL, marginTop:2 }}>
+                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{c.objeto}</div>
+                  <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor} · CNPJ {c.cnpj}</div>
+                  <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>
                     {fmtDate(c.inicio)} → {fmtDate(c.fim)}
                     {c.diasRestantes !== null && c.status !== "Encerrado" && (
-                      <span style={{ marginLeft:8, color:c.status==="A vencer"?C.amber:c.status==="Vencido"?C.red:C.green, fontWeight:600 }}>
+                      <span style={{ marginLeft:8, color:c.status==="A vencer"?C.gold:c.status==="Vencido"?C.red:C.green, fontWeight:600 }}>
                         {c.diasRestantes < 0 ? `Venceu há ${Math.abs(c.diasRestantes)}d` : `${c.diasRestantes}d restantes`}
                       </span>
                     )}
                   </div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:18, fontWeight:700, color:C.accent2, fontFamily:"'Syne',sans-serif" }}>{fmtBRL(c.valor)}</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:C.text }}>{fmtBRL(c.valor)}</div>
                 </div>
               </div>
             </div>
@@ -682,16 +669,14 @@ function TabContratos({ contratos, setContratos, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: COTAÇÕES DE PREÇOS
+   COTAÇÕES
 ══════════════════════════════════════════════════════════════ */
 function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const [modal, setModal] = useState(null);
   const [cotAtiva, setCotAtiva] = useState(null);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ numero:"", objeto:"", processo:"" });
-  const [fornecedores, setFornecedores] = useState([
-    { id:"f1", razao:"", cnpj:"" },{ id:"f2", razao:"", cnpj:"" },{ id:"f3", razao:"", cnpj:"" },
-  ]);
+  const [fornecedores, setFornecedores] = useState([{ id:"f1",razao:"",cnpj:"" },{ id:"f2",razao:"",cnpj:"" },{ id:"f3",razao:"",cnpj:"" }]);
   const [itens, setItens] = useState([{ id:"it1", descricao:"", unidade:"", qtd:"", valores:{} }]);
 
   const addFornecedor = () => setFornecedores(p=>[...p,{ id:uid(), razao:"", cnpj:"" }]);
@@ -728,42 +713,42 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
           <Btn variant="outline" onClick={()=>setCotAtiva(null)} color={C.sub} size="sm">← Voltar</Btn>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:17, fontWeight:700, fontFamily:"'Syne',sans-serif" }}>{cot.numero}</div>
+            <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{cot.numero}</div>
             <div style={{ fontSize:12, color:C.sub }}>{cot.objeto} · {fmtDate(cot.dataCriacao)}</div>
           </div>
           <Badge label={cot.status} />
         </div>
 
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:14, boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
-          <div style={{ fontSize:13, fontWeight:700, marginBottom:10, fontFamily:"'Syne',sans-serif" }}>Fornecedores Consultados</div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, marginBottom:12, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize:12, fontWeight:600, color:C.sub, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.05em" }}>Fornecedores Consultados</div>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
             {cot.fornecedores.map((f,i)=>(
-              <div key={f.id} style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", flex:1, minWidth:140 }}>
-                <div style={{ fontSize:12, color:C.accent, fontWeight:600, marginBottom:2 }}>Fornecedor {i+1}</div>
+              <div key={f.id} style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"10px 14px", flex:1, minWidth:140 }}>
+                <div style={{ fontSize:11, color:C.accent, fontWeight:600, marginBottom:2, textTransform:"uppercase", letterSpacing:"0.04em" }}>Fornecedor {i+1}</div>
                 <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{f.razao}</div>
-                <div style={{ fontSize:12, color:C.subL }}>{f.cnpj}</div>
+                <div style={{ fontSize:12, color:C.sub }}>{f.cnpj}</div>
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
-          <div style={{ padding:"14px 20px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
-            <span style={{ fontSize:14, fontWeight:700, fontFamily:"'Syne',sans-serif" }}>Mapa de Preços</span>
-            <span style={{ fontSize:12, color:C.subL }}>Mediana conforme Lei 14.133/2021</span>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:13, fontWeight:600, color:C.text }}>Mapa de Preços</span>
+            <span style={{ fontSize:12, color:C.sub }}>Mediana conforme Lei 14.133/2021</span>
           </div>
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
               <thead>
                 <tr style={{ background:C.overlay }}>
-                  <th style={{ padding:"10px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.06em" }}>Item</th>
-                  <th style={{ padding:"10px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.06em" }}>Un.</th>
-                  <th style={{ padding:"10px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.06em" }}>Qtd</th>
+                  <th style={{ padding:"9px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.05em" }}>Item</th>
+                  <th style={{ padding:"9px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em" }}>Un.</th>
+                  <th style={{ padding:"9px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em" }}>Qtd</th>
                   {cot.fornecedores.map((f,i)=>(
-                    <th key={f.id} style={{ padding:"10px 16px", fontSize:11, color:C.accent, fontWeight:600, textAlign:"right", textTransform:"uppercase", letterSpacing:"0.06em" }}>F{i+1}</th>
+                    <th key={f.id} style={{ padding:"9px 16px", fontSize:11, color:C.accent, fontWeight:600, textAlign:"right", textTransform:"uppercase", letterSpacing:"0.05em" }}>F{i+1}</th>
                   ))}
-                  <th style={{ padding:"10px 16px", fontSize:11, color:C.gold, fontWeight:700, textAlign:"right", background:`rgba(245,166,35,0.07)`, textTransform:"uppercase", letterSpacing:"0.06em" }}>Mediana</th>
-                  <th style={{ padding:"10px 16px", fontSize:11, color:C.accent2, fontWeight:700, textAlign:"right", textTransform:"uppercase", letterSpacing:"0.06em" }}>Total Ref.</th>
+                  <th style={{ padding:"9px 16px", fontSize:11, color:C.gold, fontWeight:700, textAlign:"right", background:"rgba(180,83,9,0.05)", textTransform:"uppercase", letterSpacing:"0.05em" }}>Mediana</th>
+                  <th style={{ padding:"9px 16px", fontSize:11, color:C.accent2, fontWeight:700, textAlign:"right", textTransform:"uppercase", letterSpacing:"0.05em" }}>Total Ref.</th>
                 </tr>
               </thead>
               <tbody>
@@ -772,34 +757,33 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                   const mediana = calcMediana(vals);
                   const qtd = parseFloat(it.qtd)||0;
                   return (
-                    <tr key={it.id}
-                      style={{ borderBottom:`1px solid ${C.border}`, background:i%2?"rgba(255,255,255,0.02)":"transparent", transition:"background 0.12s" }}
-                      onMouseEnter={e=>e.currentTarget.style.background=C.subtle}
-                      onMouseLeave={e=>e.currentTarget.style.background=i%2?"rgba(255,255,255,0.02)":"transparent"}>
-                      <td style={{ padding:"12px 16px", fontSize:13, fontWeight:600, color:C.text }}>{it.descricao}</td>
-                      <td style={{ padding:"12px 16px", fontSize:12, color:C.sub, textAlign:"center" }}>{it.unidade}</td>
-                      <td style={{ padding:"12px 16px", fontSize:13, textAlign:"center", color:C.text }}>{qtd.toLocaleString("pt-BR")}</td>
+                    <tr key={it.id} style={{ borderBottom:`1px solid ${C.border}`, transition:"background 0.1s" }}
+                      onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <td style={{ padding:"11px 16px", fontSize:13, fontWeight:500, color:C.text }}>{it.descricao}</td>
+                      <td style={{ padding:"11px 16px", fontSize:12, color:C.sub, textAlign:"center" }}>{it.unidade}</td>
+                      <td style={{ padding:"11px 16px", fontSize:13, textAlign:"center", color:C.text }}>{qtd.toLocaleString("pt-BR")}</td>
                       {cot.fornecedores.map(f=>{
                         const v = it.valores[f.id]||0;
                         const isMin = v>0 && v===Math.min(...vals);
                         return (
-                          <td key={f.id} style={{ padding:"12px 16px", fontSize:13, textAlign:"right", color:isMin?C.green:C.text, fontWeight:isMin?600:400 }}>
-                            {v>0?fmtBRL(v):<span style={{color:C.sub}}>—</span>}
+                          <td key={f.id} style={{ padding:"11px 16px", fontSize:13, textAlign:"right", color:isMin?C.green:C.text, fontWeight:isMin?600:400 }}>
+                            {v>0?fmtBRL(v):<span style={{color:C.tertiary}}>—</span>}
                           </td>
                         );
                       })}
-                      <td style={{ padding:"12px 16px", fontSize:14, fontWeight:700, color:C.gold, textAlign:"right", background:`rgba(245,166,35,0.05)` }}>{fmtBRL(mediana)}</td>
-                      <td style={{ padding:"12px 16px", fontSize:13, fontWeight:600, color:C.accent2, textAlign:"right" }}>{fmtBRL(mediana*qtd)}</td>
+                      <td style={{ padding:"11px 16px", fontSize:13, fontWeight:700, color:C.gold, textAlign:"right", background:"rgba(180,83,9,0.04)" }}>{fmtBRL(mediana)}</td>
+                      <td style={{ padding:"11px 16px", fontSize:13, fontWeight:600, color:C.accent2, textAlign:"right" }}>{fmtBRL(mediana*qtd)}</td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
                 <tr style={{ background:C.accentSubtle, borderTop:`2px solid ${C.accentBorder}` }}>
-                  <td colSpan={3+cot.fornecedores.length} style={{ padding:"12px 16px", fontSize:13, fontWeight:700, color:C.accent }}>
-                    VALOR TOTAL DE REFERÊNCIA
+                  <td colSpan={3+cot.fornecedores.length} style={{ padding:"11px 16px", fontSize:12, fontWeight:700, color:C.accent, textTransform:"uppercase", letterSpacing:"0.04em" }}>
+                    Valor Total de Referência
                   </td>
-                  <td style={{ padding:"12px 16px", fontSize:15, fontWeight:700, color:C.accent2, textAlign:"right" }}>
+                  <td style={{ padding:"11px 16px", fontSize:15, fontWeight:700, color:C.accent2, textAlign:"right" }}>
                     {fmtBRL(cot.itens.reduce((acc,it)=>{
                       const vals = cot.fornecedores.map(f=>it.valores[f.id]||0).filter(v=>v>0);
                       return acc + calcMediana(vals)*(parseFloat(it.qtd)||0);
@@ -811,7 +795,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
           </div>
         </div>
         <div style={{ display:"flex", justifyContent:"center" }}>
-          <Btn color={C.gold} onClick={()=>window.print()}>📄 Imprimir Mapa de Preços</Btn>
+          <Btn color={C.sub} variant="outline" onClick={()=>window.print()}>Imprimir Mapa de Preços</Btn>
         </div>
       </div>
     );
@@ -820,29 +804,29 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
-        <Btn onClick={()=>{ resetForm(); setModal("nova"); }} color={C.gold}>+ Nova Pesquisa de Preços</Btn>
+        <Btn onClick={()=>{ resetForm(); setModal("nova"); }} color={C.accent}>+ Nova Pesquisa de Preços</Btn>
       </div>
 
       {cotacoes.length===0 ? <EmptyState icon="💰" title="Nenhuma cotação cadastrada" sub="Crie uma pesquisa de preços conforme Lei 14.133/2021" /> : (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {cotacoes.map(c=>(
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          {cotacoes.map((c,i)=>(
             <div key={c.id} onClick={()=>setCotAtiva(c.id)}
-              style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"16px 20px", cursor:"pointer", transition:"border-color 0.15s", boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}
-              onMouseEnter={e=>e.currentTarget.style.borderColor=C.gold}
-              onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+              style={{ padding:"14px 18px", borderBottom:i<cotacoes.length-1?`1px solid ${C.border}`:"none", cursor:"pointer", transition:"background 0.12s" }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
                 <div>
-                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:5 }}>
-                    <span style={{ fontSize:15, fontWeight:700, color:C.gold, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4 }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
                     <Badge label={c.status} />
                   </div>
-                  <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4, lineHeight:1.5 }}>{c.objeto}</div>
+                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{c.objeto}</div>
                   <div style={{ fontSize:12, color:C.sub }}>
                     {c.fornecedores.length} fornecedores · {c.itens.length} itens · {fmtDate(c.dataCriacao)}
                     {c.processo && ` · Proc. ${c.processo}`}
                   </div>
                 </div>
-                <div style={{ fontSize:12, color:C.gold, fontWeight:600, alignSelf:"center" }}>Ver mapa →</div>
+                <div style={{ fontSize:12, color:C.accent, fontWeight:500, alignSelf:"center" }}>Ver mapa →</div>
               </div>
             </div>
           ))}
@@ -851,16 +835,17 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 
       {modal==="nova" && (
         <Modal title={`Nova Pesquisa de Preços — Etapa ${step}/3`} onClose={()=>setModal(null)} wide>
-          <div style={{ display:"flex", gap:0, marginBottom:20 }}>
+          <div style={{ display:"flex", marginBottom:20, borderBottom:`1px solid ${C.border}`, paddingBottom:16 }}>
             {["Identificação","Fornecedores","Itens e Preços"].map((s,i)=>(
               <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
                 <div style={{
-                  width:28, height:28, borderRadius:14,
-                  background:step>i+1?C.green:step===i+1?C.gold:C.border,
+                  width:26, height:26, borderRadius:13,
+                  background:step>i+1?C.green:step===i+1?C.accent:C.subtle,
+                  border:`2px solid ${step>i+1?C.green:step===i+1?C.accent:C.border}`,
                   display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:12, fontWeight:700, color:step>=i+1?"#f0f0f2":C.sub, transition:"all 0.2s",
+                  fontSize:11, fontWeight:700, color:step>=i+1?"#fff":C.sub, transition:"all 0.2s",
                 }}>{step>i+1?"✓":i+1}</div>
-                <span style={{ fontSize:11, color:step===i+1?C.gold:C.subL, fontWeight:600, textAlign:"center" }}>{s}</span>
+                <span style={{ fontSize:11, color:step===i+1?C.accent:C.sub, fontWeight:step===i+1?600:400 }}>{s}</span>
               </div>
             ))}
           </div>
@@ -873,19 +858,19 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
               </div>
               <Input label="Objeto da pesquisa de preços" value={form.objeto} onChange={v=>setForm(f=>({...f,objeto:v}))} placeholder="Descreva o objeto" required />
               <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
-                <Btn onClick={()=>{ if(!form.numero||!form.objeto){toast("Preencha os campos","error");return;} setStep(2); }} color={C.gold}>Próximo →</Btn>
+                <Btn onClick={()=>{ if(!form.numero||!form.objeto){toast("Preencha os campos","error");return;} setStep(2); }}>Próximo →</Btn>
               </div>
             </div>
           )}
 
           {step===2 && (
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-              <div style={{ fontSize:12, color:C.subL, background:C.accentSubtle, borderRadius:7, padding:"8px 12px", border:`1px solid ${C.accentBorder}` }}>
-                ℹ️ Lei 14.133/2021 recomenda no mínimo 3 fornecedores para pesquisa de preços.
+              <div style={{ fontSize:12, color:C.accent, background:C.accentSubtle, borderRadius:6, padding:"8px 12px", border:`1px solid ${C.accentBorder}` }}>
+                Lei 14.133/2021 recomenda no mínimo 3 fornecedores para pesquisa de preços.
               </div>
               {fornecedores.map((f,i)=>(
-                <div key={f.id} style={{ background:C.subtle, borderRadius:8, padding:12, display:"flex", gap:10, alignItems:"flex-end", border:`1px solid ${C.border}` }}>
-                  <div style={{ width:28, height:28, borderRadius:7, background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:C.accent, flexShrink:0 }}>{i+1}</div>
+                <div key={f.id} style={{ background:C.overlay, borderRadius:6, padding:12, display:"flex", gap:10, alignItems:"flex-end", border:`1px solid ${C.border}` }}>
+                  <div style={{ width:24, height:24, borderRadius:4, background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:C.accent, flexShrink:0 }}>{i+1}</div>
                   <Input style={{flex:2}} label={i===0?"Razão Social":""} value={f.razao} onChange={v=>updForn(f.id,"razao",v)} placeholder="Razão social / nome" />
                   <Input style={{flex:1}} label={i===0?"CNPJ/CPF":""} value={f.cnpj} onChange={v=>updForn(f.id,"cnpj",v)} placeholder="00.000.000/0001" />
                   {fornecedores.length>2 && <Btn variant="outline" color={C.red} size="sm" onClick={()=>remFornecedor(f.id)}>✕</Btn>}
@@ -894,7 +879,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
               <Btn variant="outline" color={C.accent} size="sm" onClick={addFornecedor}>+ Adicionar Fornecedor</Btn>
               <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
                 <Btn variant="outline" color={C.sub} onClick={()=>setStep(1)}>← Anterior</Btn>
-                <Btn onClick={()=>{ const v=fornecedores.filter(f=>f.razao.trim()); if(v.length<2){toast("Mínimo 2 fornecedores","error");return;} setStep(3); }} color={C.gold}>Próximo →</Btn>
+                <Btn onClick={()=>{ const v=fornecedores.filter(f=>f.razao.trim()); if(v.length<2){toast("Mínimo 2 fornecedores","error");return;} setStep(3); }}>Próximo →</Btn>
               </div>
             </div>
           )}
@@ -902,9 +887,9 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
           {step===3 && (
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               {itens.map((it,i)=>(
-                <div key={it.id} style={{ background:C.subtle, borderRadius:8, padding:14, border:`1px solid ${C.border}` }}>
+                <div key={it.id} style={{ background:C.overlay, borderRadius:6, padding:14, border:`1px solid ${C.border}` }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-                    <span style={{ fontSize:11, fontWeight:700, color:C.gold, background:`rgba(245,166,35,0.12)`, border:`1px solid rgba(245,166,35,0.30)`, padding:"3px 10px", borderRadius:5, textTransform:"uppercase", letterSpacing:"0.04em" }}>ITEM {i+1}</span>
+                    <span style={{ fontSize:11, fontWeight:600, color:C.sub, background:C.subtle, padding:"2px 8px", borderRadius:4, textTransform:"uppercase", letterSpacing:"0.04em" }}>Item {i+1}</span>
                     {itens.length>1 && <Btn variant="outline" color={C.red} size="sm" onClick={()=>remItem(it.id)}>✕</Btn>}
                   </div>
                   <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr", gap:10, marginBottom:10 }}>
@@ -912,7 +897,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                     <Input label="Unidade" value={it.unidade} onChange={v=>updItem(it.id,"unidade",v)} placeholder="Un, Kg, L..." />
                     <Input label="Quantidade" value={it.qtd} onChange={v=>updItem(it.id,"qtd",v)} type="number" placeholder="0" />
                   </div>
-                  <div style={{ fontSize:12, color:C.subL, marginBottom:6, fontWeight:600 }}>Preços por fornecedor:</div>
+                  <div style={{ fontSize:12, color:C.sub, marginBottom:6, fontWeight:500 }}>Preços por fornecedor:</div>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:8 }}>
                     {fornecedores.filter(f=>f.razao.trim()).map((f,fi)=>(
                       <Input key={f.id} label={`F${fi+1}: ${f.razao.split(" ")[0]}`}
@@ -924,18 +909,18 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                     if (!vals.length) return null;
                     const med = calcMediana(vals);
                     return (
-                      <div style={{ marginTop:10, background:`rgba(245,166,35,0.08)`, borderRadius:7, padding:"6px 12px", display:"flex", gap:10, border:`1px solid rgba(245,166,35,0.20)` }}>
-                        <span style={{ fontSize:12, color:C.gold, fontWeight:600 }}>Mediana: {fmtBRL(med)}</span>
+                      <div style={{ marginTop:10, background:C.accentSubtle, borderRadius:6, padding:"6px 12px", display:"flex", gap:12, border:`1px solid ${C.accentBorder}` }}>
+                        <span style={{ fontSize:12, color:C.accent, fontWeight:600 }}>Mediana: {fmtBRL(med)}</span>
                         {parseFloat(it.qtd)>0 && <span style={{ fontSize:12, color:C.accent2 }}>Total ref: {fmtBRL(med*parseFloat(it.qtd))}</span>}
                       </div>
                     );
                   })()}
                 </div>
               ))}
-              <Btn variant="outline" color={C.gold} size="sm" onClick={addItem}>+ Adicionar Item</Btn>
+              <Btn variant="outline" color={C.accent} size="sm" onClick={addItem}>+ Adicionar Item</Btn>
               <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
                 <Btn variant="outline" color={C.sub} onClick={()=>setStep(2)}>← Anterior</Btn>
-                <Btn onClick={salvarCotacao} color={C.gold}>✓ Finalizar Pesquisa</Btn>
+                <Btn onClick={salvarCotacao}>✓ Finalizar Pesquisa</Btn>
               </div>
             </div>
           )}
@@ -946,58 +931,53 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: RELATÓRIOS
+   RELATÓRIOS
 ══════════════════════════════════════════════════════════════ */
 function TabRelatorios({ data }) {
   const { processos, contratos, cotacoes, atas } = data;
   const reports = [
-    { icon:"processos",  title:"Processos por Modalidade",    color:C.accent,  desc:"Distribuição e valores por tipo de licitação" },
-    { icon:"contratos",  title:"Contratos a Vencer",          color:C.amber,   desc:"Contratos nos próximos 30, 60 e 90 dias" },
-    { icon:"atas",       title:"Saldo de Atas de RP",         color:C.accent2, desc:"Utilização e saldo por fornecedor/item" },
-    { icon:"cotacoes",   title:"Mapa de Preços Consolidado",  color:C.gold,    desc:"Medianas por categoria de objeto" },
-    { icon:"relatorios", title:"Relatório Gerencial",         color:C.purple,  desc:"Visão geral de todos os processos e contratos" },
+    { icon:"processos",  title:"Processos por Modalidade",   color:C.accent,  desc:"Distribuição e valores por tipo de licitação" },
+    { icon:"contratos",  title:"Contratos a Vencer",         color:C.gold,    desc:"Contratos nos próximos 30, 60 e 90 dias" },
+    { icon:"atas",       title:"Saldo de Atas de RP",        color:C.accent2, desc:"Utilização e saldo por fornecedor/item" },
+    { icon:"cotacoes",   title:"Mapa de Preços Consolidado", color:C.green,   desc:"Medianas por categoria de objeto" },
+    { icon:"relatorios", title:"Relatório Gerencial",        color:C.purple,  desc:"Visão geral de todos os processos e contratos" },
   ];
-
   const byModalidade = processos.reduce((acc,p)=>{ acc[p.modalidade]=(acc[p.modalidade]||0)+1; return acc; },{});
 
   return (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:12, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(195px,1fr))", gap:12, marginBottom:24 }}>
         {reports.map(r=>(
-          <div key={r.title} style={{
-            background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
-            padding:20, cursor:"pointer", transition:"border-color 0.15s, box-shadow 0.15s",
-            boxShadow:"0 1px 3px rgba(0,0,0,0.25)",
-          }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor=r.color; e.currentTarget.style.boxShadow=`0 4px 12px rgba(0,0,0,0.35)`; }}
-            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.25)"; }}
+          <div key={r.title} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:18, cursor:"pointer", transition:"border-color 0.14s, box-shadow 0.14s", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor=r.color; e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.10)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.06)"; }}
             onClick={()=>window.print()}>
-            <div style={{ marginBottom:12, color:r.color }}>
+            <div style={{ marginBottom:10, color:r.color }}>
               <Icon name={r.icon} size={20} strokeWidth={1.6} color={r.color} />
             </div>
-            <div style={{ fontSize:13, fontWeight:600, color:C.text, marginBottom:4, lineHeight:1.5 }}>{r.title}</div>
-            <div style={{ fontSize:12, color:C.sub, marginBottom:14, lineHeight:1.6 }}>{r.desc}</div>
+            <div style={{ fontSize:13, fontWeight:600, color:C.text, marginBottom:4 }}>{r.title}</div>
+            <div style={{ fontSize:12, color:C.sub, marginBottom:14, lineHeight:1.5 }}>{r.desc}</div>
             <Btn color={r.color} variant="outline" size="sm">Gerar Relatório</Btn>
           </div>
         ))}
       </div>
 
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginBottom:14, boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:20, marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Processos por Modalidade</div>
         {Object.entries(byModalidade).map(([mod,qtd])=>(
           <div key={mod} style={{ marginBottom:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-              <span style={{ fontSize:13, fontWeight:500, color:C.text }}>{mod}</span>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:13, fontWeight:400, color:C.text }}>{mod}</span>
               <span style={{ fontSize:13, color:C.accent, fontWeight:600 }}>{qtd}</span>
             </div>
-            <div style={{ background:C.border, borderRadius:4, height:5, overflow:"hidden" }}>
-              <div style={{ width:`${(qtd/processos.length)*100}%`, height:"100%", background:`linear-gradient(90deg,${C.accent},${C.accent2})`, borderRadius:4 }} />
+            <div style={{ background:C.subtle, borderRadius:3, height:5, overflow:"hidden" }}>
+              <div style={{ width:`${(qtd/processos.length)*100}%`, height:"100%", background:C.accent, borderRadius:3 }} />
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:10 }}>
         <KpiCard label="Valor total contratos" value={fmtBRL(contratos.filter(c=>c.status==="Vigente").reduce((a,c)=>a+c.valor,0))} color={C.green} />
         <KpiCard label="Atas ativas" value={atas.filter(a=>diasParaVencer(a.vigencia)>0).length} color={C.accent2} />
         <KpiCard label="Cotações realizadas" value={cotacoes.length} color={C.gold} />
@@ -1008,7 +988,7 @@ function TabRelatorios({ data }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ABA: CLAUDE IA — SUPLEMENTAR INTELIGÊNCIA
+   IA CLAUDE
 ══════════════════════════════════════════════════════════════ */
 const CLAUDE_SYSTEM = `Você é um assistente especializado em licitações públicas brasileiras, com foco na Lei 14.133/2021 (Nova Lei de Licitações e Contratos Administrativos).
 
@@ -1026,10 +1006,7 @@ Você auxilia pregoeiros, agentes de contratação, gestores e fiscais de contra
 Responda sempre em português brasileiro, de forma clara, objetiva e juridicamente fundamentada. Cite os artigos e incisos da Lei 14.133/2021 e demais normas quando relevante.`;
 
 function TabClaude({ data }) {
-  const [msgs, setMsgs] = useState([{
-    role:"assistant",
-    content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nVocê também pode anexar imagens para análise. Configure sua chave de API abaixo para começar."
-  }]);
+  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nVocê também pode anexar imagens para análise. Configure sua chave de API abaixo para começar." }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -1056,65 +1033,34 @@ function TabClaude({ data }) {
   const send = async () => {
     if ((!input.trim() && !attachments.length) || loading) return;
     if (!apiKey) { setShowKey(true); return; }
-
     let userContent;
     if (attachments.length > 0) {
-      const parts = attachments.map(att => {
-        if (att.type.startsWith("image/")) {
-          return { type:"image", source:{ type:"base64", media_type:att.type, data:att.data.split(",")[1] } };
-        }
-        return null;
-      }).filter(Boolean);
+      const parts = attachments.map(att => att.type.startsWith("image/") ? { type:"image", source:{ type:"base64", media_type:att.type, data:att.data.split(",")[1] } } : null).filter(Boolean);
       parts.push({ type:"text", text: input.trim() || "Analise o conteúdo do arquivo anexado." });
       userContent = parts;
-    } else {
-      userContent = input.trim();
-    }
-
+    } else { userContent = input.trim(); }
     const displayMsg = { role:"user", content: input.trim() || "(arquivo anexado)", attachmentNames: attachments.map(a=>a.name) };
-    const apiMsg = { role:"user", content: userContent };
-    const apiHistory = [...msgs.filter(m=>typeof m.content==="string"), displayMsg]
-      .map(m=>({ role:m.role, content:m.content }));
+    const apiHistory = [...msgs.filter(m=>typeof m.content==="string"), displayMsg].map(m=>({ role:m.role, content:m.content }));
     apiHistory[apiHistory.length-1].content = userContent;
-
     setMsgs(prev=>[...prev, displayMsg]);
     setInput(""); setAttachments([]); setLoading(true);
-
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method:"POST",
-        headers:{
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-          "anthropic-dangerous-allow-browser": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 2048,
-          system: CLAUDE_SYSTEM + buildCtx(),
-          messages: apiHistory,
-        }),
+        headers:{ "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-dangerous-allow-browser": "true" },
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2048, system:CLAUDE_SYSTEM+buildCtx(), messages:apiHistory }),
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({}));
-        throw new Error(err.error?.message || `Erro HTTP ${res.status}`);
-      }
-
+      if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
       const json = await res.json();
-      const reply = json.content?.[0]?.text || "Sem resposta.";
-      setMsgs(prev=>[...prev, { role:"assistant", content:reply }]);
+      setMsgs(prev=>[...prev, { role:"assistant", content:json.content?.[0]?.text || "Sem resposta." }]);
     } catch(err) {
       setMsgs(prev=>[...prev, { role:"assistant", content:`Erro: ${err.message}\n\nVerifique sua chave de API em console.anthropic.com` }]);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleFile = (e) => {
     Array.from(e.target.files).forEach(file => {
-      if (file.size > 5 * 1024 * 1024) return;
+      if (file.size > 5*1024*1024) return;
       const reader = new FileReader();
       reader.onload = ev => setAttachments(prev=>[...prev,{ id:uid(), name:file.name, type:file.type, data:ev.target.result }]);
       reader.readAsDataURL(file);
@@ -1133,26 +1079,23 @@ function TabClaude({ data }) {
   const MsgBubble = ({ m }) => (
     <div style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start", gap:8, alignItems:"flex-start" }}>
       {m.role==="assistant" && (
-        <div style={{
-          width:30, height:30, borderRadius:8, flexShrink:0, marginTop:2,
-          background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", color:C.accent,
-        }}>
-          <Icon name="claude" size={14} strokeWidth={1.6} />
+        <div style={{ width:28, height:28, borderRadius:6, flexShrink:0, marginTop:2, background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", color:C.accent }}>
+          <Icon name="claude" size={13} strokeWidth={1.6} />
         </div>
       )}
       <div style={{
-        maxWidth:"78%", padding:"10px 14px", borderRadius:12,
+        maxWidth:"78%", padding:"10px 14px", borderRadius:10,
         background: m.role==="user" ? C.accentSubtle : C.overlay,
         border: `1px solid ${m.role==="user" ? C.accentBorder : C.border}`,
         color: C.text, fontSize:14, lineHeight:1.7,
         whiteSpace:"pre-wrap", wordBreak:"break-word",
-        borderBottomRightRadius: m.role==="user" ? 4 : 12,
-        borderBottomLeftRadius: m.role==="assistant" ? 4 : 12,
+        borderBottomRightRadius: m.role==="user" ? 3 : 10,
+        borderBottomLeftRadius: m.role==="assistant" ? 3 : 10,
       }}>
         {m.attachmentNames?.length > 0 && (
           <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:8 }}>
             {m.attachmentNames.map((name,i)=>(
-              <span key={i} style={{ display:"flex", alignItems:"center", gap:4, background:C.accentSubtle, borderRadius:5, padding:"3px 8px", fontSize:11, color:C.accent }}>
+              <span key={i} style={{ display:"flex", alignItems:"center", gap:4, background:C.accentSubtle, borderRadius:4, padding:"2px 8px", fontSize:11, color:C.accent }}>
                 <Icon name="file" size={11} /> {name}
               </span>
             ))}
@@ -1165,65 +1108,48 @@ function TabClaude({ data }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-      <div style={{
-        background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 20px",
-        display:"flex", justifyContent:"space-between", alignItems:"center",
-        boxShadow:"0 1px 3px rgba(0,0,0,0.25)",
-      }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"13px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
         <div>
-          <div style={{ fontSize:15, fontWeight:600, fontFamily:"'Syne',sans-serif", display:"flex", alignItems:"center", gap:8 }}>
-            <Icon name="claude" size={16} color={C.accent} />
-            Assistente <span style={{color:C.accent}}>IA</span> — Lei 14.133/2021
+          <div style={{ fontSize:14, fontWeight:600, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="claude" size={15} color={C.accent} />
+            Assistente IA — Lei 14.133/2021
           </div>
-          <div style={{ fontSize:12, color:C.sub, marginTop:3 }}>claude-sonnet-4-6 · Suporte a anexos de imagem</div>
+          <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>claude-sonnet-4-6 · Suporte a anexos de imagem</div>
         </div>
-        <button onClick={()=>setShowKey(s=>!s)} style={{
-          background:"none", border:`1px solid ${C.border}`, borderRadius:7,
-          padding:"7px 10px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", gap:6,
-          fontSize:12, fontFamily:"inherit", transition:"border-color 0.12s, color 0.12s",
-        }}
-        onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
-        onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
+        <button onClick={()=>setShowKey(s=>!s)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:12, fontFamily:"inherit", transition:"all 0.12s" }}
+          onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+          onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
           <Icon name="key" size={13} /> API Key
         </button>
       </div>
 
       {showKey && (
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }}>
-          <div style={{ fontSize:11, fontWeight:600, color:C.subL, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>Chave de API Claude (Anthropic)</div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>Chave de API Claude (Anthropic)</div>
           <div style={{ display:"flex", gap:8 }}>
-            <input
-              value={keyDraft || (showKey && !keyDraft ? "" : apiKey)}
-              onChange={e=>setKeyDraft(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&saveKey()}
+            <input value={keyDraft||(showKey&&!keyDraft?"":apiKey)} onChange={e=>setKeyDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}
               type="password" placeholder="sk-ant-api03-..."
-              style={{ flex:1, background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s" }}
+              style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
               onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
-              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
-            />
+              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
             <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
           </div>
           <div style={{ fontSize:12, color:C.sub, marginTop:8 }}>
             Armazenada no seu navegador. Obtenha em:{" "}
             <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{color:C.accent}}>console.anthropic.com</a>
           </div>
-          {apiKey && <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:600 }}>Chave configurada — {apiKey.slice(0,16)}...</div>}
+          {apiKey && <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:500 }}>✓ Chave configurada — {apiKey.slice(0,16)}...</div>}
         </div>
       )}
 
-      <div style={{
-        background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
-        padding:16, minHeight:300, maxHeight:460, overflowY:"auto",
-        display:"flex", flexDirection:"column", gap:12,
-        boxShadow:"0 1px 3px rgba(0,0,0,0.25)",
-      }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, minHeight:300, maxHeight:460, overflowY:"auto", display:"flex", flexDirection:"column", gap:12, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
         {msgs.map((m,i)=><MsgBubble key={i} m={m} />)}
         {loading && (
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <div style={{ width:30, height:30, borderRadius:8, background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", color:C.accent }}>
-              <Icon name="claude" size={14} strokeWidth={1.6} />
+            <div style={{ width:28, height:28, borderRadius:6, background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", color:C.accent }}>
+              <Icon name="claude" size={13} strokeWidth={1.6} />
             </div>
-            <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 16px", color:C.sub, fontSize:13 }}>
+            <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 14px", color:C.sub, fontSize:13 }}>
               Consultando Lei 14.133/2021<span style={{ display:"inline-block", animation:"dots 1.2s steps(3,end) infinite" }}>...</span>
             </div>
           </div>
@@ -1234,13 +1160,9 @@ function TabClaude({ data }) {
       {msgs.length <= 1 && (
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {SUGGESTIONS.map(s=>(
-            <button key={s} onClick={()=>setInput(s)} style={{
-              background:"transparent", border:`1px solid ${C.border}`, borderRadius:7,
-              padding:"5px 12px", color:C.subL, fontSize:12, fontWeight:400,
-              cursor:"pointer", fontFamily:"inherit", transition:"all 0.12s",
-            }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
-            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.subL; }}>
+            <button key={s} onClick={()=>setInput(s)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 12px", color:C.sub, fontSize:12, cursor:"pointer", fontFamily:"inherit", transition:"all 0.12s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
               {s}
             </button>
           ))}
@@ -1250,11 +1172,11 @@ function TabClaude({ data }) {
       {attachments.length > 0 && (
         <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
           {attachments.map(att=>(
-            <div key={att.id} style={{ display:"flex", alignItems:"center", gap:6, background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7, padding:"5px 10px", fontSize:12 }}>
-              <Icon name={att.type.startsWith("image/")?"image":"file"} size={13} color={C.accent} />
-              <span style={{ color:C.subL, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
-              <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.sub, padding:0, display:"flex", lineHeight:1 }}>
-                <Icon name="close" size={12} />
+            <div key={att.id} style={{ display:"flex", alignItems:"center", gap:5, background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", fontSize:12 }}>
+              <Icon name={att.type.startsWith("image/")?"image":"file"} size={12} color={C.accent} />
+              <span style={{ color:C.sub, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
+              <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.tertiary, padding:0, display:"flex" }}>
+                <Icon name="close" size={11} />
               </button>
             </div>
           ))}
@@ -1263,37 +1185,21 @@ function TabClaude({ data }) {
 
       <div style={{ display:"flex", gap:8 }}>
         <input type="file" ref={fileRef} onChange={handleFile} accept="image/png,image/jpeg,image/gif,image/webp" multiple style={{display:"none"}} />
-        <button onClick={()=>fileRef.current?.click()} title="Anexar imagem" style={{
-          background:C.subtle, border:`1px solid ${C.border}`, borderRadius:8,
-          padding:"0 14px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center",
-          transition:"border-color 0.12s, color 0.12s", flexShrink:0,
-        }}
-        onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
-        onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
+        <button onClick={()=>fileRef.current?.click()} title="Anexar imagem" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"0 13px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", transition:"all 0.12s", flexShrink:0 }}
+          onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+          onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
           <Icon name="attach" size={16} />
         </button>
-        <input
-          value={input} onChange={e=>setInput(e.target.value)}
-          onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
           placeholder={apiKey ? "Pergunte sobre licitações, Lei 14.133, contratos, RP..." : "Configure sua API Key para começar..."}
-          style={{
-            flex:1, background:C.subtle, border:`1px solid ${C.border}`, borderRadius:8,
-            padding:"12px 16px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none",
-            transition:"border-color 0.15s, box-shadow 0.15s",
-          }}
+          style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"11px 14px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
-          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
-        />
-        <Btn onClick={send} disabled={loading||(!input.trim()&&!attachments.length)||!apiKey} color={C.accent} style={{ padding:"0 18px", display:"flex", alignItems:"center", gap:6 }}>
-          <Icon name="send" size={14} color="#f0f0f2" />
+          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+        <Btn onClick={send} disabled={loading||(!input.trim()&&!attachments.length)||!apiKey} color={C.accent} style={{ padding:"0 16px", display:"flex", alignItems:"center", gap:5 }}>
+          <Icon name="send" size={14} color="#fff" />
         </Btn>
       </div>
-
-      {!apiKey && (
-        <div style={{ textAlign:"center", fontSize:12, color:C.sub }}>
-          Configure sua chave de API Claude acima para usar o assistente
-        </div>
-      )}
+      {!apiKey && <div style={{ textAlign:"center", fontSize:12, color:C.tertiary }}>Configure sua chave de API Claude acima para usar o assistente</div>}
     </div>
   );
 }
@@ -1363,51 +1269,42 @@ export default function App() {
         onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background=C.overlay; e.currentTarget.style.color=C.text; } }}
         onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color=C.sub; } }}
         style={{
-          display: "flex", alignItems: "center", gap: 9,
-          padding: "9px 12px", borderRadius: 8,
-          border: "none",
-          borderRight: active ? `2px solid ${C.accent}` : "2px solid transparent",
+          display:"flex", alignItems:"center", gap:9,
+          padding:"9px 12px", borderRadius:6, border:"none",
+          borderLeft: active ? `3px solid ${C.accent}` : "3px solid transparent",
           background: active ? C.accentSubtle : "transparent",
           color: active ? C.accent : C.sub,
-          fontSize: 13, fontWeight: active ? 600 : 400,
-          cursor: "pointer", transition: "background 0.12s, color 0.12s",
-          textAlign: "left", width: "100%",
+          fontSize:13, fontWeight: active ? 600 : 400,
+          cursor:"pointer", transition:"background 0.12s, color 0.12s",
+          textAlign:"left", width:"100%",
         }}>
-        <Icon name={t.icon} size={15} strokeWidth={active ? 2.1 : 1.6} />
+        <Icon name={t.icon} size={15} strokeWidth={active ? 2 : 1.6} />
         {t.label}
       </button>
     );
   };
 
   const Sidebar = () => (
-    <div style={{
-      position:"fixed", left:0, top:0, bottom:0, width:220,
-      background:C.surface, borderRight:`1px solid ${C.border}`,
-      display:"flex", flexDirection:"column", zIndex:30,
-    }}>
+    <div style={{ position:"fixed", left:0, top:0, bottom:0, width:220, background:C.overlay, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", zIndex:30 }}>
       <div style={{ padding:"20px 16px 16px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:17, fontWeight:800, fontFamily:"'Syne',sans-serif", letterSpacing:-0.3 }}>
-          <span style={{color:C.text}}>Licita</span><span style={{color:C.accent}}>Gov</span>
+        <div style={{ fontSize:16, fontWeight:800, fontFamily:"'Syne',sans-serif", letterSpacing:-0.5, color:C.text }}>
+          Licita<span style={{color:C.accent}}>Gov</span>
         </div>
-        <div style={{ fontSize:11, color:C.sub, marginTop:3, fontWeight:400, letterSpacing:"0.02em" }}>Lei 14.133 / 2021</div>
+        <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>Lei 14.133 / 2021</div>
       </div>
       <nav style={{ flex:1, padding:"8px", display:"flex", flexDirection:"column", gap:1, overflowY:"auto" }}>
         {TABS.map(t=><NavItem key={t.id} t={t} />)}
       </nav>
       {deferredPrompt && (
         <div style={{ padding:"10px 12px", borderTop:`1px solid ${C.border}` }}>
-          <button onClick={installPWA} style={{
-            width:"100%", background:C.accent, border:"none", borderRadius:7,
-            padding:"9px 12px", color:"#f0f0f2", fontSize:12, fontWeight:500,
-            cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-          }}>
+          <button onClick={installPWA} style={{ width:"100%", background:C.accent, border:"none", borderRadius:6, padding:"9px 12px", color:"#fff", fontSize:12, fontWeight:500, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <Icon name="install" size={13} /> Instalar App
           </button>
         </div>
       )}
       <div style={{ padding:"12px 16px", borderTop:`1px solid ${C.border}` }}>
         <div style={{ fontSize:11, color:C.sub, lineHeight:1.6 }}>
-          <div style={{ fontWeight:600, color:C.subL, marginBottom:1 }}>Prefeitura Municipal</div>
+          <div style={{ fontWeight:500, color:C.text, marginBottom:1 }}>Prefeitura Municipal</div>
           Módulo de Licitações
         </div>
       </div>
@@ -1420,12 +1317,12 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:#111214;}
-        ::-webkit-scrollbar-thumb{background:#232529;border-radius:3px;}
-        ::-webkit-scrollbar-thumb:hover{background:#2d3036;}
+        ::-webkit-scrollbar-track{background:#f4f5f7;}
+        ::-webkit-scrollbar-thumb{background:#ced2d8;border-radius:3px;}
+        ::-webkit-scrollbar-thumb:hover{background:#b5bac2;}
         button,input,select,textarea{font-family:inherit;}
-        input::placeholder,textarea::placeholder{color:#5c5f6b;}
-        select option{background:#18191c;color:#f0f0f2;}
+        input::placeholder,textarea::placeholder{color:#9ca3af;}
+        select option{background:#ffffff;color:#111827;}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
         @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
         @media print{
@@ -1434,40 +1331,32 @@ export default function App() {
         }
       `}</style>
 
-      {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast_(null)} />}
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
 
       {isMobile && sideOpen && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:25, backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)" }}
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.40)", zIndex:25, backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)" }}
           onClick={()=>setSideOpen(false)} />
       )}
 
       {(!isMobile || sideOpen) && <Sidebar />}
 
       <div style={{ marginLeft:isMobile?0:220, minHeight:"100vh", display:"flex", flexDirection:"column", paddingBottom:isMobile?70:0 }}>
-
-        <div className="no-print" style={{
-          background:C.surface, borderBottom:`1px solid ${C.border}`,
-          padding:isMobile?"12px 16px":"16px 28px",
-          display:"flex", justifyContent:"space-between", alignItems:"center",
-          position:"sticky", top:0, zIndex:20,
-        }}>
+        <div className="no-print" style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:isMobile?"12px 16px":"14px 28px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:20, boxShadow:"0 1px 0 rgba(0,0,0,0.06)" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             {isMobile && (
-              <button onClick={()=>setSideOpen(s=>!s)} style={{ background:"none", border:"none", color:C.subL, cursor:"pointer", padding:4, display:"flex", alignItems:"center" }}>
+              <button onClick={()=>setSideOpen(s=>!s)} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", padding:4, display:"flex", alignItems:"center" }}>
                 <Icon name="menu" size={20} />
               </button>
             )}
             {isMobile && (
-              <span style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>
-                <span style={{color:C.text}}>Licita</span><span style={{color:C.accent}}>Gov</span>
+              <span style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.text }}>
+                Licita<span style={{color:C.accent}}>Gov</span>
               </span>
             )}
             {!isMobile && (
               <div>
-                <div style={{ fontSize:18, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, letterSpacing:"-0.01em" }}>
-                  {curTab?.label}
-                </div>
-                <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>
+                <div style={{ fontSize:17, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{curTab?.label}</div>
+                <div style={{ fontSize:12, color:C.sub, marginTop:1 }}>
                   {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
                 </div>
               </div>
@@ -1475,32 +1364,22 @@ export default function App() {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {deferredPrompt && isMobile && (
-              <button onClick={installPWA} style={{
-                background:C.accent, border:"none", borderRadius:7, padding:"7px 12px", color:"#f0f0f2",
-                fontSize:11, fontWeight:500, cursor:"pointer", fontFamily:"inherit",
-                display:"flex", alignItems:"center", gap:5,
-              }}>
+              <button onClick={installPWA} style={{ background:C.accent, border:"none", borderRadius:6, padding:"6px 12px", color:"#fff", fontSize:11, fontWeight:500, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
                 <Icon name="install" size={12} /> Instalar
               </button>
             )}
-            <div style={{
-              background:C.subtle, border:`1px solid ${C.border}`, borderRadius:7,
-              padding:"6px 12px", fontSize:12, color:C.subL, fontWeight:500,
-              display:"flex", alignItems:"center", gap:6,
-            }}>
-              <Icon name="user" size={13} color={C.sub} />
+            <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 11px", fontSize:12, color:C.sub, fontWeight:400, display:"flex", alignItems:"center", gap:5 }}>
+              <Icon name="user" size={13} color={C.tertiary} />
               {isMobile ? "Pregoeiro" : "Pregoeiro Municipal"}
             </div>
           </div>
         </div>
 
         {isMobile && (
-          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, letterSpacing:"-0.01em" }}>
-            {curTab?.label}
-          </div>
+          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{curTab?.label}</div>
         )}
 
-        <div style={{ flex:1, padding:isMobile?"12px 16px":"28px", maxWidth:1200 }}>
+        <div style={{ flex:1, padding:isMobile?"12px 16px":"24px 28px", maxWidth:1200 }}>
           {tab==="dashboard"  && <TabDashboard data={data} />}
           {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
           {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
@@ -1512,21 +1391,9 @@ export default function App() {
       </div>
 
       {isMobile && (
-        <div className="no-print" style={{
-          position:"fixed", bottom:0, left:0, right:0, zIndex:20,
-          background:C.surface, borderTop:`1px solid ${C.border}`,
-          display:"flex", justifyContent:"space-around", alignItems:"center",
-          padding:"6px 0", paddingBottom:"max(6px, env(safe-area-inset-bottom))",
-        }}>
+        <div className="no-print" style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:20, background:C.surface, borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-around", alignItems:"center", padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))" }}>
           {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              display:"flex", flexDirection:"column", alignItems:"center",
-              gap:3, padding:"6px 8px", border:"none",
-              background: tab===t.id ? C.accentSubtle : "transparent",
-              borderRadius:7, color: tab===t.id ? C.accent : C.sub,
-              fontSize:9, fontWeight: tab===t.id ? 600 : 400,
-              cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s",
-            }}>
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"5px 8px", border:"none", background: tab===t.id ? C.accentSubtle : "transparent", borderRadius:6, color: tab===t.id ? C.accent : C.sub, fontSize:9, fontWeight: tab===t.id ? 600 : 400, cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s" }}>
               <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} />
               {t.short}
             </button>
