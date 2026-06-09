@@ -7,10 +7,10 @@ import { useState, useCallback, useEffect, useRef } from "react";
 ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg:      "#080b14",
-  surface: "#0e1120",
-  card:    "#131728",
-  border:  "#1e2440",
+  bg:      "#0d1520",
+  surface: "#131e30",
+  card:    "#192030",
+  border:  "#222d45",
   accent:  "#4f7cff",
   accent2: "#00bfa4",   // was #00d4aa — menos neon
   gold:    "#e09830",   // was #f5a623 — âmbar-dourado mais suave
