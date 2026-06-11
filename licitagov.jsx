@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
    LICITAGOV — Sistema de Gestão de Licitações Públicas
@@ -946,6 +946,258 @@ function TabRelatorios({ data }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   ABA: ASSISTENTE IA
+══════════════════════════════════════════════════════════════ */
+const PROXY_URL = import.meta.env.VITE_ANTHROPIC_PROXY ||
+  "https://zigghtvlmftgjlohuhla.supabase.co/functions/v1/anthropic-proxy";
+
+const IA_SYSTEM = `Você é um assistente especializado em licitações públicas e contratações governamentais no Brasil, com foco na Lei 14.133/2021 (Nova Lei de Licitações).
+Você auxilia pregoeiros, agentes de contratação e gestores municipais com:
+- Interpretação e aplicação da Lei 14.133/2021
+- Modalidades licitatórias: pregão eletrônico, concorrência, diálogo competitivo, manifestação de interesse, pré-qualificação, credenciamento, dispensa e inexigibilidade
+- Elaboração de editais, termos de referência e projetos básicos
+- Gestão de atas de registro de preços
+- Contratos administrativos e aditivos
+- Pesquisa de preços e estimativas de custo
+- Penalidades, recursos e impugnações
+- Práticas de compliance e governança em contratações públicas
+Responda de forma objetiva, cite artigos da lei quando relevante, e forneça exemplos práticos.`;
+
+const IA_SUGESTOES = [
+  "Qual a diferença entre pregão e concorrência na 14.133?",
+  "Como fazer uma pesquisa de preços válida?",
+  "Quando usar dispensa de licitação?",
+  "O que é uma Ata de Registro de Preços?",
+];
+
+function TabIA({ toast }) {
+  const LS_KEY = "licitagov_anthropic_key";
+  const [apiKey,      setApiKey]      = useState(() => localStorage.getItem(LS_KEY) || "");
+  const [keyInput,    setKeyInput]    = useState("");
+  const [showCfg,     setShowCfg]     = useState(!localStorage.getItem(LS_KEY));
+  const [messages,    setMessages]    = useState([]);
+  const [input,       setInput]       = useState("");
+  const [loading,     setLoading]     = useState(false);
+  const [image,       setImage]       = useState(null);
+  const bottomRef = useRef(null);
+  const fileRef   = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, loading]);
+
+  const saveKey = () => {
+    const k = keyInput.trim();
+    if (!k) return;
+    localStorage.setItem(LS_KEY, k);
+    setApiKey(k);
+    setKeyInput("");
+    setShowCfg(false);
+    toast("Chave API salva no navegador", "success");
+  };
+
+  const clearKey = () => {
+    localStorage.removeItem(LS_KEY);
+    setApiKey("");
+    setShowCfg(true);
+  };
+
+  const handleFile = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast("Apenas imagens são suportadas", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setImage({ data: reader.result.split(",")[1], mediaType: file.type });
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const send = async () => {
+    if (!input.trim() && !image) return;
+    if (!apiKey) { setShowCfg(true); toast("Configure sua chave API Anthropic primeiro", "warn"); return; }
+
+    const userContent = [];
+    if (image) userContent.push({ type:"image", source:{ type:"base64", media_type:image.mediaType, data:image.data } });
+    if (input.trim()) userContent.push({ type:"text", text:input.trim() });
+
+    const history = [...messages, { role:"user", content:userContent }];
+    setMessages(history);
+    setInput("");
+    setImage(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch(PROXY_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 2048,
+          system: IA_SYSTEM,
+          messages: history,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+      const text = data.content?.[0]?.text || "";
+      setMessages(prev => [...prev, { role:"assistant", content:[{ type:"text", text }] }]);
+    } catch (err) {
+      toast(`Erro: ${err.message}`, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 130px)" }}>
+      {/* Cabeçalho */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:8 }}>
+        <div>
+          <div style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>Assistente IA — Lei 14.133/2021</div>
+          <div style={{ fontSize:12, color:C.sub }}>Claude · Especialista em licitações públicas</div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          {messages.length>0 && (
+            <Btn variant="outline" color={C.sub} size="sm" onClick={()=>setMessages([])}>Limpar chat</Btn>
+          )}
+          <Btn variant="outline" color={apiKey?C.green:C.amber} size="sm" onClick={()=>setShowCfg(v=>!v)}>
+            {apiKey ? `Chave ···${apiKey.slice(-4)}` : "Configurar chave"}
+          </Btn>
+        </div>
+      </div>
+
+      {/* Config chave */}
+      {showCfg && (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:16, marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:6, color:C.accent }}>Chave API Anthropic</div>
+          <div style={{ fontSize:12, color:C.sub, marginBottom:10 }}>
+            Obtenha em <span style={{ color:C.accent }}>console.anthropic.com → API Keys</span>.
+            Salva apenas no seu navegador — nunca enviada a servidores externos.
+          </div>
+          {apiKey ? (
+            <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+              <div style={{ flex:1, background:C.surface, borderRadius:8, padding:"8px 12px", fontSize:13, color:C.green, fontWeight:700 }}>
+                ✓ Chave ativa (sk-ant-···{apiKey.slice(-6)})
+              </div>
+              <Btn variant="outline" color={C.red} size="sm" onClick={clearKey}>Remover</Btn>
+              <Btn variant="outline" color={C.sub} size="sm" onClick={()=>setShowCfg(false)}>Fechar</Btn>
+            </div>
+          ) : (
+            <div style={{ display:"flex", gap:10 }}>
+              <input type="password" placeholder="sk-ant-api03-..."
+                value={keyInput} onChange={e=>setKeyInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&saveKey()}
+                style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px", fontSize:13, color:C.text, outline:"none", fontFamily:"inherit" }}
+              />
+              <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Mensagens */}
+      <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:12, paddingRight:4 }}>
+        {messages.length===0 && (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:20 }}>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:40, marginBottom:10 }}>⚖️</div>
+              <div style={{ fontSize:16, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.subL, marginBottom:4 }}>Pergunte sobre licitações</div>
+              <div style={{ fontSize:12, color:C.sub }}>Especialista em Lei 14.133/2021</div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, maxWidth:560 }}>
+              {IA_SUGESTOES.map(s=>(
+                <div key={s} onClick={()=>setInput(s)} style={{
+                  background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+                  padding:"10px 14px", fontSize:12, color:C.subL, cursor:"pointer", transition:"border-color 0.15s",
+                }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}
+                >{s}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg, i) => {
+          const isUser = msg.role==="user";
+          const textPart = msg.content.find(c=>c.type==="text");
+          const imgPart  = msg.content.find(c=>c.type==="image");
+          return (
+            <div key={i} style={{ display:"flex", justifyContent:isUser?"flex-end":"flex-start" }}>
+              <div style={{
+                maxWidth:"82%",
+                background:isUser ? C.accent+"1a" : C.card,
+                border:`1px solid ${isUser ? C.accent+"44" : C.border}`,
+                borderRadius:isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                padding:"12px 16px",
+              }}>
+                {!isUser && <div style={{ fontSize:11, color:C.accent, fontWeight:700, marginBottom:6, letterSpacing:0.5 }}>ASSISTENTE IA</div>}
+                {imgPart && (
+                  <img src={`data:${imgPart.source.media_type};base64,${imgPart.source.data}`}
+                    alt="anexo" style={{ maxWidth:"100%", borderRadius:8, marginBottom:textPart?8:0 }} />
+                )}
+                {textPart && (
+                  <div style={{ fontSize:13, lineHeight:1.75, whiteSpace:"pre-wrap", color:C.text }}>
+                    {textPart.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {loading && (
+          <div style={{ display:"flex", justifyContent:"flex-start" }}>
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:"16px 16px 16px 4px", padding:"12px 16px" }}>
+              <div style={{ fontSize:11, color:C.accent, fontWeight:700, marginBottom:8, letterSpacing:0.5 }}>ASSISTENTE IA</div>
+              <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                {[0,1,2].map(j=>(
+                  <div key={j} style={{
+                    width:7, height:7, borderRadius:"50%", background:C.accent,
+                    animation:`iaDot 1.2s ${j*0.4}s ease-in-out infinite`,
+                  }}/>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:12, marginTop:12 }}>
+        {image && (
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, padding:"6px 10px", background:C.accent+"11", borderRadius:8 }}>
+            <span style={{ fontSize:12, color:C.accent, fontWeight:600 }}>📎 Imagem anexada</span>
+            <button onClick={()=>setImage(null)} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:14, lineHeight:1, marginLeft:"auto" }}>✕</button>
+          </div>
+        )}
+        <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+          <textarea value={input} onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
+            placeholder="Pergunte sobre licitações, Lei 14.133/2021, contratos... (Enter para enviar, Shift+Enter nova linha)"
+            rows={2}
+            style={{
+              flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:10,
+              padding:"10px 12px", fontSize:13, color:C.text, resize:"none", outline:"none",
+              fontFamily:"inherit", lineHeight:1.6,
+            }}
+          />
+          <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleFile}/>
+          <Btn variant="outline" color={C.sub} size="sm" onClick={()=>fileRef.current?.click()} style={{ alignSelf:"center", padding:"7px 10px" }}>📎</Btn>
+          <Btn onClick={send} disabled={loading||(!input.trim()&&!image)} color={C.accent} size="sm" style={{ alignSelf:"center" }}>
+            {loading ? "···" : "Enviar"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    APP ROOT
 ══════════════════════════════════════════════════════════════ */
 export default function LicitaGov() {
@@ -968,6 +1220,7 @@ export default function LicitaGov() {
     { id:"contratos", icon:"📄", label:"Contratos" },
     { id:"cotacoes",  icon:"💰", label:"Cotações" },
     { id:"relatorios",icon:"📊", label:"Relatórios" },
+    { id:"ia",        icon:"🤖", label:"IA" },
   ];
 
   const data = { processos, atas, contratos, cotacoes };
@@ -979,6 +1232,7 @@ export default function LicitaGov() {
         *{box-sizing:border-box;margin:0;padding:0;} ::-webkit-scrollbar{width:6px;} ::-webkit-scrollbar-track{background:#0e1120;} ::-webkit-scrollbar-thumb{background:#1e2440;border-radius:3px;}
         button,input,select{font-family:inherit;} input::placeholder{color:#3a4060;}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+        @keyframes iaDot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)} />}
@@ -1068,6 +1322,7 @@ export default function LicitaGov() {
           {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
           {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
           {tab==="relatorios" && <TabRelatorios data={data} />}
+          {tab==="ia"         && <TabIA toast={showToast} />}
         </div>
       </div>
     </div>
