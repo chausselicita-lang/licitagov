@@ -88,6 +88,20 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
   );
 }
 
+/* ── PROXY CORS PARA ANTHROPIC API ─────────────────────────── */
+const PROXY_STORAGE_KEY = "licitagov_proxy_url";
+const getProxyUrl = () =>
+  localStorage.getItem(PROXY_STORAGE_KEY) ||
+  (import.meta.env.VITE_ANTHROPIC_PROXY || "");
+const saveProxyUrl = (url) => localStorage.setItem(PROXY_STORAGE_KEY, url.trim());
+const anthropicFetch = (proxyUrl, opts) => {
+  const base = proxyUrl || getProxyUrl();
+  if (!base) throw new Error("Proxy CORS não configurado. Acesse a aba 'IA Claude' e informe a URL do proxy.");
+  const headers = { ...opts.headers };
+  delete headers["anthropic-dangerous-allow-browser"];
+  return fetch(`${base}/v1/messages`, { ...opts, headers });
+};
+
 const STORAGE_KEY = "licitagov_data_v2";
 function loadData() {
   try { const r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r); } catch {}
@@ -1088,12 +1102,11 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "web-search-2025-03-05",
         "content-type": "application/json",
-        "anthropic-dangerous-allow-browser": "true",
       };
       let messages = [{ role:"user", content:`Pesquise preços de mercado para licitação pública — objeto: ${objetoIA.trim()}` }];
       let finalText = "";
       for (let iter = 0; iter < 6; iter++) {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await anthropicFetch(null, {
           method:"POST", headers,
           body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:4096, tools:[{ type:"web_search_20250305", name:"web_search" }], system:SYSTEM_PESQUISA, messages }),
         });
@@ -1625,6 +1638,8 @@ function TabClaude({ data }) {
   const [apiKey, setApiKey] = useState(()=>localStorage.getItem("licitagov_claude_key")||"");
   const [keyDraft, setKeyDraft] = useState("");
   const [showKey, setShowKey] = useState(!localStorage.getItem("licitagov_claude_key"));
+  const [proxyDraft, setProxyDraft] = useState("");
+  const [proxyUrl, setProxyUrl] = useState(()=>getProxyUrl());
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -1635,6 +1650,13 @@ function TabClaude({ data }) {
     if (!k) return;
     localStorage.setItem("licitagov_claude_key", k);
     setApiKey(k); setKeyDraft(""); setShowKey(false);
+  };
+
+  const saveProxy = () => {
+    const u = proxyDraft.trim();
+    if (!u) return;
+    saveProxyUrl(u);
+    setProxyUrl(u); setProxyDraft("");
   };
 
   const buildCtx = () => {
@@ -1657,16 +1679,16 @@ function TabClaude({ data }) {
     setMsgs(prev=>[...prev, displayMsg]);
     setInput(""); setAttachments([]); setLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await anthropicFetch(null, {
         method:"POST",
-        headers:{ "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-dangerous-allow-browser": "true" },
+        headers:{ "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2048, system:CLAUDE_SYSTEM+buildCtx(), messages:apiHistory }),
       });
       if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
       const json = await res.json();
       setMsgs(prev=>[...prev, { role:"assistant", content:json.content?.[0]?.text || "Sem resposta." }]);
     } catch(err) {
-      setMsgs(prev=>[...prev, { role:"assistant", content:`Erro: ${err.message}\n\nVerifique sua chave de API em console.anthropic.com` }]);
+      setMsgs(prev=>[...prev, { role:"assistant", content:`Erro: ${err.message}` }]);
     } finally { setLoading(false); }
   };
 
@@ -1736,21 +1758,45 @@ function TabClaude({ data }) {
       </div>
 
       {showKey && (
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-          <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>Chave de API Claude (Anthropic)</div>
-          <div style={{ display:"flex", gap:8 }}>
-            <input value={keyDraft||(showKey&&!keyDraft?"":apiKey)} onChange={e=>setKeyDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}
-              type="password" placeholder="sk-ant-api03-..."
-              style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
-              onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
-              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-            <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:14 }}>
+          <div>
+            <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>Chave de API Claude (Anthropic)</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input value={keyDraft||(showKey&&!keyDraft?"":apiKey)} onChange={e=>setKeyDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}
+                type="password" placeholder="sk-ant-api03-..."
+                style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
+                onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+              <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
+            </div>
+            <div style={{ fontSize:12, color:C.sub, marginTop:6 }}>
+              Armazenada no seu navegador. Obtenha em:{" "}
+              <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{color:C.accent}}>console.anthropic.com</a>
+            </div>
+            {apiKey && <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:500 }}>&#10003; Chave configurada — {apiKey.slice(0,16)}...</div>}
           </div>
-          <div style={{ fontSize:12, color:C.sub, marginTop:8 }}>
-            Armazenada no seu navegador. Obtenha em:{" "}
-            <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{color:C.accent}}>console.anthropic.com</a>
+
+          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em", display:"flex", alignItems:"center", gap:6 }}>
+              <Icon name="globe" size={12} color={C.sub} /> URL do Proxy CORS
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input value={proxyDraft} onChange={e=>setProxyDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveProxy()}
+                type="url" placeholder="https://licitagov-proxy.SEU-ACCOUNT.workers.dev"
+                style={{ flex:1, background:C.surface, border:`1px solid ${proxyUrl?C.green:C.border}`, borderRadius:6, padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
+                onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                onBlur={e=>{ e.target.style.borderColor=proxyUrl?C.green:C.border; e.target.style.boxShadow="none"; }} />
+              <Btn onClick={saveProxy} color={C.accent2} size="sm">Salvar</Btn>
+            </div>
+            <div style={{ fontSize:12, color:C.sub, marginTop:6, lineHeight:1.5 }}>
+              Necessário para usar a IA no GitHub Pages (contorna bloqueio CORS).{" "}
+              Implante o worker: <code style={{fontSize:11,background:C.subtle,padding:"1px 5px",borderRadius:3}}>npx wrangler deploy</code>
+            </div>
+            {proxyUrl
+              ? <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:500 }}>&#10003; Proxy: {proxyUrl}</div>
+              : <div style={{ fontSize:12, color:C.gold, marginTop:4, fontWeight:500 }}>&#9888; Proxy não configurado — chamadas IA falharão no GitHub Pages</div>
+            }
           </div>
-          {apiKey && <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:500 }}>✓ Chave configurada — {apiKey.slice(0,16)}...</div>}
         </div>
       )}
 
