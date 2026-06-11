@@ -71,6 +71,9 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     file:       <><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
     key:        <><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></>,
     robot:      <><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></>,
+    edit:       <><path d="M11 4H4a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    trash:      <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>,
+    copy:       <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4c0-1.1.9-2 2-2h9a2 2 0 0 1 2 2v1"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -162,9 +165,10 @@ function Btn({ children, onClick, color=C.accent, variant="solid", size="md", di
     <button onClick={onClick} disabled={disabled}
       onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{
-        background: variant==="solid" ? (hov?C.accentHover:color) : (hov?color+"12":"transparent"),
+        background: variant==="solid" ? color : (hov?color+"12":"transparent"),
         color: variant==="solid" ? "#ffffff" : color,
         border: variant==="solid" ? "none" : `1px solid ${color}55`,
+        filter: variant==="solid" && hov && !disabled ? "brightness(0.88)" : "none",
         borderRadius:6, padding:pad, fontSize:fs, fontWeight:500,
         cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.45:1,
         transition:"all 0.14s", fontFamily:"inherit", whiteSpace:"nowrap", ...sx,
@@ -251,7 +255,9 @@ function Toast({ msg, type }) {
 function EmptyState({ icon, title, sub }) {
   return (
     <div style={{ textAlign:"center", padding:"48px 24px", color:C.sub }}>
-      <div style={{ fontSize:40, marginBottom:12 }}>{icon}</div>
+      <div style={{ display:"flex", justifyContent:"center", marginBottom:14, opacity:0.3 }}>
+        <Icon name={icon} size={40} strokeWidth={1.1} />
+      </div>
       <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4 }}>{title}</div>
       <div style={{ fontSize:13, color:C.sub }}>{sub}</div>
     </div>
@@ -334,27 +340,48 @@ function TabDashboard({ data }) {
 /* ══════════════════════════════════════════════════════════════
    PROCESSOS
 ══════════════════════════════════════════════════════════════ */
+const FASES_PROC = ["Planejamento","Publicado","Em andamento","Homologado","Revogado","Suspenso"];
+const MODALIDADES = ["Pregão Eletrônico","Pregão Presencial","Concorrência","Concurso","Leilão","Diálogo Competitivo","Dispensa","Inexigibilidade"];
+const FORM_PROC_EMPTY = { numero:"", objeto:"", modalidade:"Pregão Eletrônico", fase:"Planejamento", valor:"", abertura:"", orgao:"" };
+
+function IconBtn({ name, color, title, onClick }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={e=>{ e.stopPropagation(); onClick(); }} title={title}
+      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ background:hov?color+"12":"transparent", border:`1px solid ${hov?color+"44":"transparent"}`, borderRadius:5, padding:"5px 7px", cursor:"pointer", color:hov?color:C.sub, display:"flex", alignItems:"center", transition:"all 0.13s", flexShrink:0 }}>
+      <Icon name={name} size={13} strokeWidth={1.7} />
+    </button>
+  );
+}
+
 function TabProcessos({ processos, setProcessos, toast }) {
   const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [filtroFase, setFiltroFase] = useState("Todos");
-  const [form, setForm] = useState({ numero:"", objeto:"", modalidade:"Pregão Eletrônico", fase:"Planejamento", valor:"", abertura:"", orgao:"" });
-
-  const fases = ["Todos","Planejamento","Publicado","Em andamento","Homologado","Revogado","Suspenso"];
-  const modalidades = ["Pregão Eletrônico","Pregão Presencial","Concorrência","Concurso","Leilão","Diálogo Competitivo","Dispensa","Inexigibilidade"];
+  const [form, setForm] = useState(FORM_PROC_EMPTY);
 
   const filtered = processos.filter(p => {
     const ok = filtroFase==="Todos" || p.fase===filtroFase;
     const s = search.toLowerCase();
-    return ok && (p.numero.toLowerCase().includes(s) || p.objeto.toLowerCase().includes(s) || p.orgao.toLowerCase().includes(s));
+    return ok && (p.numero.toLowerCase().includes(s) || p.objeto.toLowerCase().includes(s) || (p.orgao||"").toLowerCase().includes(s));
   });
+
+  const openNovo = () => { setEditId(null); setForm(FORM_PROC_EMPTY); setModal(true); };
+  const openEdit = (p) => { setEditId(p.id); setForm({ numero:p.numero, objeto:p.objeto, modalidade:p.modalidade, fase:p.fase, valor:String(p.valor||""), abertura:p.abertura||"", orgao:p.orgao||"" }); setModal(true); };
+  const deletar = (id) => { if (!window.confirm("Excluir este processo?")) return; setProcessos(prev=>prev.filter(p=>p.id!==id)); toast("Processo excluído"); };
 
   const salvar = () => {
     if (!form.numero||!form.objeto) { toast("Número e objeto são obrigatórios","error"); return; }
-    setProcessos(prev=>[{ id:uid(), ...form, valor:parseFloat(form.valor)||0 }, ...prev]);
+    if (editId) {
+      setProcessos(prev=>prev.map(p=>p.id===editId?{ ...p, ...form, valor:parseFloat(form.valor)||0 }:p));
+      toast("Processo atualizado!");
+    } else {
+      setProcessos(prev=>[{ id:uid(), ...form, valor:parseFloat(form.valor)||0 }, ...prev]);
+      toast("Processo cadastrado com sucesso!");
+    }
     setModal(false);
-    setForm({ numero:"", objeto:"", modalidade:"Pregão Eletrônico", fase:"Planejamento", valor:"", abertura:"", orgao:"" });
-    toast("Processo cadastrado com sucesso!");
   };
 
   return (
@@ -364,17 +391,17 @@ function TabProcessos({ processos, setProcessos, toast }) {
           style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-        <Select value={filtroFase} onChange={setFiltroFase} options={fases} />
-        <Btn onClick={()=>setModal(true)}>+ Novo Processo</Btn>
+        <Select value={filtroFase} onChange={setFiltroFase} options={["Todos",...FASES_PROC]} />
+        <Btn onClick={openNovo}>+ Novo Processo</Btn>
       </div>
 
-      {filtered.length===0 ? <EmptyState icon="📋" title="Nenhum processo encontrado" sub="Cadastre um novo processo para começar" /> : (
+      {filtered.length===0 ? <EmptyState icon="processos" title="Nenhum processo encontrado" sub="Cadastre um novo processo para começar" /> : (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           {filtered.map((p,i)=>(
-            <div key={p.id} style={{ padding:"14px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", transition:"background 0.12s" }}
+            <div key={p.id} style={{ padding:"13px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", transition:"background 0.12s" }}
               onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1, minWidth:180 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, flexWrap:"wrap" }}>
                     <span style={{ fontSize:14, fontWeight:700, color:C.accent, fontFamily:"'Syne',sans-serif" }}>{p.numero}</span>
@@ -383,9 +410,13 @@ function TabProcessos({ processos, setProcessos, toast }) {
                   <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{p.objeto}</div>
                   <div style={{ fontSize:12, color:C.sub }}>{p.modalidade} · {p.orgao} · Abertura: {fmtDate(p.abertura)}</div>
                 </div>
-                <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:16, fontWeight:700, color:C.text }}>{fmtBRL(p.valor)}</div>
-                  <div style={{ fontSize:11, color:C.sub, marginTop:1 }}>Valor estimado</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ textAlign:"right", marginRight:4 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmtBRL(p.valor)}</div>
+                    <div style={{ fontSize:11, color:C.sub }}>Valor estimado</div>
+                  </div>
+                  <IconBtn name="edit" color={C.accent} title="Editar" onClick={()=>openEdit(p)} />
+                  <IconBtn name="trash" color={C.red} title="Excluir" onClick={()=>deletar(p.id)} />
                 </div>
               </div>
             </div>
@@ -394,16 +425,16 @@ function TabProcessos({ processos, setProcessos, toast }) {
       )}
 
       {modal && (
-        <Modal title="Novo Processo Licitatório" onClose={()=>setModal(false)}>
+        <Modal title={editId?"Editar Processo":"Novo Processo Licitatório"} onClose={()=>setModal(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Input label="Número" value={form.numero} onChange={v=>setForm(f=>({...f,numero:v}))} placeholder="001/2025" required />
-              <Select label="Modalidade" value={form.modalidade} onChange={v=>setForm(f=>({...f,modalidade:v}))} options={modalidades} />
+              <Select label="Modalidade" value={form.modalidade} onChange={v=>setForm(f=>({...f,modalidade:v}))} options={MODALIDADES} />
             </div>
             <Input label="Objeto" value={form.objeto} onChange={v=>setForm(f=>({...f,objeto:v}))} placeholder="Descreva o objeto da licitação" required />
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Input label="Órgão/Setor" value={form.orgao} onChange={v=>setForm(f=>({...f,orgao:v}))} placeholder="Secretaria..." />
-              <Select label="Fase" value={form.fase} onChange={v=>setForm(f=>({...f,fase:v}))} options={["Planejamento","Publicado","Em andamento","Homologado","Revogado","Suspenso"]} />
+              <Select label="Fase" value={form.fase} onChange={v=>setForm(f=>({...f,fase:v}))} options={FASES_PROC} />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Input label="Valor Estimado (R$)" value={form.valor} onChange={v=>setForm(f=>({...f,valor:v}))} type="number" placeholder="0,00" />
@@ -411,7 +442,7 @@ function TabProcessos({ processos, setProcessos, toast }) {
             </div>
             <div style={{ display:"flex", gap:10, marginTop:8, justifyContent:"flex-end" }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
-              <Btn onClick={salvar}>Salvar Processo</Btn>
+              <Btn onClick={salvar}>{editId?"Salvar Alterações":"Salvar Processo"}</Btn>
             </div>
           </div>
         </Modal>
@@ -425,8 +456,10 @@ function TabProcessos({ processos, setProcessos, toast }) {
 ══════════════════════════════════════════════════════════════ */
 function TabAtas({ atas, setAtas, toast }) {
   const [modal, setModal] = useState(false);
+  const [modalItem, setModalItem] = useState(false);
   const [ataAtiva, setAtaAtiva] = useState(null);
   const [form, setForm] = useState({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"" });
+  const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
 
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
@@ -436,24 +469,62 @@ function TabAtas({ atas, setAtas, toast }) {
     toast("Ata registrada com sucesso!");
   };
 
+  const deletarAta = (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Excluir esta ata?")) return;
+    setAtas(prev=>prev.filter(a=>a.id!==id));
+    toast("Ata excluída");
+  };
+
+  const salvarItem = () => {
+    if (!formItem.descricao||!formItem.qtdRegistrada) { toast("Descrição e quantidade são obrigatórios","error"); return; }
+    const qtdReg = parseFloat(formItem.qtdRegistrada)||0;
+    const qtdUtil = parseFloat(formItem.qtdUtilizada)||0;
+    const vUnit = parseFloat(formItem.valorUnit)||0;
+    setAtas(prev=>prev.map(a=>a.id===ataAtiva?{
+      ...a,
+      itens:[...a.itens,{ id:uid(), descricao:formItem.descricao, unidade:formItem.unidade, qtdRegistrada:qtdReg, qtdUtilizada:qtdUtil, valorUnit:vUnit }],
+      saldoDisponivel: a.saldoDisponivel - (qtdUtil*vUnit),
+    }:a));
+    setModalItem(false);
+    setFormItem({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
+    toast("Item adicionado!");
+  };
+
+  const deletarItem = (itemId) => {
+    if (!window.confirm("Remover este item?")) return;
+    setAtas(prev=>prev.map(a=>{
+      if (a.id!==ataAtiva) return a;
+      const it = a.itens.find(i=>i.id===itemId);
+      return { ...a, itens:a.itens.filter(i=>i.id!==itemId), saldoDisponivel:a.saldoDisponivel+(it.qtdUtilizada*it.valorUnit) };
+    }));
+    toast("Item removido");
+  };
+
   if (ataAtiva) {
     const ata = atas.find(a=>a.id===ataAtiva);
     if (!ata) { setAtaAtiva(null); return null; }
-    const pctUsado = ((ata.valorTotal - ata.saldoDisponivel)/ata.valorTotal*100).toFixed(1);
+    const pctUsado = ata.valorTotal>0?((ata.valorTotal - ata.saldoDisponivel)/ata.valorTotal*100).toFixed(1):"0.0";
+    const diasV = diasParaVencer(ata.vigencia);
     return (
       <div>
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
-          <Btn variant="outline" onClick={()=>setAtaAtiva(null)} color={C.sub} size="sm">← Voltar</Btn>
-          <div>
-            <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{ata.numero}</div>
-            <div style={{ fontSize:12, color:C.sub }}>{ata.objeto}</div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={()=>setAtaAtiva(null)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 12px", color:C.sub, cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
+              <Icon name="back" size={13} /> Voltar
+            </button>
+            <div>
+              <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{ata.numero}</div>
+              <div style={{ fontSize:12, color:C.sub }}>{ata.objeto}</div>
+            </div>
           </div>
+          <Btn onClick={()=>setModalItem(true)} color={C.accent2} size="sm">+ Adicionar Item</Btn>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:12, marginBottom:18 }}>
           <KpiCard label="Fornecedor" value={ata.fornecedor.split(" ").slice(0,2).join(" ")} color={C.accent} />
           <KpiCard label="Valor Total" value={fmtBRL(ata.valorTotal)} color={C.accent2} />
           <KpiCard label="Saldo" value={fmtBRL(ata.saldoDisponivel)} sub={`${(100-parseFloat(pctUsado)).toFixed(1)}% disponível`} color={C.green} />
-          <KpiCard label="Vigência" value={fmtDate(ata.vigencia)} sub={`${diasParaVencer(ata.vigencia)} dias`} color={diasParaVencer(ata.vigencia)<30?C.red:C.amber} />
+          <KpiCard label="Vigência" value={fmtDate(ata.vigencia)} sub={diasV!==null?`${diasV} dias`:""} color={diasV!==null&&diasV<30?C.red:C.amber} />
         </div>
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
@@ -461,35 +532,38 @@ function TabAtas({ atas, setAtas, toast }) {
             <span style={{ fontSize:13, color:C.accent, fontWeight:600 }}>{pctUsado}% utilizado</span>
           </div>
           <div style={{ background:C.subtle, borderRadius:4, height:6, overflow:"hidden" }}>
-            <div style={{ width:`${pctUsado}%`, height:"100%", background:C.accent, borderRadius:4, transition:"width 0.6s" }} />
+            <div style={{ width:`${pctUsado}%`, height:"100%", background:parseFloat(pctUsado)>80?C.red:C.accent, borderRadius:4, transition:"width 0.6s" }} />
           </div>
         </div>
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}`, fontSize:13, fontWeight:600, color:C.text }}>Itens da Ata</div>
-          {(!ata.itens?.length) ? <EmptyState icon="📦" title="Sem itens cadastrados" sub="" /> : (
+          {(!ata.itens?.length) ? <EmptyState icon="file" title="Sem itens cadastrados" sub="Adicione itens para controlar o saldo da ata" /> : (
             <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:520 }}>
                 <thead>
                   <tr style={{ background:C.overlay }}>
-                    {["Descrição","Unidade","Qtd Reg.","Qtd Util.","Vlr Unit.","Saldo"].map(h=>(
-                      <th key={h} style={{ padding:"9px 16px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", whiteSpace:"nowrap", textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</th>
+                    {["Descrição","Un.","Qtd Reg.","Qtd Util.","Vlr Unit.","Saldo",""].map(h=>(
+                      <th key={h} style={{ padding:"9px 14px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", whiteSpace:"nowrap", textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {ata.itens.map((it,i)=>{
+                  {ata.itens.map((it)=>{
                     const saldo = it.qtdRegistrada - it.qtdUtilizada;
-                    const pct = (it.qtdUtilizada/it.qtdRegistrada*100).toFixed(0);
+                    const pct = it.qtdRegistrada>0?(it.qtdUtilizada/it.qtdRegistrada*100).toFixed(0):"0";
                     return (
                       <tr key={it.id} style={{ borderBottom:`1px solid ${C.border}`, transition:"background 0.1s" }}
                         onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
                         onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                        <td style={{ padding:"11px 16px", fontSize:13, fontWeight:500, color:C.text }}>{it.descricao}</td>
-                        <td style={{ padding:"11px 16px", fontSize:12, color:C.sub }}>{it.unidade}</td>
-                        <td style={{ padding:"11px 16px", fontSize:13, color:C.text }}>{it.qtdRegistrada.toLocaleString("pt-BR")}</td>
-                        <td style={{ padding:"11px 16px", fontSize:13, color:C.gold }}>{it.qtdUtilizada.toLocaleString("pt-BR")} <span style={{fontSize:11,color:C.sub}}>({pct}%)</span></td>
-                        <td style={{ padding:"11px 16px", fontSize:13, color:C.accent2, fontWeight:500 }}>{fmtBRL(it.valorUnit)}</td>
-                        <td style={{ padding:"11px 16px", fontSize:13, color:saldo<it.qtdRegistrada*0.1?C.red:C.green, fontWeight:600 }}>{saldo.toLocaleString("pt-BR")}</td>
+                        <td style={{ padding:"11px 14px", fontSize:13, fontWeight:500, color:C.text }}>{it.descricao}</td>
+                        <td style={{ padding:"11px 14px", fontSize:12, color:C.sub }}>{it.unidade}</td>
+                        <td style={{ padding:"11px 14px", fontSize:13, color:C.text }}>{it.qtdRegistrada.toLocaleString("pt-BR")}</td>
+                        <td style={{ padding:"11px 14px", fontSize:13, color:C.gold }}>{it.qtdUtilizada.toLocaleString("pt-BR")} <span style={{fontSize:11,color:C.sub}}>({pct}%)</span></td>
+                        <td style={{ padding:"11px 14px", fontSize:13, color:C.accent2, fontWeight:500 }}>{fmtBRL(it.valorUnit)}</td>
+                        <td style={{ padding:"11px 14px", fontSize:13, color:saldo<it.qtdRegistrada*0.1?C.red:C.green, fontWeight:600 }}>{saldo.toLocaleString("pt-BR")}</td>
+                        <td style={{ padding:"11px 14px" }}>
+                          <IconBtn name="trash" color={C.red} title="Remover item" onClick={()=>deletarItem(it.id)} />
+                        </td>
                       </tr>
                     );
                   })}
@@ -498,6 +572,25 @@ function TabAtas({ atas, setAtas, toast }) {
             </div>
           )}
         </div>
+        {modalItem && (
+          <Modal title="Adicionar Item à Ata" onClose={()=>setModalItem(false)}>
+            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+              <Input label="Descrição do Item" value={formItem.descricao} onChange={v=>setFormItem(f=>({...f,descricao:v}))} placeholder="Descrição completa" required />
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <Input label="Unidade" value={formItem.unidade} onChange={v=>setFormItem(f=>({...f,unidade:v}))} placeholder="Un, Kg, L..." />
+                <Input label="Valor Unitário (R$)" value={formItem.valorUnit} onChange={v=>setFormItem(f=>({...f,valorUnit:v}))} type="number" placeholder="0,00" />
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <Input label="Qtd. Registrada" value={formItem.qtdRegistrada} onChange={v=>setFormItem(f=>({...f,qtdRegistrada:v}))} type="number" required />
+                <Input label="Qtd. Já Utilizada" value={formItem.qtdUtilizada} onChange={v=>setFormItem(f=>({...f,qtdUtilizada:v}))} type="number" placeholder="0" />
+              </div>
+              <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+                <Btn variant="outline" onClick={()=>setModalItem(false)} color={C.sub}>Cancelar</Btn>
+                <Btn onClick={salvarItem} color={C.accent2}>Adicionar Item</Btn>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     );
   }
@@ -507,11 +600,11 @@ function TabAtas({ atas, setAtas, toast }) {
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
         <Btn onClick={()=>setModal(true)} color={C.accent2}>+ Nova Ata de RP</Btn>
       </div>
-      {atas.length===0 ? <EmptyState icon="📜" title="Nenhuma Ata cadastrada" sub="Registre uma Ata de Registro de Preços" /> : (
+      {atas.length===0 ? <EmptyState icon="atas" title="Nenhuma Ata cadastrada" sub="Registre uma Ata de Registro de Preços" /> : (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           {atas.map((a,i)=>{
             const d = diasParaVencer(a.vigencia);
-            const pct = ((a.valorTotal-a.saldoDisponivel)/a.valorTotal*100).toFixed(0);
+            const pct = a.valorTotal>0?((a.valorTotal-a.saldoDisponivel)/a.valorTotal*100).toFixed(0):"0";
             return (
               <div key={a.id} onClick={()=>setAtaAtiva(a.id)}
                 style={{ padding:"14px 18px", borderBottom:i<atas.length-1?`1px solid ${C.border}`:"none", cursor:"pointer", transition:"background 0.12s" }}
@@ -526,14 +619,17 @@ function TabAtas({ atas, setAtas, toast }) {
                     <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{a.objeto}</div>
                     <div style={{ fontSize:12, color:C.sub }}>{a.fornecedor} · CNPJ {a.cnpj} · Vigência: {fmtDate(a.vigencia)}</div>
                   </div>
-                  <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:16, fontWeight:700, color:C.green }}>{fmtBRL(a.saldoDisponivel)}</div>
-                    <div style={{ fontSize:11, color:C.sub }}>saldo disponível</div>
-                    <div style={{ fontSize:11, color:C.gold, marginTop:1 }}>{pct}% utilizado</div>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:15, fontWeight:700, color:C.green }}>{fmtBRL(a.saldoDisponivel)}</div>
+                      <div style={{ fontSize:11, color:C.sub }}>saldo disponível</div>
+                      <div style={{ fontSize:11, color:C.gold, marginTop:1 }}>{pct}% utilizado</div>
+                    </div>
+                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={(e)=>deletarAta(a.id,e)} />
                   </div>
                 </div>
                 <div style={{ marginTop:10, background:C.subtle, borderRadius:3, height:3, overflow:"hidden" }}>
-                  <div style={{ width:`${pct}%`, height:"100%", background:C.accent2 }} />
+                  <div style={{ width:`${pct}%`, height:"100%", background:parseFloat(pct)>80?C.red:C.accent2 }} />
                 </div>
               </div>
             );
@@ -567,11 +663,14 @@ function TabAtas({ atas, setAtas, toast }) {
 /* ══════════════════════════════════════════════════════════════
    CONTRATOS
 ══════════════════════════════════════════════════════════════ */
+const FORM_CT_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", valor:"", inicio:"", fim:"", processo:"" };
+
 function TabContratos({ contratos, setContratos, toast }) {
   const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState("Todos");
-  const [form, setForm] = useState({ numero:"", objeto:"", fornecedor:"", cnpj:"", valor:"", inicio:"", fim:"", processo:"" });
+  const [form, setForm] = useState(FORM_CT_EMPTY);
 
   const filtered = contratos.filter(c=>{
     const ok = filtro==="Todos" || c.status===filtro;
@@ -588,13 +687,27 @@ function TabContratos({ contratos, setContratos, toast }) {
     return { ...c, status, diasRestantes: d };
   });
 
+  const openNovo = () => { setEditId(null); setForm(FORM_CT_EMPTY); setModal(true); };
+  const openEdit = (c) => {
+    setEditId(c.id);
+    setForm({ numero:c.numero, objeto:c.objeto, fornecedor:c.fornecedor, cnpj:c.cnpj||"", valor:String(c.valor||""), inicio:c.inicio||"", fim:c.fim||"", processo:c.processo||"" });
+    setModal(true);
+  };
+  const deletar = (id) => { if (!window.confirm("Excluir este contrato?")) return; setContratos(prev=>prev.filter(c=>c.id!==id)); toast("Contrato excluído"); };
+
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
-    setContratos(prev=>[{ id:uid(), ...form, valor:parseFloat(form.valor)||0, status:"Vigente" }, ...prev]);
+    if (editId) {
+      setContratos(prev=>prev.map(c=>c.id===editId?{ ...c, ...form, valor:parseFloat(form.valor)||0 }:c));
+      toast("Contrato atualizado!");
+    } else {
+      setContratos(prev=>[{ id:uid(), ...form, valor:parseFloat(form.valor)||0, status:"Vigente" }, ...prev]);
+      toast("Contrato cadastrado!");
+    }
     setModal(false);
-    setForm({ numero:"", objeto:"", fornecedor:"", cnpj:"", valor:"", inicio:"", fim:"", processo:"" });
-    toast("Contrato cadastrado!");
   };
+
+  const borderColor = (status) => status==="A vencer"?C.gold:status==="Vencido"?C.red:status==="Vigente"?C.green:"transparent";
 
   return (
     <div>
@@ -604,16 +717,16 @@ function TabContratos({ contratos, setContratos, toast }) {
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
         <Select value={filtro} onChange={setFiltro} options={["Todos","Vigente","A vencer","Encerrado","Vencido"]} />
-        <Btn onClick={()=>setModal(true)} color={C.green}>+ Novo Contrato</Btn>
+        <Btn onClick={openNovo} color={C.green}>+ Novo Contrato</Btn>
       </div>
 
-      {filtered.length===0 ? <EmptyState icon="📄" title="Nenhum contrato encontrado" sub="Cadastre contratos para acompanhar sua vigência" /> : (
+      {filtered.length===0 ? <EmptyState icon="contratos" title="Nenhum contrato encontrado" sub="Cadastre contratos para acompanhar sua vigência" /> : (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           {filtered.map((c,i)=>(
-            <div key={c.id} style={{ padding:"14px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${c.status==="A vencer"?C.gold:c.status==="Vencido"?C.red:c.status==="Vigente"?C.green:"transparent"}`, transition:"background 0.12s" }}
+            <div key={c.id} style={{ padding:"13px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${borderColor(c.status)}`, transition:"background 0.12s" }}
               onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                     <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
@@ -631,8 +744,12 @@ function TabContratos({ contratos, setContratos, toast }) {
                     )}
                   </div>
                 </div>
-                <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:16, fontWeight:700, color:C.text }}>{fmtBRL(c.valor)}</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ textAlign:"right", marginRight:4 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmtBRL(c.valor)}</div>
+                  </div>
+                  <IconBtn name="edit" color={C.accent} title="Editar" onClick={()=>openEdit(c)} />
+                  <IconBtn name="trash" color={C.red} title="Excluir" onClick={()=>deletar(c.id)} />
                 </div>
               </div>
             </div>
@@ -641,7 +758,7 @@ function TabContratos({ contratos, setContratos, toast }) {
       )}
 
       {modal && (
-        <Modal title="Novo Contrato" onClose={()=>setModal(false)}>
+        <Modal title={editId?"Editar Contrato":"Novo Contrato"} onClose={()=>setModal(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Input label="Número do Contrato" value={form.numero} onChange={v=>setForm(f=>({...f,numero:v}))} placeholder="CT 001/2025" required />
@@ -659,7 +776,7 @@ function TabContratos({ contratos, setContratos, toast }) {
             </div>
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
-              <Btn onClick={salvar} color={C.green}>Salvar Contrato</Btn>
+              <Btn onClick={salvar} color={C.green}>{editId?"Salvar Alterações":"Salvar Contrato"}</Btn>
             </div>
           </div>
         </Modal>
@@ -807,16 +924,17 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
         <Btn onClick={()=>{ resetForm(); setModal("nova"); }} color={C.accent}>+ Nova Pesquisa de Preços</Btn>
       </div>
 
-      {cotacoes.length===0 ? <EmptyState icon="💰" title="Nenhuma cotação cadastrada" sub="Crie uma pesquisa de preços conforme Lei 14.133/2021" /> : (
+      {cotacoes.length===0 ? <EmptyState icon="cotacoes" title="Nenhuma cotação cadastrada" sub="Crie uma pesquisa de preços conforme Lei 14.133/2021" /> : (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           {cotacoes.map((c,i)=>(
-            <div key={c.id} onClick={()=>setCotAtiva(c.id)}
-              style={{ padding:"14px 18px", borderBottom:i<cotacoes.length-1?`1px solid ${C.border}`:"none", cursor:"pointer", transition:"background 0.12s" }}
+            <div key={c.id}
+              style={{ padding:"13px 18px", borderBottom:i<cotacoes.length-1?`1px solid ${C.border}`:"none", transition:"background 0.12s", cursor:"pointer" }}
+              onClick={()=>setCotAtiva(c.id)}
               onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
-                <div>
-                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                     <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
                     <Badge label={c.status} />
                   </div>
@@ -826,7 +944,10 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                     {c.processo && ` · Proc. ${c.processo}`}
                   </div>
                 </div>
-                <div style={{ fontSize:12, color:C.accent, fontWeight:500, alignSelf:"center" }}>Ver mapa →</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:12, color:C.accent, fontWeight:500 }}>Ver mapa →</span>
+                  <IconBtn name="trash" color={C.red} title="Excluir cotação" onClick={()=>{ if(window.confirm("Excluir esta cotação?")) { setCotacoes(p=>p.filter(x=>x.id!==c.id)); toast("Cotação excluída"); } }} />
+                </div>
               </div>
             </div>
           ))}
