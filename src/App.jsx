@@ -320,7 +320,7 @@ function SetupScreen({ onReady }) {
 
   const salvar = async () => {
     const k = key.trim();
-    if (!k || !k.startsWith("eyJ")) { setErr("Cole a chave anon/public do Supabase (começa com eyJ...)"); return; }
+    if (!k || (!k.startsWith("eyJ") && !k.startsWith("sb_"))) { setErr("Chave inválida. Cole a anon/public key do painel Supabase."); return; }
     setLoading(true); setErr("");
     try {
       saveAnonKey(k);
