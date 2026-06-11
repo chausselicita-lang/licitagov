@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 
 /* ═══════════════════════════════════════════════════════════════
    LICITAGOV — Sistema de Gestão de Licitações Públicas
@@ -74,6 +75,11 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     edit:       <><path d="M11 4H4a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
     trash:      <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>,
     copy:       <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4c0-1.1.9-2 2-2h9a2 2 0 0 1 2 2v1"/></>,
+    globe:      <><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>,
+    sparkle:    <><path d="M12 2L9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/></>,
+    logout:     <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
+    lock:       <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+    mail:       <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -277,6 +283,255 @@ function KpiCard({ label, value, sub, color=C.accent }) {
       <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
       <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif", lineHeight:1.1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
       {sub && <div style={{ fontSize:12, color:C.sub, marginTop:6 }}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ── GLOBAL STYLES ─────────────────────────────────────────── */
+function GlobalStyles() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
+      *{box-sizing:border-box;margin:0;padding:0;}
+      ::-webkit-scrollbar{width:5px;height:5px;}
+      ::-webkit-scrollbar-track{background:#f4f5f7;}
+      ::-webkit-scrollbar-thumb{background:#ced2d8;border-radius:3px;}
+      ::-webkit-scrollbar-thumb:hover{background:#b5bac2;}
+      button,input,select,textarea{font-family:inherit;}
+      input::placeholder,textarea::placeholder{color:#9ca3af;}
+      select option{background:#ffffff;color:#111827;}
+      @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+      @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+      @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      @media print{
+        .no-print{display:none!important;}
+        body{background:#fff!important;color:#000!important;}
+      }
+    `}</style>
+  );
+}
+
+/* ── SETUP SCREEN (configura Supabase na 1ª vez) ─────────── */
+function SetupScreen({ onReady }) {
+  const [key, setKey] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const salvar = async () => {
+    const k = key.trim();
+    if (!k || !k.startsWith("eyJ")) { setErr("Cole a chave anon/public do Supabase (começa com eyJ...)"); return; }
+    setLoading(true); setErr("");
+    try {
+      saveAnonKey(k);
+      const sb = getSupabase();
+      await sb.auth.getSession();
+      onReady();
+    } catch {
+      setErr("Chave inválida ou projeto inacessível. Verifique no painel Supabase.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
+      <GlobalStyles />
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"36px 40px", maxWidth:480, width:"100%", boxShadow:"0 8px 32px rgba(0,0,0,0.10)", animation:"fadeUp 0.3s ease" }}>
+        <div style={{ marginBottom:28, textAlign:"center" }}>
+          <div style={{ fontSize:22, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>
+            Licita<span style={{color:C.accent}}>Gov</span>
+          </div>
+          <div style={{ fontSize:13, color:C.sub }}>Configuração inicial — conexão Supabase</div>
+        </div>
+        <div style={{ background:C.accentSubtle, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"12px 16px", fontSize:13, color:C.accent, marginBottom:20, lineHeight:1.6 }}>
+          Acesse <strong>supabase.com/dashboard/project/zigghtvlmftgjlohuhla/settings/api</strong> e copie a <strong>anon public key</strong>.
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Chave Anon Public</label>
+          <input value={key} onChange={e=>setKey(e.target.value)} type="password" placeholder="eyJhbGciOiJIUzI1NiIs..."
+            style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"10px 12px", color:C.text, fontSize:13, outline:"none", transition:"border-color 0.14s" }}
+            onFocus={e=>{ e.target.style.borderColor=C.accent; }}
+            onBlur={e=>{ e.target.style.borderColor=C.border; }}
+            onKeyDown={e=>e.key==="Enter"&&salvar()} />
+          {err && <div style={{ fontSize:12, color:C.red }}>{err}</div>}
+          <button onClick={salvar} disabled={loading}
+            style={{ marginTop:8, background:C.accent, color:"#fff", border:"none", borderRadius:6, padding:"11px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s" }}>
+            {loading ? "Verificando..." : "Conectar e Entrar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── LOGIN SCREEN ───────────────────────────────────────────── */
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [resetMode, setResetMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const isMobile = window.innerWidth < 768;
+
+  const entrar = async () => {
+    if (!email || !senha) { setErr("Preencha e-mail e senha."); return; }
+    setLoading(true); setErr("");
+    try {
+      const sb = getSupabase();
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+      onLogin(data.session);
+    } catch (e) {
+      setErr(e.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : e.message);
+    } finally { setLoading(false); }
+  };
+
+  const enviarReset = async () => {
+    if (!email) { setErr("Digite seu e-mail para recuperação."); return; }
+    setLoading(true); setErr("");
+    try {
+      const sb = getSupabase();
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+      if (error) throw error;
+      setResetSent(true);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const inputStyle = {
+    background: C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+    padding:"11px 14px", color:C.text, fontSize:14, outline:"none",
+    width:"100%", transition:"border-color 0.14s, box-shadow 0.14s",
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", fontFamily:"'DM Sans',sans-serif" }}>
+      <GlobalStyles />
+
+      {/* Painel esquerdo — identidade */}
+      {!isMobile && (
+        <div style={{ width:"45%", background:"linear-gradient(150deg, #1a56db 0%, #1344b8 60%, #0f3799 100%)", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"60px 48px", color:"#fff", position:"relative", overflow:"hidden" }}>
+          <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
+          <div style={{ position:"absolute", bottom:-80, left:-40, width:220, height:220, borderRadius:"50%", background:"rgba(255,255,255,0.07)" }} />
+          <div style={{ position:"relative", textAlign:"center", maxWidth:320 }}>
+            <div style={{ fontSize:36, fontWeight:800, fontFamily:"'Syne',sans-serif", letterSpacing:-1, marginBottom:16 }}>
+              Licita<span style={{color:"#93c5fd"}}>Gov</span>
+            </div>
+            <div style={{ fontSize:20, fontWeight:700, marginBottom:12, lineHeight:1.3 }}>
+              Gestão de Licitações Públicas
+            </div>
+            <div style={{ fontSize:14, opacity:0.75, lineHeight:1.7, marginBottom:40 }}>
+              Lei 14.133/2021 · IN SEGES 65/2021<br/>
+              Pregão · Concorrência · Ata de RP<br/>
+              Contratos · Pesquisa de Preços com IA
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10, textAlign:"left" }}>
+              {["Controle de processos licitatórios","Atas de Registro de Preços","Pesquisa de preços via IA","Alertas de vencimento"].map(item => (
+                <div key={item} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, opacity:0.85 }}>
+                  <div style={{ width:6, height:6, borderRadius:3, background:"#93c5fd", flexShrink:0 }} />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Painel direito — formulário */}
+      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:C.bg, padding:isMobile?"24px":"48px" }}>
+        <div style={{ width:"100%", maxWidth:380, animation:"fadeUp 0.3s ease" }}>
+          {isMobile && (
+            <div style={{ textAlign:"center", marginBottom:32 }}>
+              <div style={{ fontSize:26, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.text }}>
+                Licita<span style={{color:C.accent}}>Gov</span>
+              </div>
+              <div style={{ fontSize:13, color:C.sub, marginTop:4 }}>Gestão de Licitações Públicas</div>
+            </div>
+          )}
+
+          {resetSent ? (
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:16, fontWeight:600, color:C.text, marginBottom:8 }}>E-mail enviado!</div>
+              <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Verifique sua caixa de entrada para redefinir a senha.</div>
+              <button onClick={()=>{ setResetMode(false); setResetSent(false); }} style={{ color:C.accent, background:"none", border:"none", cursor:"pointer", fontSize:13, fontWeight:500 }}>
+                ← Voltar ao login
+              </button>
+            </div>
+          ) : resetMode ? (
+            <div>
+              <div style={{ fontSize:20, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>Recuperar senha</div>
+              <div style={{ fontSize:13, color:C.sub, marginBottom:24 }}>Informe seu e-mail para receber o link de redefinição.</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>E-mail</label>
+                  <div style={{ position:"relative" }}>
+                    <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.tertiary }}>
+                      <Icon name="mail" size={15} />
+                    </div>
+                    <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="seu@email.gov.br"
+                      style={{...inputStyle, paddingLeft:38}}
+                      onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                      onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+                  </div>
+                </div>
+                {err && <div style={{ fontSize:12, color:C.red, background:"rgba(220,38,38,0.06)", padding:"8px 12px", borderRadius:6 }}>{err}</div>}
+                <button onClick={enviarReset} disabled={loading}
+                  style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s" }}>
+                  {loading ? "Enviando..." : "Enviar link de recuperação"}
+                </button>
+                <button onClick={()=>{ setResetMode(false); setErr(""); }} style={{ color:C.sub, background:"none", border:"none", cursor:"pointer", fontSize:13, textAlign:"center" }}>
+                  ← Voltar ao login
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize:20, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>Bem-vindo</div>
+              <div style={{ fontSize:13, color:C.sub, marginBottom:28 }}>Entre com suas credenciais para acessar o sistema.</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>E-mail institucional</label>
+                  <div style={{ position:"relative" }}>
+                    <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.tertiary }}>
+                      <Icon name="mail" size={15} />
+                    </div>
+                    <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="seu@prefeitura.gov.br"
+                      style={{...inputStyle, paddingLeft:38}}
+                      onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                      onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+                      onKeyDown={e=>e.key==="Enter"&&entrar()} />
+                  </div>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Senha</label>
+                  <div style={{ position:"relative" }}>
+                    <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.tertiary }}>
+                      <Icon name="lock" size={15} />
+                    </div>
+                    <input value={senha} onChange={e=>setSenha(e.target.value)} type="password" placeholder="••••••••"
+                      style={{...inputStyle, paddingLeft:38}}
+                      onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                      onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+                      onKeyDown={e=>e.key==="Enter"&&entrar()} />
+                  </div>
+                </div>
+                {err && <div style={{ fontSize:12, color:C.red, background:"rgba(220,38,38,0.06)", padding:"8px 12px", borderRadius:6, border:"1px solid rgba(220,38,38,0.15)" }}>{err}</div>}
+                <button onClick={entrar} disabled={loading}
+                  style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s", marginTop:4, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+                  {loading ? (
+                    <><div style={{ width:16, height:16, border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"#fff", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Entrando...</>
+                  ) : "Entrar"}
+                </button>
+                <div style={{ textAlign:"center" }}>
+                  <button onClick={()=>{ setResetMode(true); setErr(""); }} style={{ color:C.sub, background:"none", border:"none", cursor:"pointer", fontSize:12 }}>
+                    Esqueci minha senha
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -786,8 +1041,13 @@ function TabContratos({ contratos, setContratos, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   COTAÇÕES
+   COTAÇÕES — inclui pesquisa automática via IA
 ══════════════════════════════════════════════════════════════ */
+
+const SYSTEM_PESQUISA = `Você é especialista em pesquisa de preços para licitações públicas brasileiras (Lei 14.133/2021 e IN SEGES 65/2021). Para o objeto informado, pesquise preços reais de mercado em no mínimo 3 fontes distintas (e-commerce, PNCP, Comprasnet, BEC, distribuidoras, fabricantes). Retorne SOMENTE o seguinte JSON sem markdown, sem explicação, sem bloco de código:
+{"fontes":[{"descricao":"","valor_unitario":0.00,"fornecedor":"","url":""}],"mediana":0.00,"valor_referencia":0.00,"precos_inexequiveis":[],"precos_excessivos":[],"texto_mapa_precos":""}
+O campo texto_mapa_precos deve ser o texto formal do Mapa de Preços para instrução do processo licitatório, fundamentado na Lei 14.133/2021 art. 23 e IN SEGES 65/2021, citando as fontes consultadas e a mediana calculada.`;
+
 function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const [modal, setModal] = useState(null);
   const [cotAtiva, setCotAtiva] = useState(null);
@@ -795,6 +1055,12 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const [form, setForm] = useState({ numero:"", objeto:"", processo:"" });
   const [fornecedores, setFornecedores] = useState([{ id:"f1",razao:"",cnpj:"" },{ id:"f2",razao:"",cnpj:"" },{ id:"f3",razao:"",cnpj:"" }]);
   const [itens, setItens] = useState([{ id:"it1", descricao:"", unidade:"", qtd:"", valores:{} }]);
+
+  // ── Pesquisa IA ─────────────────────────────────────────────
+  const [objetoIA, setObjetoIA] = useState("");
+  const [loadingIA, setLoadingIA] = useState(false);
+  const [resultadoIA, setResultadoIA] = useState(null);
+  const [mostrarTextoIA, setMostrarTextoIA] = useState(false);
 
   const addFornecedor = () => setFornecedores(p=>[...p,{ id:uid(), razao:"", cnpj:"" }]);
   const remFornecedor = id => setFornecedores(p=>p.filter(f=>f.id!==id));
@@ -811,6 +1077,75 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     setStep(1);
   };
 
+  const pesquisarIA = async () => {
+    if (!objetoIA.trim()) { toast("Digite o objeto da licitação","error"); return; }
+    const apiKey = localStorage.getItem("licitagov_claude_key");
+    if (!apiKey) { toast("Configure a API Key Claude na aba 'IA Claude'","warn"); return; }
+    setLoadingIA(true); setResultadoIA(null);
+    try {
+      const headers = {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "web-search-2025-03-05",
+        "content-type": "application/json",
+        "anthropic-dangerous-allow-browser": "true",
+      };
+      let messages = [{ role:"user", content:`Pesquise preços de mercado para licitação pública — objeto: ${objetoIA.trim()}` }];
+      let finalText = "";
+      for (let iter = 0; iter < 6; iter++) {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method:"POST", headers,
+          body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:4096, tools:[{ type:"web_search_20250305", name:"web_search" }], system:SYSTEM_PESQUISA, messages }),
+        });
+        if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.error?.message||`HTTP ${res.status}`); }
+        const json = await res.json();
+        const texts = (json.content||[]).filter(b=>b.type==="text").map(b=>b.text);
+        if (texts.length) finalText = texts.join("\n");
+        if (json.stop_reason === "end_turn") break;
+        if (json.stop_reason === "tool_use") {
+          messages.push({ role:"assistant", content:json.content });
+          const tus = (json.content||[]).filter(b=>b.type==="tool_use");
+          messages.push({ role:"user", content:tus.map(tu=>({ type:"tool_result", tool_use_id:tu.id, content:"Pesquisa executada." })) });
+        } else break;
+      }
+      const m = finalText.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("IA não retornou JSON válido. Tente novamente.");
+      const r = JSON.parse(m[0]);
+      if (!r.fontes?.length) throw new Error("Nenhum preço encontrado. Reformule o objeto e tente novamente.");
+      const vals = r.fontes.map(f=>parseFloat(f.valor_unitario)||0).filter(v=>v>0);
+      r.mediana = calcMediana(vals);
+      r.valor_referencia = r.mediana;
+      r.precos_inexequiveis = vals.filter(v=>v < r.mediana*0.70);
+      r.precos_excessivos   = vals.filter(v=>v > r.mediana*1.30);
+      setResultadoIA(r);
+    } catch(err) {
+      toast(`Erro: ${err.message}`,"error");
+    } finally { setLoadingIA(false); }
+  };
+
+  const confirmarIA = () => {
+    if (!resultadoIA) return;
+    const n = cotacoes.length+1;
+    const fornFormatados = resultadoIA.fontes.map((f,i)=>({ id:`fia${i+1}`, razao:f.fornecedor||`Fornecedor ${i+1}`, cnpj:"" }));
+    const valoresItem = Object.fromEntries(resultadoIA.fontes.map((f,i)=>[`fia${i+1}`, parseFloat(f.valor_unitario)||0]));
+    setCotacoes(prev=>[{
+      id:uid(),
+      numero:`COT-IA ${String(n).padStart(3,"0")}/${new Date().getFullYear()}`,
+      objeto:objetoIA.trim(),
+      processo:"",
+      status:"Finalizada",
+      dataCriacao:hoje(),
+      geradoPorIA:true,
+      fontes_ia:resultadoIA.fontes,
+      mediana:resultadoIA.mediana,
+      texto_mapa_precos:resultadoIA.texto_mapa_precos,
+      fornecedores:fornFormatados,
+      itens:[{ id:"it1", descricao:objetoIA.trim(), unidade:"Un", qtd:"1", valores:valoresItem }],
+    },...prev]);
+    setResultadoIA(null); setObjetoIA("");
+    toast("Cotação salva com mapa de preços gerado pela IA!");
+  };
+
   const salvarCotacao = () => {
     if (!form.numero||!form.objeto) { toast("Número e objeto são obrigatórios","error"); return; }
     const fornsValidos = fornecedores.filter(f=>f.razao.trim());
@@ -821,6 +1156,127 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     setModal(null); resetForm();
     toast("Cotação finalizada — mapa de preços gerado!");
   };
+
+  // ── Tela de resultado IA ──────────────────────────────────
+  if (resultadoIA) {
+    const { fontes, mediana, precos_inexequiveis, precos_excessivos, texto_mapa_precos } = resultadoIA;
+    return (
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>Resultado da Pesquisa IA</div>
+            <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>{objetoIA}</div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <Btn variant="outline" color={C.sub} size="sm" onClick={()=>setResultadoIA(null)}>← Refazer</Btn>
+            <Btn color={C.green} size="sm" onClick={confirmarIA}>Confirmar e Salvar Cotação</Btn>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))", gap:10 }}>
+          <KpiCard label="Fontes Pesquisadas" value={fontes.length} color={C.accent} />
+          <KpiCard label="Mediana (Ref.)" value={fmtBRL(mediana)} sub="IN SEGES 65/2021" color={C.gold} />
+          <KpiCard label="Inexequíveis" value={precos_inexequiveis.length} sub="< 70% da mediana" color={precos_inexequiveis.length?C.red:C.green} />
+          <KpiCard label="Excessivos" value={precos_excessivos.length} sub="> 130% da mediana" color={precos_excessivos.length?C.red:C.green} />
+        </div>
+
+        {/* Tabela de fontes */}
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}`, fontSize:13, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="globe" size={14} color={C.accent} /> Fontes de Preço Pesquisadas
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
+              <thead>
+                <tr style={{ background:C.overlay }}>
+                  {["Descrição","Fornecedor/Plataforma","Vlr. Unit.","Status","Fonte"].map(h=>(
+                    <th key={h} style={{ padding:"9px 14px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {fontes.map((f,i)=>{
+                  const v = parseFloat(f.valor_unitario)||0;
+                  const isInex = v>0 && v < mediana*0.70;
+                  const isExcess = v>0 && v > mediana*1.30;
+                  const isMin = v>0 && v===Math.min(...fontes.map(x=>parseFloat(x.valor_unitario)||0).filter(x=>x>0));
+                  return (
+                    <tr key={i} style={{ borderBottom:`1px solid ${C.border}` }}>
+                      <td style={{ padding:"11px 14px", fontSize:13, color:C.text, maxWidth:220, wordBreak:"break-word" }}>{f.descricao||objetoIA}</td>
+                      <td style={{ padding:"11px 14px", fontSize:13, color:C.text, fontWeight:500 }}>{f.fornecedor}</td>
+                      <td style={{ padding:"11px 14px", fontSize:13, fontWeight:700, color:isMin?C.green:C.text, whiteSpace:"nowrap" }}>{fmtBRL(v)}</td>
+                      <td style={{ padding:"11px 14px" }}>
+                        {isInex && <Badge label="Inexequível" color={C.red} />}
+                        {isExcess && <Badge label="Excessivo" color={C.gold} />}
+                        {!isInex && !isExcess && <Badge label="Regular" color={C.green} />}
+                      </td>
+                      <td style={{ padding:"11px 14px" }}>
+                        {f.url ? (
+                          <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color:C.accent, fontSize:12, textDecoration:"none" }}
+                            onMouseEnter={e=>e.target.style.textDecoration="underline"}
+                            onMouseLeave={e=>e.target.style.textDecoration="none"}>
+                            Ver fonte ↗
+                          </a>
+                        ) : <span style={{ fontSize:12, color:C.tertiary }}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Linha da Mediana */}
+                <tr style={{ background:C.accentSubtle, borderTop:`2px solid ${C.accentBorder}` }}>
+                  <td colSpan={2} style={{ padding:"11px 14px", fontSize:12, fontWeight:700, color:C.accent, textTransform:"uppercase", letterSpacing:"0.04em" }}>
+                    Mediana — Valor de Referência (art. 23 Lei 14.133/2021)
+                  </td>
+                  <td colSpan={3} style={{ padding:"11px 14px", fontSize:16, fontWeight:800, color:C.gold }}>
+                    {fmtBRL(mediana)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Alertas */}
+        {(precos_inexequiveis.length > 0 || precos_excessivos.length > 0) && (
+          <div style={{ background:"rgba(220,38,38,0.05)", border:`1px solid rgba(220,38,38,0.15)`, borderRadius:8, padding:"13px 16px", display:"flex", gap:8, alignItems:"flex-start" }}>
+            <Icon name="warning" size={15} color={C.red} />
+            <div style={{ fontSize:13, color:C.red, lineHeight:1.6 }}>
+              {precos_inexequiveis.length>0 && <><strong>Preços inexequíveis detectados</strong> (abaixo de 70% da mediana — {precos_inexequiveis.map(v=>fmtBRL(v)).join(", ")}). Verificar antes de usar na pesquisa.<br/></>}
+              {precos_excessivos.length>0 && <><strong>Preços excessivos detectados</strong> (acima de 130% da mediana — {precos_excessivos.map(v=>fmtBRL(v)).join(", ")}). Podem ser excluídos da amostra.</>}
+            </div>
+          </div>
+        )}
+
+        {/* Texto do mapa de preços */}
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:13, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:8 }}>
+              <Icon name="file" size={14} color={C.accent} /> Texto do Mapa de Preços
+            </span>
+            <button onClick={()=>setMostrarTextoIA(s=>!s)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:5, padding:"4px 10px", fontSize:12, color:C.sub, cursor:"pointer" }}>
+              {mostrarTextoIA ? "Recolher" : "Expandir"}
+            </button>
+          </div>
+          {mostrarTextoIA && (
+            <div style={{ padding:"16px 18px", fontSize:13, color:C.text, lineHeight:1.9, whiteSpace:"pre-wrap", maxHeight:400, overflowY:"auto" }}>
+              {texto_mapa_precos}
+            </div>
+          )}
+          {!mostrarTextoIA && (
+            <div style={{ padding:"12px 18px", fontSize:13, color:C.sub, fontStyle:"italic" }}>
+              Clique em "Expandir" para ver o texto formal do mapa de preços pronto para instrução do processo.
+            </div>
+          )}
+        </div>
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end", paddingTop:4 }}>
+          <Btn variant="outline" color={C.sub} onClick={()=>window.print()}>Imprimir</Btn>
+          <Btn color={C.green} onClick={confirmarIA}>Confirmar e Salvar Cotação</Btn>
+        </div>
+      </div>
+    );
+  }
 
   if (cotAtiva) {
     const cot = cotacoes.find(c=>c.id===cotAtiva);
@@ -920,8 +1376,43 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
-        <Btn onClick={()=>{ resetForm(); setModal("nova"); }} color={C.accent}>+ Nova Pesquisa de Preços</Btn>
+      {/* Painel de Pesquisa Automática com IA */}
+      <div style={{ background:C.card, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"18px 20px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+          <div style={{ background:C.accentSubtle, borderRadius:6, padding:"5px 7px", display:"flex" }}>
+            <Icon name="sparkle" size={15} color={C.accent} strokeWidth={1.5} />
+          </div>
+          <div>
+            <div style={{ fontSize:13, fontWeight:600, color:C.text }}>Pesquisa Automática com IA</div>
+            <div style={{ fontSize:12, color:C.sub }}>A IA busca preços reais na web e calcula a mediana (IN SEGES 65/2021)</div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <input value={objetoIA} onChange={e=>setObjetoIA(e.target.value)}
+            disabled={loadingIA}
+            placeholder="Ex: aquisição de notebooks Dell i5 8GB, 512GB SSD, Windows 11"
+            style={{ flex:1, minWidth:220, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 13px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
+            onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+            onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+            onKeyDown={e=>e.key==="Enter"&&!loadingIA&&pesquisarIA()} />
+          <Btn onClick={pesquisarIA} disabled={loadingIA||!objetoIA.trim()} color={C.accent} style={{ display:"flex", alignItems:"center", gap:6 }}>
+            {loadingIA ? (
+              <><div style={{ width:13, height:13, border:"2px solid rgba(255,255,255,0.35)", borderTopColor:"#fff", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Pesquisando...</>
+            ) : (
+              <><Icon name="globe" size={14} color="#fff" /> Pesquisar Preços</>
+            )}
+          </Btn>
+        </div>
+        {loadingIA && (
+          <div style={{ marginTop:10, fontSize:12, color:C.accent, display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ width:10, height:10, border:"1.5px solid rgba(37,99,235,0.3)", borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+            Pesquisando preços no mercado — isso pode levar até 30 segundos...
+          </div>
+        )}
+      </div>
+
+      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+        <Btn onClick={()=>{ resetForm(); setModal("nova"); }} color={C.accent} variant="outline">+ Nova Pesquisa Manual</Btn>
       </div>
 
       {cotacoes.length===0 ? <EmptyState icon="cotacoes" title="Nenhuma cotação cadastrada" sub="Crie uma pesquisa de preços conforme Lei 14.133/2021" /> : (
@@ -1339,11 +1830,23 @@ const TABS = [
 ];
 
 export default function App() {
+  const [session, setSession] = useState(undefined); // undefined = loading
+  const [supabaseReady, setSupabaseReady] = useState(isSupabaseReady());
   const [tab, setTab] = useState("dashboard");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sideOpen, setSideOpen] = useState(false);
   const [toast, setToast_] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  // Auth bootstrap
+  useEffect(() => {
+    if (!supabaseReady) { setSession(null); return; }
+    const sb = getSupabase();
+    if (!sb) { setSession(null); return; }
+    sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, [supabaseReady]);
 
   const initial = loadData() || SEED;
   const [processos,  setProcessos_]  = useState(initial.processos);
@@ -1380,8 +1883,34 @@ export default function App() {
     setDeferredPrompt(null);
   };
 
+  const signOut = async () => {
+    const sb = getSupabase();
+    if (sb) await sb.auth.signOut();
+    setSession(null);
+  };
+
+  // Gates: setup → login → app
+  if (!supabaseReady) {
+    return <SetupScreen onReady={()=>setSupabaseReady(true)} />;
+  }
+  if (session === undefined) {
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+        <GlobalStyles />
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, color:C.sub }}>
+          <div style={{ width:28, height:28, border:`3px solid ${C.border}`, borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+          <span style={{ fontSize:13 }}>Carregando...</span>
+        </div>
+      </div>
+    );
+  }
+  if (!session) {
+    return <LoginScreen onLogin={(s)=>setSession(s)} />;
+  }
+
   const data = { processos, atas, contratos, cotacoes };
   const curTab = TABS.find(t=>t.id===tab);
+  const userEmail = session?.user?.email || "Usuário";
 
   const NavItem = ({ t }) => {
     const active = tab === t.id;
@@ -1434,24 +1963,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:#f4f5f7;}
-        ::-webkit-scrollbar-thumb{background:#ced2d8;border-radius:3px;}
-        ::-webkit-scrollbar-thumb:hover{background:#b5bac2;}
-        button,input,select,textarea{font-family:inherit;}
-        input::placeholder,textarea::placeholder{color:#9ca3af;}
-        select option{background:#ffffff;color:#111827;}
-        @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
-        @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
-        @media print{
-          .no-print{display:none!important;}
-          body{background:#fff!important;color:#000!important;}
-        }
-      `}</style>
-
+      <GlobalStyles />
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
       {isMobile && sideOpen && (
@@ -1491,8 +2003,15 @@ export default function App() {
             )}
             <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 11px", fontSize:12, color:C.sub, fontWeight:400, display:"flex", alignItems:"center", gap:5 }}>
               <Icon name="user" size={13} color={C.tertiary} />
-              {isMobile ? "Pregoeiro" : "Pregoeiro Municipal"}
+              {isMobile ? userEmail.split("@")[0] : userEmail}
             </div>
+            <button onClick={signOut} title="Sair do sistema"
+              style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 9px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:12, fontFamily:"inherit", transition:"all 0.12s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.red; e.currentTarget.style.color=C.red; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
+              <Icon name="logout" size={13} />
+              {!isMobile && "Sair"}
+            </button>
           </div>
         </div>
 
