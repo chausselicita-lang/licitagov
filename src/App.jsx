@@ -88,18 +88,12 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
   );
 }
 
-/* ── PROXY CORS PARA ANTHROPIC API ─────────────────────────── */
-const PROXY_STORAGE_KEY = "licitagov_proxy_url";
-const getProxyUrl = () =>
-  localStorage.getItem(PROXY_STORAGE_KEY) ||
-  (import.meta.env.VITE_ANTHROPIC_PROXY || "");
-const saveProxyUrl = (url) => localStorage.setItem(PROXY_STORAGE_KEY, url.trim());
-const anthropicFetch = (proxyUrl, opts) => {
-  const base = proxyUrl || getProxyUrl();
-  if (!base) throw new Error("Proxy CORS não configurado. Acesse a aba 'IA Claude' e informe a URL do proxy.");
+/* ── API ROUTE SERVER-SIDE (Vercel) ─────────────────────────── */
+const anthropicFetch = (_proxyUrl, opts) => {
   const headers = { ...opts.headers };
   delete headers["anthropic-dangerous-allow-browser"];
-  return fetch(`${base}/v1/messages`, { ...opts, headers });
+  delete headers["x-api-key"];
+  return fetch("/api/claude", { ...opts, headers });
 };
 
 const STORAGE_KEY = "licitagov_data_v2";
@@ -1631,33 +1625,14 @@ Você auxilia pregoeiros, agentes de contratação, gestores e fiscais de contra
 Responda sempre em português brasileiro, de forma clara, objetiva e juridicamente fundamentada. Cite os artigos e incisos da Lei 14.133/2021 e demais normas quando relevante.`;
 
 function TabClaude({ data }) {
-  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nVocê também pode anexar imagens para análise. Configure sua chave de API abaixo para começar." }]);
+  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nVocê também pode anexar imagens para análise." }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState([]);
-  const [apiKey, setApiKey] = useState(()=>localStorage.getItem("licitagov_claude_key")||"");
-  const [keyDraft, setKeyDraft] = useState("");
-  const [showKey, setShowKey] = useState(!localStorage.getItem("licitagov_claude_key"));
-  const [proxyDraft, setProxyDraft] = useState("");
-  const [proxyUrl, setProxyUrl] = useState(()=>getProxyUrl());
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
   useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[msgs]);
-
-  const saveKey = () => {
-    const k = keyDraft.trim() || apiKey;
-    if (!k) return;
-    localStorage.setItem("licitagov_claude_key", k);
-    setApiKey(k); setKeyDraft(""); setShowKey(false);
-  };
-
-  const saveProxy = () => {
-    const u = proxyDraft.trim();
-    if (!u) return;
-    saveProxyUrl(u);
-    setProxyUrl(u); setProxyDraft("");
-  };
 
   const buildCtx = () => {
     const { processos, atas, contratos, cotacoes } = data;
@@ -1666,7 +1641,6 @@ function TabClaude({ data }) {
 
   const send = async () => {
     if ((!input.trim() && !attachments.length) || loading) return;
-    if (!apiKey) { setShowKey(true); return; }
     let userContent;
     if (attachments.length > 0) {
       const parts = attachments.map(att => att.type.startsWith("image/") ? { type:"image", source:{ type:"base64", media_type:att.type, data:att.data.split(",")[1] } } : null).filter(Boolean);
@@ -1681,7 +1655,7 @@ function TabClaude({ data }) {
     try {
       const res = await anthropicFetch(null, {
         method:"POST",
-        headers:{ "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        headers:{ "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2048, system:CLAUDE_SYSTEM+buildCtx(), messages:apiHistory }),
       });
       if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
@@ -1742,63 +1716,13 @@ function TabClaude({ data }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"13px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div>
-          <div style={{ fontSize:14, fontWeight:600, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:8 }}>
-            <Icon name="claude" size={15} color={C.accent} />
-            Assistente IA — Lei 14.133/2021
-          </div>
-          <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>claude-sonnet-4-6 · Suporte a anexos de imagem</div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"13px 18px", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ fontSize:14, fontWeight:600, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="claude" size={15} color={C.accent} />
+          Assistente IA — Lei 14.133/2021
         </div>
-        <button onClick={()=>setShowKey(s=>!s)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:12, fontFamily:"inherit", transition:"all 0.12s" }}
-          onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
-          onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
-          <Icon name="key" size={13} /> API Key
-        </button>
+        <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>claude-sonnet-4-6 · Suporte a anexos de imagem</div>
       </div>
-
-      {showKey && (
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:14 }}>
-          <div>
-            <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>Chave de API Claude (Anthropic)</div>
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={keyDraft||(showKey&&!keyDraft?"":apiKey)} onChange={e=>setKeyDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}
-                type="password" placeholder="sk-ant-api03-..."
-                style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
-                onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
-                onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-              <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
-            </div>
-            <div style={{ fontSize:12, color:C.sub, marginTop:6 }}>
-              Armazenada no seu navegador. Obtenha em:{" "}
-              <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{color:C.accent}}>console.anthropic.com</a>
-            </div>
-            {apiKey && <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:500 }}>&#10003; Chave configurada — {apiKey.slice(0,16)}...</div>}
-          </div>
-
-          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14 }}>
-            <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em", display:"flex", alignItems:"center", gap:6 }}>
-              <Icon name="globe" size={12} color={C.sub} /> URL do Proxy CORS
-            </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={proxyDraft} onChange={e=>setProxyDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveProxy()}
-                type="url" placeholder="https://licitagov-proxy.SEU-ACCOUNT.workers.dev"
-                style={{ flex:1, background:C.surface, border:`1px solid ${proxyUrl?C.green:C.border}`, borderRadius:6, padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
-                onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
-                onBlur={e=>{ e.target.style.borderColor=proxyUrl?C.green:C.border; e.target.style.boxShadow="none"; }} />
-              <Btn onClick={saveProxy} color={C.accent2} size="sm">Salvar</Btn>
-            </div>
-            <div style={{ fontSize:12, color:C.sub, marginTop:6, lineHeight:1.5 }}>
-              Necessário para usar a IA no GitHub Pages (contorna bloqueio CORS).{" "}
-              Implante o worker: <code style={{fontSize:11,background:C.subtle,padding:"1px 5px",borderRadius:3}}>npx wrangler deploy</code>
-            </div>
-            {proxyUrl
-              ? <div style={{ fontSize:12, color:C.green, marginTop:4, fontWeight:500 }}>&#10003; Proxy: {proxyUrl}</div>
-              : <div style={{ fontSize:12, color:C.gold, marginTop:4, fontWeight:500 }}>&#9888; Proxy não configurado — chamadas IA falharão no GitHub Pages</div>
-            }
-          </div>
-        </div>
-      )}
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, minHeight:300, maxHeight:460, overflowY:"auto", display:"flex", flexDirection:"column", gap:12, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
         {msgs.map((m,i)=><MsgBubble key={i} m={m} />)}
@@ -1849,15 +1773,14 @@ function TabClaude({ data }) {
           <Icon name="attach" size={16} />
         </button>
         <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
-          placeholder={apiKey ? "Pergunte sobre licitações, Lei 14.133, contratos, RP..." : "Configure sua API Key para começar..."}
+          placeholder="Pergunte sobre licitações, Lei 14.133, contratos, RP..."
           style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"11px 14px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-        <Btn onClick={send} disabled={loading||(!input.trim()&&!attachments.length)||!apiKey} color={C.accent} style={{ padding:"0 16px", display:"flex", alignItems:"center", gap:5 }}>
+        <Btn onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} color={C.accent} style={{ padding:"0 16px", display:"flex", alignItems:"center", gap:5 }}>
           <Icon name="send" size={14} color="#fff" />
         </Btn>
       </div>
-      {!apiKey && <div style={{ textAlign:"center", fontSize:12, color:C.tertiary }}>Configure sua chave de API Claude acima para usar o assistente</div>}
     </div>
   );
 }
