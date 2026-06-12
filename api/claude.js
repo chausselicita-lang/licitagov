@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY || req.headers['x-api-key'];
   if (!apiKey) {
     return res.status(400).json({
-      error: { message: 'Chave API não configurada. Adicione ANTHROPIC_API_KEY nas variáveis de ambiente do Vercel.' },
+      error: { message: 'ANTHROPIC_API_KEY nao configurada nas variaveis de ambiente do Vercel.' },
     });
   }
 
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       body: JSON.stringify(req.body),
     });
   } catch (err) {
-    return res.status(502).json({ error: { message: `Erro ao contatar Anthropic: ${err.message}` } });
+    return res.status(502).json({ error: { message: `Proxy error: ${err.message}` } });
   }
 
   const data = await upstream.json();
