@@ -1087,12 +1087,9 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 
   const pesquisarIA = async () => {
     if (!objetoIA.trim()) { toast("Digite o objeto da licitação","error"); return; }
-    const apiKey = localStorage.getItem("licitagov_claude_key");
-    if (!apiKey) { toast("Configure a API Key Claude na aba 'IA Claude'","warn"); return; }
     setLoadingIA(true); setResultadoIA(null);
     try {
       const headers = {
-        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "web-search-2025-03-05",
         "content-type": "application/json",
