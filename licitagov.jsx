@@ -972,34 +972,14 @@ const IA_SUGESTOES = [
 ];
 
 function TabIA({ toast }) {
-  const LS_KEY = "licitagov_anthropic_key";
-  const [apiKey,      setApiKey]      = useState(() => localStorage.getItem(LS_KEY) || "");
-  const [keyInput,    setKeyInput]    = useState("");
-  const [showCfg,     setShowCfg]     = useState(!localStorage.getItem(LS_KEY));
-  const [messages,    setMessages]    = useState([]);
-  const [input,       setInput]       = useState("");
-  const [loading,     setLoading]     = useState(false);
-  const [image,       setImage]       = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input,    setInput]    = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [image,    setImage]    = useState(null);
   const bottomRef = useRef(null);
   const fileRef   = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, loading]);
-
-  const saveKey = () => {
-    const k = keyInput.trim();
-    if (!k) return;
-    localStorage.setItem(LS_KEY, k);
-    setApiKey(k);
-    setKeyInput("");
-    setShowCfg(false);
-    toast("Chave API salva no navegador", "success");
-  };
-
-  const clearKey = () => {
-    localStorage.removeItem(LS_KEY);
-    setApiKey("");
-    setShowCfg(true);
-  };
 
   const handleFile = e => {
     const file = e.target.files?.[0];
@@ -1013,7 +993,6 @@ function TabIA({ toast }) {
 
   const send = async () => {
     if (!input.trim() && !image) return;
-    if (!apiKey) { setShowCfg(true); toast("Configure sua chave API Anthropic primeiro", "warn"); return; }
 
     const userContent = [];
     if (image) userContent.push({ type:"image", source:{ type:"base64", media_type:image.mediaType, data:image.data } });
@@ -1028,11 +1007,7 @@ function TabIA({ toast }) {
     try {
       const res = await fetch(PROXY_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 2048,
@@ -1059,44 +1034,10 @@ function TabIA({ toast }) {
           <div style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif" }}>Assistente IA — Lei 14.133/2021</div>
           <div style={{ fontSize:12, color:C.sub }}>Claude · Especialista em licitações públicas</div>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
-          {messages.length>0 && (
-            <Btn variant="outline" color={C.sub} size="sm" onClick={()=>setMessages([])}>Limpar chat</Btn>
-          )}
-          <Btn variant="outline" color={apiKey?C.green:C.amber} size="sm" onClick={()=>setShowCfg(v=>!v)}>
-            {apiKey ? `Chave ···${apiKey.slice(-4)}` : "Configurar chave"}
-          </Btn>
-        </div>
+        {messages.length>0 && (
+          <Btn variant="outline" color={C.sub} size="sm" onClick={()=>setMessages([])}>Limpar chat</Btn>
+        )}
       </div>
-
-      {/* Config chave */}
-      {showCfg && (
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:16, marginBottom:12 }}>
-          <div style={{ fontSize:13, fontWeight:700, marginBottom:6, color:C.accent }}>Chave API Anthropic</div>
-          <div style={{ fontSize:12, color:C.sub, marginBottom:10 }}>
-            Obtenha em <span style={{ color:C.accent }}>console.anthropic.com → API Keys</span>.
-            Salva apenas no seu navegador — nunca enviada a servidores externos.
-          </div>
-          {apiKey ? (
-            <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-              <div style={{ flex:1, background:C.surface, borderRadius:8, padding:"8px 12px", fontSize:13, color:C.green, fontWeight:700 }}>
-                ✓ Chave ativa (sk-ant-···{apiKey.slice(-6)})
-              </div>
-              <Btn variant="outline" color={C.red} size="sm" onClick={clearKey}>Remover</Btn>
-              <Btn variant="outline" color={C.sub} size="sm" onClick={()=>setShowCfg(false)}>Fechar</Btn>
-            </div>
-          ) : (
-            <div style={{ display:"flex", gap:10 }}>
-              <input type="password" placeholder="sk-ant-api03-..."
-                value={keyInput} onChange={e=>setKeyInput(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&saveKey()}
-                style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px", fontSize:13, color:C.text, outline:"none", fontFamily:"inherit" }}
-              />
-              <Btn onClick={saveKey} color={C.accent} size="sm">Salvar</Btn>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Mensagens */}
       <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:12, paddingRight:4 }}>
