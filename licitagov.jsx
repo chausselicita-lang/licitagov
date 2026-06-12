@@ -948,8 +948,9 @@ function TabRelatorios({ data }) {
 /* ══════════════════════════════════════════════════════════════
    ABA: ASSISTENTE IA
 ══════════════════════════════════════════════════════════════ */
-const PROXY_URL = import.meta.env.VITE_ANTHROPIC_PROXY ||
-  "https://zigghtvlmftgjlohuhla.supabase.co/functions/v1/anthropic-proxy";
+const PROXY_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_ANTHROPIC_PROXY || "https://zigghtvlmftgjlohuhla.supabase.co/functions/v1/anthropic-proxy")
+  : "/api/claude";
 
 const IA_SYSTEM = `Você é um assistente especializado em licitações públicas e contratações governamentais no Brasil, com foco na Lei 14.133/2021 (Nova Lei de Licitações).
 Você auxilia pregoeiros, agentes de contratação e gestores municipais com:
