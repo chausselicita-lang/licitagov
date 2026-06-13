@@ -1621,26 +1621,91 @@ Você auxilia pregoeiros, agentes de contratação, gestores e fiscais de contra
 
 Responda sempre em português brasileiro, de forma clara, objetiva e juridicamente fundamentada. Cite os artigos e incisos da Lei 14.133/2021 e demais normas quando relevante.`;
 
-function TabClaude({ data }) {
-  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nVocê também pode anexar imagens para análise." }]);
+const EXTRACTION_SYSTEM = `Você é especialista em licitações públicas Lei 14.133/2021. O usuário enviou um documento público (contrato, ata de registro de preços ou processo licitatório) e quer cadastrá-lo no sistema. Analise o documento com atenção, identifique o tipo e extraia todos os campos disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:
+{"tipo":"contrato","dados":{"numero_contrato":"","objeto":"","fornecedor":"","cnpj":"","valor_total":"","dotacao_orcamentaria":"","data_assinatura":"","data_inicio_vigencia":"","data_fim_vigencia":"","secretaria":"","fiscal_contrato":""},"confianca":"alta","campos_nao_encontrados":[]}
+
+Para contrato use tipo "contrato" e extraia: numero_contrato, objeto, fornecedor (razão social), cnpj, valor_total, dotacao_orcamentaria, data_assinatura (YYYY-MM-DD), data_inicio_vigencia (YYYY-MM-DD), data_fim_vigencia (YYYY-MM-DD), secretaria, fiscal_contrato.
+Para ata de registro de preços use tipo "ata" e extraia: numero_ata, objeto, fornecedor, cnpj, itens (array de objetos com descricao, unidade, quantidade, valor_unitario), valor_total, data_assinatura (YYYY-MM-DD), data_vigencia (YYYY-MM-DD), orgao_gerenciador.
+Para processo licitatório use tipo "processo" e extraia: numero_processo, objeto, modalidade, secretaria_solicitante, valor_estimado, data_abertura (YYYY-MM-DD), situacao.
+Preencha campos_nao_encontrados com os nomes dos campos que não constam no documento. Confiança: alta se a maioria dos campos foi encontrada, media se metade, baixa se poucos.`;
+
+const EXTRACTION_RE = /\b(lan[çc]a|cadastra|registra|inclui|insere|importa|salva)\b/i;
+
+function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
+  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nAnexe um PDF ou imagem de contrato, ata ou processo e diga 'cadastra esse contrato' para lançar automaticamente no sistema." }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [attachments, setAttachments] = useState([]);
+  const [extractionCard, setExtractionCard] = useState(null);
+  const [editableData, setEditableData] = useState(null);
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
-  useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[msgs]);
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[msgs, extractionCard]);
 
   const buildCtx = () => {
     const { processos, atas, contratos, cotacoes } = data;
     return `\n\nContexto atual do sistema LicitaGov do usuário:\n- ${processos.length} processos (${processos.filter(p=>p.fase==="Em andamento").length} em andamento)\n- ${atas.length} atas de registro de preços\n- ${contratos.filter(c=>c.status==="Vigente").length} contratos vigentes\n- ${cotacoes.length} pesquisas de preços realizadas`;
   };
 
+  const buildDocBlock = (att) => {
+    const b64 = att.data.split(",")[1];
+    if (att.type === "application/pdf")
+      return { type:"document", source:{ type:"base64", media_type:"application/pdf", data:b64 } };
+    if (att.type.startsWith("image/"))
+      return { type:"image", source:{ type:"base64", media_type:att.type, data:b64 } };
+    return null;
+  };
+
+  const extractDocument = async (currentInput, currentAttachments) => {
+    setExtracting(true);
+    const displayMsg = { role:"user", content: currentInput.trim() || "(documento para extração)", attachmentNames: currentAttachments.map(a=>a.name) };
+    setMsgs(prev=>[...prev, displayMsg]);
+    setInput(""); setAttachments([]);
+
+    const docBlocks = currentAttachments.map(buildDocBlock).filter(Boolean);
+    const userContent = [
+      ...docBlocks,
+      { type:"text", text: currentInput.trim() || "Analise e extraia os dados deste documento." },
+    ];
+
+    const hasPdf = currentAttachments.some(a => a.type === "application/pdf");
+    const headers = {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      ...(hasPdf ? { "anthropic-beta": "pdfs-2024-09-25" } : {}),
+    };
+
+    try {
+      const res = await anthropicFetch(null, {
+        method:"POST", headers,
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:4096, system:EXTRACTION_SYSTEM, messages:[{ role:"user", content:userContent }] }),
+      });
+      if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+      const json = await res.json();
+      const text = json.content?.[0]?.text || "";
+      const m = text.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("IA não retornou JSON válido. Tente novamente.");
+      const result = JSON.parse(m[0]);
+      if (!result.tipo || !result.dados) throw new Error("Formato de resposta inválido.");
+      setExtractionCard(result);
+      setEditableData({ ...result.dados });
+      const tipoLabel = { contrato:"contrato", ata:"ata de registro de preços", processo:"processo licitatório" }[result.tipo] || result.tipo;
+      setMsgs(prev=>[...prev, { role:"assistant", content:`Documento identificado como ${tipoLabel}. Revise os dados extraídos abaixo e clique em "Confirmar e Salvar".` }]);
+    } catch(err) {
+      setMsgs(prev=>[...prev, { role:"assistant", content:`Erro na extração: ${err.message}` }]);
+    } finally { setExtracting(false); }
+  };
+
   const send = async () => {
-    if ((!input.trim() && !attachments.length) || loading) return;
+    if ((!input.trim() && !attachments.length) || loading || extracting) return;
+    if (attachments.length > 0 && EXTRACTION_RE.test(input)) {
+      return extractDocument(input, attachments);
+    }
     let userContent;
     if (attachments.length > 0) {
-      const parts = attachments.map(att => att.type.startsWith("image/") ? { type:"image", source:{ type:"base64", media_type:att.type, data:att.data.split(",")[1] } } : null).filter(Boolean);
+      const parts = attachments.map(buildDocBlock).filter(Boolean);
       parts.push({ type:"text", text: input.trim() || "Analise o conteúdo do arquivo anexado." });
       userContent = parts;
     } else { userContent = input.trim(); }
@@ -1649,10 +1714,11 @@ function TabClaude({ data }) {
     apiHistory[apiHistory.length-1].content = userContent;
     setMsgs(prev=>[...prev, displayMsg]);
     setInput(""); setAttachments([]); setLoading(true);
+    const hasPdf = attachments.some(a => a.type === "application/pdf");
     try {
       const res = await anthropicFetch(null, {
         method:"POST",
-        headers:{ "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        headers:{ "anthropic-version": "2023-06-01", "content-type": "application/json", ...(hasPdf ? { "anthropic-beta":"pdfs-2024-09-25" } : {}) },
         body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2048, system:CLAUDE_SYSTEM+buildCtx(), messages:apiHistory }),
       });
       if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
@@ -1663,9 +1729,72 @@ function TabClaude({ data }) {
     } finally { setLoading(false); }
   };
 
+  const parseBRL = (v) => parseFloat(String(v||"0").replace(/[R$\s.]/g,"").replace(",",".")) || 0;
+
+  const confirmarExtracao = () => {
+    if (!extractionCard || !editableData) return;
+    const { tipo } = extractionCard;
+    if (tipo === "contrato") {
+      setContratos(prev=>[{
+        id:uid(), status:"Vigente",
+        numero: editableData.numero_contrato || "",
+        objeto: editableData.objeto || "",
+        fornecedor: editableData.fornecedor || "",
+        cnpj: editableData.cnpj || "",
+        valor: parseBRL(editableData.valor_total),
+        inicio: editableData.data_inicio_vigencia || editableData.data_assinatura || "",
+        fim: editableData.data_fim_vigencia || "",
+        processo: "",
+        dotacao: editableData.dotacao_orcamentaria || "",
+        secretaria: editableData.secretaria || "",
+        fiscal: editableData.fiscal_contrato || "",
+      }, ...prev]);
+      toast("Contrato cadastrado com sucesso!");
+    } else if (tipo === "ata") {
+      const itens = (Array.isArray(editableData.itens) ? editableData.itens : []).map(it=>({
+        id:uid(),
+        descricao: it.descricao || "",
+        unidade: it.unidade || "Un",
+        qtdRegistrada: parseFloat(it.quantidade) || 0,
+        qtdUtilizada: 0,
+        valorUnit: parseBRL(it.valor_unitario),
+      }));
+      const vt = parseBRL(editableData.valor_total);
+      setAtas(prev=>[{
+        id:uid(),
+        numero: editableData.numero_ata || "",
+        objeto: editableData.objeto || "",
+        fornecedor: editableData.fornecedor || "",
+        cnpj: editableData.cnpj || "",
+        vigencia: editableData.data_vigencia || "",
+        valorTotal: vt,
+        saldoDisponivel: vt,
+        itens,
+        orgaoGerenciador: editableData.orgao_gerenciador || "",
+      }, ...prev]);
+      toast("Ata de Registro de Preços cadastrada!");
+    } else if (tipo === "processo") {
+      setProcessos(prev=>[{
+        id:uid(),
+        numero: editableData.numero_processo || "",
+        objeto: editableData.objeto || "",
+        modalidade: editableData.modalidade || "Pregão Eletrônico",
+        fase: editableData.situacao || "Planejamento",
+        valor: parseBRL(editableData.valor_estimado),
+        abertura: editableData.data_abertura || "",
+        orgao: editableData.secretaria_solicitante || "",
+      }, ...prev]);
+      toast("Processo licitatório cadastrado!");
+    }
+    const modulo = { contrato:"Contratos", ata:"Ata de RP", processo:"Processos" }[tipo] || tipo;
+    setMsgs(prev=>[...prev, { role:"assistant", content:`Salvo com sucesso! Acesse o módulo ${modulo} para visualizar e editar.` }]);
+    setExtractionCard(null);
+    setEditableData(null);
+  };
+
   const handleFile = (e) => {
     Array.from(e.target.files).forEach(file => {
-      if (file.size > 5*1024*1024) return;
+      if (file.size > 20*1024*1024) { toast("Arquivo muito grande (máx. 20 MB)","warn"); return; }
       const reader = new FileReader();
       reader.onload = ev => setAttachments(prev=>[...prev,{ id:uid(), name:file.name, type:file.type, data:ev.target.result }]);
       reader.readAsDataURL(file);
@@ -1711,6 +1840,113 @@ function TabClaude({ data }) {
     </div>
   );
 
+  /* ── Card de confirmação de extração ── */
+  const ExtractionCard = () => {
+    if (!extractionCard || !editableData) return null;
+    const { tipo, campos_nao_encontrados=[], confianca } = extractionCard;
+    const confiancaColor = confianca==="alta" ? C.green : confianca==="media" ? C.gold : C.red;
+    const tipoLabel = { contrato:"Contrato", ata:"Ata de Registro de Preços", processo:"Processo Licitatório" }[tipo] || tipo;
+
+    const FIELDS = {
+      contrato: [
+        { key:"numero_contrato",     label:"Número do Contrato" },
+        { key:"objeto",              label:"Objeto" },
+        { key:"fornecedor",          label:"Contratada" },
+        { key:"cnpj",                label:"CNPJ" },
+        { key:"valor_total",         label:"Valor Total (R$)" },
+        { key:"dotacao_orcamentaria",label:"Dotação Orçamentária" },
+        { key:"data_assinatura",     label:"Data de Assinatura" },
+        { key:"data_inicio_vigencia",label:"Início da Vigência" },
+        { key:"data_fim_vigencia",   label:"Fim da Vigência" },
+        { key:"secretaria",          label:"Secretaria" },
+        { key:"fiscal_contrato",     label:"Fiscal do Contrato" },
+      ],
+      ata: [
+        { key:"numero_ata",       label:"Número da Ata" },
+        { key:"objeto",           label:"Objeto" },
+        { key:"fornecedor",       label:"Fornecedor" },
+        { key:"cnpj",             label:"CNPJ" },
+        { key:"valor_total",      label:"Valor Total (R$)" },
+        { key:"data_assinatura",  label:"Data de Assinatura" },
+        { key:"data_vigencia",    label:"Vigência" },
+        { key:"orgao_gerenciador",label:"Órgão Gerenciador" },
+      ],
+      processo: [
+        { key:"numero_processo",       label:"Número do Processo" },
+        { key:"objeto",                label:"Objeto" },
+        { key:"modalidade",            label:"Modalidade" },
+        { key:"secretaria_solicitante",label:"Secretaria Solicitante" },
+        { key:"valor_estimado",        label:"Valor Estimado (R$)" },
+        { key:"data_abertura",         label:"Data de Abertura" },
+        { key:"situacao",              label:"Situação/Fase" },
+      ],
+    };
+    const fields = FIELDS[tipo] || [];
+
+    return (
+      <div style={{ background:C.card, border:`2px solid ${C.accentBorder}`, borderRadius:10, padding:20, boxShadow:"0 4px 16px rgba(26,86,219,0.10)", animation:"fadeUp 0.25s ease" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:7 }}>
+              <Icon name="sparkle" size={14} color={C.accent} />
+              Dados Extraídos — {tipoLabel}
+            </div>
+            <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>Revise e edite os campos antes de salvar</div>
+          </div>
+          <span style={{ fontSize:11, fontWeight:600, color:confiancaColor, background:confiancaColor+"15", border:`1px solid ${confiancaColor}44`, borderRadius:4, padding:"3px 9px" }}>
+            Confiança {confianca}
+          </span>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8, marginBottom:14 }}>
+          {fields.map(f => {
+            const val = String(editableData[f.key] ?? "");
+            const faltando = campos_nao_encontrados.includes(f.key);
+            return (
+              <div key={f.key} style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={{ fontSize:11, fontWeight:500, color: faltando ? C.amber : C.sub }}>
+                  {f.label}{faltando && <span style={{ marginLeft:4, fontSize:10 }}>⚠ não encontrado</span>}
+                </label>
+                <input value={val} onChange={e=>setEditableData(d=>({...d,[f.key]:e.target.value}))}
+                  style={{ background: faltando?"rgba(180,83,9,0.05)":C.surface, border:`1px solid ${faltando?C.amber+"88":C.border}`, borderRadius:5, padding:"7px 10px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none", transition:"border-color 0.12s, box-shadow 0.12s" }}
+                  onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 2px ${C.accentSubtle}`; }}
+                  onBlur={e=>{ e.target.style.borderColor=faltando?C.amber+"88":C.border; e.target.style.boxShadow="none"; }} />
+              </div>
+            );
+          })}
+        </div>
+
+        {tipo==="ata" && Array.isArray(editableData.itens) && editableData.itens.length > 0 && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>
+              Itens da Ata ({editableData.itens.length})
+            </div>
+            <div style={{ background:C.overlay, borderRadius:6, border:`1px solid ${C.border}`, overflow:"hidden" }}>
+              {editableData.itens.map((it,idx)=>(
+                <div key={idx} style={{ display:"flex", gap:10, padding:"8px 12px", borderBottom:idx<editableData.itens.length-1?`1px solid ${C.border}`:"none", flexWrap:"wrap", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:C.accent, fontWeight:700, minWidth:18 }}>{idx+1}.</span>
+                  <span style={{ fontSize:13, color:C.text, flex:1, minWidth:120 }}>{it.descricao}</span>
+                  <span style={{ fontSize:12, color:C.sub }}>{it.unidade}</span>
+                  <span style={{ fontSize:12, color:C.accent2, fontWeight:600 }}>Qtd: {it.quantidade}</span>
+                  <span style={{ fontSize:12, color:C.green, fontWeight:600 }}>{it.valor_unitario ? `R$ ${it.valor_unitario}` : "—"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+          <Btn variant="outline" color={C.sub} size="sm" onClick={()=>{ setExtractionCard(null); setEditableData(null); }}>Cancelar</Btn>
+          <Btn color={C.accent} size="sm" onClick={confirmarExtracao} style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="check" size={13} color="#fff" /> Confirmar e Salvar
+          </Btn>
+        </div>
+      </div>
+    );
+  };
+
+  const busy = loading || extracting;
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"13px 18px", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
@@ -1718,25 +1954,27 @@ function TabClaude({ data }) {
           <Icon name="claude" size={15} color={C.accent} />
           Assistente IA — Lei 14.133/2021
         </div>
-        <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>claude-sonnet-4-6 · Suporte a anexos de imagem</div>
+        <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>claude-sonnet-4-6 · Suporte a PDF, imagens e extração automática de documentos</div>
       </div>
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, minHeight:300, maxHeight:460, overflowY:"auto", display:"flex", flexDirection:"column", gap:12, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
         {msgs.map((m,i)=><MsgBubble key={i} m={m} />)}
-        {loading && (
+        {busy && (
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <div style={{ width:28, height:28, borderRadius:6, background:C.accentSubtle, display:"flex", alignItems:"center", justifyContent:"center", color:C.accent }}>
               <Icon name="claude" size={13} strokeWidth={1.6} />
             </div>
             <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 14px", color:C.sub, fontSize:13 }}>
-              Consultando Lei 14.133/2021<span style={{ display:"inline-block", animation:"dots 1.2s steps(3,end) infinite" }}>...</span>
+              {extracting ? "Analisando documento" : "Consultando Lei 14.133/2021"}<span style={{ display:"inline-block", animation:"dots 1.2s steps(3,end) infinite" }}>...</span>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {msgs.length <= 1 && (
+      {extractionCard && <ExtractionCard />}
+
+      {msgs.length <= 1 && !extractionCard && (
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {SUGGESTIONS.map(s=>(
             <button key={s} onClick={()=>setInput(s)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 12px", color:C.sub, fontSize:12, cursor:"pointer", fontFamily:"inherit", transition:"all 0.12s" }}
@@ -1749,32 +1987,38 @@ function TabClaude({ data }) {
       )}
 
       {attachments.length > 0 && (
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-          {attachments.map(att=>(
-            <div key={att.id} style={{ display:"flex", alignItems:"center", gap:5, background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", fontSize:12 }}>
-              <Icon name={att.type.startsWith("image/")?"image":"file"} size={12} color={C.accent} />
-              <span style={{ color:C.sub, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
-              <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.tertiary, padding:0, display:"flex" }}>
-                <Icon name="close" size={11} />
-              </button>
-            </div>
-          ))}
+        <div style={{ background:C.accentSubtle, border:`1px solid ${C.accentBorder}`, borderRadius:7, padding:"8px 12px", display:"flex", flexWrap:"wrap", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:12, color:C.accent, fontWeight:600 }}>
+            <Icon name="sparkle" size={11} color={C.accent} /> Dica:
+          </span>
+          <span style={{ fontSize:12, color:C.accent }}>Digite "cadastra esse contrato" ou "lança essa ata" para extração automática</span>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4, width:"100%" }}>
+            {attachments.map(att=>(
+              <div key={att.id} style={{ display:"flex", alignItems:"center", gap:5, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", fontSize:12 }}>
+                <Icon name={att.type==="application/pdf"?"file":att.type.startsWith("image/")?"image":"file"} size={12} color={att.type==="application/pdf"?C.red:C.accent} />
+                <span style={{ color:C.sub, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
+                <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.tertiary, padding:0, display:"flex" }}>
+                  <Icon name="close" size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       <div style={{ display:"flex", gap:8 }}>
-        <input type="file" ref={fileRef} onChange={handleFile} accept="image/png,image/jpeg,image/gif,image/webp" multiple style={{display:"none"}} />
-        <button onClick={()=>fileRef.current?.click()} title="Anexar imagem" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"0 13px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", transition:"all 0.12s", flexShrink:0 }}
+        <input type="file" ref={fileRef} onChange={handleFile} accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" multiple style={{display:"none"}} />
+        <button onClick={()=>fileRef.current?.click()} title="Anexar PDF ou imagem (máx. 20 MB)" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"0 13px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", transition:"all 0.12s", flexShrink:0 }}
           onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
           onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
           <Icon name="attach" size={16} />
         </button>
         <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
-          placeholder="Pergunte sobre licitações, Lei 14.133, contratos, RP..."
+          placeholder={attachments.length?"Ex: cadastra esse contrato, lança essa ata...":"Pergunte sobre licitações, Lei 14.133, contratos, RP..."}
           style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"11px 14px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-        <Btn onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} color={C.accent} style={{ padding:"0 16px", display:"flex", alignItems:"center", gap:5 }}>
+        <Btn onClick={send} disabled={busy||(!input.trim()&&!attachments.length)} color={C.accent} style={{ padding:"0 16px", display:"flex", alignItems:"center", gap:5 }}>
           <Icon name="send" size={14} color="#fff" />
         </Btn>
       </div>
@@ -1992,7 +2236,7 @@ export default function App() {
           {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
           {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
           {tab==="relatorios" && <TabRelatorios data={data} />}
-          {tab==="claude"     && <TabClaude data={data} />}
+          {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} toast={showToast} />}
         </div>
       </div>
 
