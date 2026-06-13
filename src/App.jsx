@@ -2078,17 +2078,13 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
-  const [processos,  setProcessos_]  = useState(()=>{ const d=loadData()||SEED; return d.processos; });
-  const [atas,       setAtas_]       = useState(()=>{ const d=loadData()||SEED; return d.atas; });
-  const [contratos,  setContratos_]  = useState(()=>{ const d=loadData()||SEED; return d.contratos; });
-  const [cotacoes,   setCotacoes_]   = useState(()=>{ const d=loadData()||SEED; return d.cotacoes; });
+  const [appData, setAppData] = useState(() => loadData() || SEED);
+  const { processos, atas, contratos, cotacoes } = appData;
 
-  const setProcessos  = useCallback(fn=>{ setProcessos_(fn); }, []);
-  const setAtas       = useCallback(fn=>{ setAtas_(fn); }, []);
-  const setContratos  = useCallback(fn=>{ setContratos_(fn); }, []);
-  const setCotacoes   = useCallback(fn=>{ setCotacoes_(fn); }, []);
-
-  useEffect(()=>{ saveData({ processos, atas, contratos, cotacoes }); },[processos,atas,contratos,cotacoes]);
+  const setProcessos  = useCallback(fn=>{ setAppData(prev=>{ const processos=typeof fn==="function"?fn(prev.processos):fn; const next={...prev,processos}; saveData(next); return next; }); }, []);
+  const setAtas       = useCallback(fn=>{ setAppData(prev=>{ const atas=typeof fn==="function"?fn(prev.atas):fn;             const next={...prev,atas};       saveData(next); return next; }); }, []);
+  const setContratos  = useCallback(fn=>{ setAppData(prev=>{ const contratos=typeof fn==="function"?fn(prev.contratos):fn;   const next={...prev,contratos};  saveData(next); return next; }); }, []);
+  const setCotacoes   = useCallback(fn=>{ setAppData(prev=>{ const cotacoes=typeof fn==="function"?fn(prev.cotacoes):fn;     const next={...prev,cotacoes};   saveData(next); return next; }); }, []);
 
   const showToast = useCallback((msg, type="success") => {
     setToast_({ msg, type });
