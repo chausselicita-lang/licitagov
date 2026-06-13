@@ -1,5 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
+import Sidebar from "./components/Sidebar.jsx";
+import Topbar from "./components/Topbar.jsx";
+import KPICards from "./components/KPICards.jsx";
+import ProcessosTable from "./components/ProcessosTable.jsx";
 
 /* ═══════════════════════════════════════════════════════════════
    LICITAGOV — Sistema de Gestão de Licitações Públicas
@@ -7,27 +11,27 @@ import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/sup
 ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg:           "#f4f5f7",
-  surface:      "#ffffff",
-  card:         "#ffffff",
-  overlay:      "#f8f9fa",
-  subtle:       "#edf0f2",
-  border:       "rgba(0,0,0,0.09)",
-  borderStrong: "rgba(0,0,0,0.16)",
-  accent:       "#1a56db",
-  accentHover:  "#1344b8",
-  accentSubtle: "rgba(26,86,219,0.08)",
-  accentBorder: "rgba(26,86,219,0.20)",
-  accent2:      "#0e7490",
-  gold:         "#b45309",
-  red:          "#dc2626",
-  green:        "#15803d",
-  amber:        "#b45309",
-  purple:       "#6d28d9",
-  text:         "#111827",
-  sub:          "#6b7280",
-  subL:         "#6b7280",
-  tertiary:     "#9ca3af",
+  bg:           "#18191c",
+  surface:      "#1c1d21",
+  card:         "#1c1d21",
+  overlay:      "#222327",
+  subtle:       "#1f2024",
+  border:       "rgba(255,255,255,0.07)",
+  borderStrong: "rgba(255,255,255,0.12)",
+  accent:       "#4f7ef7",
+  accentHover:  "#3d6de0",
+  accentSubtle: "rgba(79,126,247,0.15)",
+  accentBorder: "rgba(79,126,247,0.25)",
+  accent2:      "#22d3ee",
+  gold:         "#e2c14d",
+  red:          "#f15b5b",
+  green:        "#4ade80",
+  amber:        "#f0a45c",
+  purple:       "#a78bfa",
+  text:         "#e8e9ed",
+  sub:          "#8a8d96",
+  subL:         "#8a8d96",
+  tertiary:     "#6b7280",
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
@@ -151,30 +155,34 @@ const SEED = {
 
 function Badge({ label, color }) {
   const map = {
-    "Vigente":      C.green,
-    "A vencer":     C.gold,
-    "Encerrado":    C.sub,
-    "Vencido":      C.red,
-    "Homologado":   C.green,
-    "Em andamento": C.accent,
-    "Publicado":    C.accent2,
-    "Planejamento": C.gold,
-    "Revogado":     C.red,
-    "Suspenso":     C.purple,
-    "Finalizada":   C.green,
-    "Em coleta":    C.accent,
-    "Rascunho":     C.sub,
-    "Concluída":    C.green,
-    "Cancelada":    C.red,
+    "Vigente":      "#4ade80",
+    "A vencer":     "#e2c14d",
+    "Encerrado":    "#8a8d96",
+    "Vencido":      "#f15b5b",
+    "Homologado":   "#4ade80",
+    "Em andamento": "#6b9bff",
+    "Publicado":    "#6b9bff",
+    "Planejamento": "#f0a45c",
+    "Revogado":     "#f15b5b",
+    "Suspenso":     "#a78bfa",
+    "Finalizada":   "#4ade80",
+    "Em coleta":    "#6b9bff",
+    "Rascunho":     "#8a8d96",
+    "Concluída":    "#4ade80",
+    "Cancelada":    "#f15b5b",
   };
-  const c = color || map[label] || C.subL;
+  const c = color || map[label] || "#8a8d96";
   return (
     <span style={{
-      background: c+"18", color: c, border: `1px solid ${c}44`,
-      borderRadius: 4, padding: "2px 8px",
-      fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
-      textTransform: "uppercase",
-    }}>{label}</span>
+      display:"inline-flex", alignItems:"center", gap:5,
+      background: `${c}18`, color: c, border: `1px solid ${c}30`,
+      borderRadius: 999, padding: "3px 10px",
+      fontSize: 11, fontWeight: 600, letterSpacing: "0.02em",
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{ width:5, height:5, borderRadius:"50%", background:"currentColor", flexShrink:0 }} />
+      {label}
+    </span>
   );
 }
 
@@ -287,17 +295,21 @@ function EmptyState({ icon, title, sub }) {
 
 function KpiCard({ label, value, sub, color=C.accent }) {
   return (
-    <div style={{
-      background: C.card,
-      border: `1px solid ${C.border}`,
-      borderTop: `3px solid ${color}`,
-      borderRadius: 8,
-      padding: "18px 20px",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-    }}>
-      <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
+    <div
+      style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: 12,
+        padding: "16px",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+        transition:"border-color 0.14s",
+      }}
+      onMouseEnter={e => e.currentTarget.style.borderColor=`${color}44`}
+      onMouseLeave={e => e.currentTarget.style.borderColor=C.border}
+    >
+      <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
       <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif", lineHeight:1.1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
-      {sub && <div style={{ fontSize:12, color:C.sub, marginTop:6 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:12, color:C.sub, marginTop:5 }}>{sub}</div>}
     </div>
   );
 }
@@ -309,19 +321,19 @@ function GlobalStyles() {
       @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
       ::-webkit-scrollbar{width:5px;height:5px;}
-      ::-webkit-scrollbar-track{background:#f4f5f7;}
-      ::-webkit-scrollbar-thumb{background:#ced2d8;border-radius:3px;}
-      ::-webkit-scrollbar-thumb:hover{background:#b5bac2;}
+      ::-webkit-scrollbar-track{background:#111214;}
+      ::-webkit-scrollbar-thumb{background:#383a40;border-radius:3px;}
+      ::-webkit-scrollbar-thumb:hover{background:#4a4d56;}
       button,input,select,textarea{font-family:inherit;}
-      input::placeholder,textarea::placeholder{color:#9ca3af;}
-      select option{background:#ffffff;color:#111827;}
+      input::placeholder,textarea::placeholder{color:#6b7280;}
+      select option{background:#1c1d21;color:#e8e9ed;}
       @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
       @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
       @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
       @keyframes spin{to{transform:rotate(360deg)}}
       @media print{
         .no-print{display:none!important;}
-        body{background:#fff!important;color:#000!important;}
+        body{background:#fff!important;color:#111!important;}
       }
     `}</style>
   );
@@ -554,46 +566,31 @@ function LoginScreen({ onLogin }) {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-function TabDashboard({ data }) {
+function TabDashboard({ data, onViewProcessos }) {
   const { processos, atas, contratos, cotacoes } = data;
   const vencendo = contratos.filter(c => {
     const d = diasParaVencer(c.fim);
     return d !== null && d >= 0 && d <= 30 && c.status !== "Encerrado";
   });
-  const valorContratos = contratos.filter(c=>c.status==="Vigente").reduce((a,c)=>a+c.valor,0);
-  const atasVigentes = atas.filter(a => diasParaVencer(a.vigencia) > 0).length;
 
   return (
-    <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))", gap:12, marginBottom:24 }}>
-        <KpiCard label="Processos Ativos" value={processos.filter(p=>p.fase!=="Encerrado").length} sub={`${processos.length} total`} color={C.accent} />
-        <KpiCard label="Atas Vigentes" value={atasVigentes} sub="Registro de Preços" color={C.accent2} />
-        <KpiCard label="Contratos Vigentes" value={contratos.filter(c=>c.status==="Vigente").length} sub={fmtBRL(valorContratos)} color={C.green} />
-        <KpiCard label="Cotações" value={cotacoes.length} sub="Pesquisas de preço" color={C.gold} />
-        <KpiCard label="A Vencer (30d)" value={vencendo.length} sub="Contratos" color={vencendo.length>0?C.red:C.green} />
+    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+      <div>
+        <h2 style={{ fontSize:18, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:4 }}>Visão geral</h2>
+        <p style={{ fontSize:13, color:C.sub }}>Acompanhe processos, contratos e indicadores de compras públicas em tempo real.</p>
       </div>
 
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:20, marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>Processos Recentes</div>
-        {processos.slice(0,4).map(p=>(
-          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.numero} — {p.objeto}</div>
-              <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>{p.modalidade} · {p.orgao}</div>
-            </div>
-            <Badge label={p.fase} />
-            <div style={{ fontSize:13, fontWeight:600, color:C.accent, minWidth:80, textAlign:"right" }}>{fmtBRL(p.valor)}</div>
-          </div>
-        ))}
-      </div>
+      <KPICards processos={processos} atas={atas} contratos={contratos} cotacoes={cotacoes} />
+
+      <ProcessosTable processos={processos} onViewAll={onViewProcessos} />
 
       {vencendo.length > 0 && (
-        <div style={{ background:"rgba(220,38,38,0.05)", border:`1px solid rgba(220,38,38,0.18)`, borderRadius:8, padding:18 }}>
+        <div style={{ background:"rgba(241,91,91,0.07)", border:`1px solid rgba(241,91,91,0.20)`, borderRadius:12, padding:18 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:C.red, marginBottom:12 }}>
             <Icon name="warning" size={14} color={C.red} /> Contratos a vencer em 30 dias
           </div>
-          {vencendo.map(c=>(
-            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid rgba(220,38,38,0.10)`, flexWrap:"wrap", gap:8 }}>
+          {vencendo.map(c => (
+            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid rgba(241,91,91,0.12)`, flexWrap:"wrap", gap:8 }}>
               <div>
                 <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.numero} — {c.objeto}</div>
                 <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor}</div>
@@ -2746,130 +2743,93 @@ export default function App() {
   const curTab = TABS.find(t=>t.id===tab);
   const userEmail = session?.user?.email || "Usuário";
 
-  const NavItem = ({ t }) => {
-    const active = tab === t.id;
-    return (
-      <button onClick={()=>{ setTab(t.id); setSideOpen(false); }}
-        onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background=C.overlay; e.currentTarget.style.color=C.text; } }}
-        onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color=C.sub; } }}
-        style={{
-          display:"flex", alignItems:"center", gap:9,
-          padding:"9px 12px", borderRadius:6, border:"none",
-          borderLeft: active ? `3px solid ${C.accent}` : "3px solid transparent",
-          background: active ? C.accentSubtle : "transparent",
-          color: active ? C.accent : C.sub,
-          fontSize:13, fontWeight: active ? 600 : 400,
-          cursor:"pointer", transition:"background 0.12s, color 0.12s",
-          textAlign:"left", width:"100%",
-        }}>
-        <Icon name={t.icon} size={15} strokeWidth={active ? 2 : 1.6} />
-        {t.label}
-      </button>
-    );
-  };
-
-  const Sidebar = () => (
-    <div style={{ position:"fixed", left:0, top:0, bottom:0, width:220, background:C.overlay, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", zIndex:30 }}>
-      <div style={{ padding:"20px 16px 16px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:16, fontWeight:800, fontFamily:"'Syne',sans-serif", letterSpacing:-0.5, color:C.text }}>
-          Licita<span style={{color:C.accent}}>Gov</span>
-        </div>
-        <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>Lei 14.133 / 2021</div>
-      </div>
-      <nav style={{ flex:1, padding:"8px", display:"flex", flexDirection:"column", gap:1, overflowY:"auto" }}>
-        {TABS.map(t=><NavItem key={t.id} t={t} />)}
-      </nav>
-      {deferredPrompt && (
-        <div style={{ padding:"10px 12px", borderTop:`1px solid ${C.border}` }}>
-          <button onClick={installPWA} style={{ width:"100%", background:C.accent, border:"none", borderRadius:6, padding:"9px 12px", color:"#fff", fontSize:12, fontWeight:500, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            <Icon name="install" size={13} /> Instalar App
-          </button>
-        </div>
-      )}
-      <div style={{ padding:"12px 16px", borderTop:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:11, color:C.sub, lineHeight:1.6 }}>
-          <div style={{ fontWeight:500, color:C.text, marginBottom:1 }}>Prefeitura Municipal</div>
-          Módulo de Licitações
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text }}>
+    <div style={{
+      background: C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text,
+      height:"100vh", display:"flex", overflow:"hidden",
+    }}>
       <GlobalStyles />
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
+      {/* Mobile overlay */}
       {isMobile && sideOpen && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.40)", zIndex:25, backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)" }}
-          onClick={()=>setSideOpen(false)} />
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.50)", zIndex:25, backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)" }}
+          onClick={() => setSideOpen(false)} />
       )}
 
-      {(!isMobile || sideOpen) && <Sidebar />}
+      {/* Sidebar */}
+      {(!isMobile || sideOpen) && (
+        <Sidebar
+          TABS={TABS}
+          tab={tab}
+          setTab={setTab}
+          setSideOpen={setSideOpen}
+          deferredPrompt={deferredPrompt}
+          installPWA={installPWA}
+        />
+      )}
 
-      <div style={{ marginLeft:isMobile?0:220, minHeight:"100vh", display:"flex", flexDirection:"column", paddingBottom:isMobile?70:0 }}>
-        <div className="no-print" style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:isMobile?"12px 16px":"14px 28px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:20, boxShadow:"0 1px 0 rgba(0,0,0,0.06)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            {isMobile && (
-              <button onClick={()=>setSideOpen(s=>!s)} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", padding:4, display:"flex", alignItems:"center" }}>
-                <Icon name="menu" size={20} />
-              </button>
-            )}
-            {isMobile && (
-              <span style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.text }}>
-                Licita<span style={{color:C.accent}}>Gov</span>
-              </span>
-            )}
-            {!isMobile && (
-              <div>
-                <div style={{ fontSize:17, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{curTab?.label}</div>
-                <div style={{ fontSize:12, color:C.sub, marginTop:1 }}>
-                  {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
-                </div>
-              </div>
-            )}
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            {deferredPrompt && isMobile && (
-              <button onClick={installPWA} style={{ background:C.accent, border:"none", borderRadius:6, padding:"6px 12px", color:"#fff", fontSize:11, fontWeight:500, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
-                <Icon name="install" size={12} /> Instalar
-              </button>
-            )}
-            <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 11px", fontSize:12, color:C.sub, fontWeight:400, display:"flex", alignItems:"center", gap:5 }}>
-              <Icon name="user" size={13} color={C.tertiary} />
-              {isMobile ? userEmail.split("@")[0] : userEmail}
-            </div>
-            <button onClick={signOut} title="Sair do sistema"
-              style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 9px", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:12, fontFamily:"inherit", transition:"all 0.12s" }}
-              onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.red; e.currentTarget.style.color=C.red; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.sub; }}>
-              <Icon name="logout" size={13} />
-              {!isMobile && "Sair"}
-            </button>
-          </div>
-        </div>
+      {/* Main content */}
+      <div style={{
+        marginLeft: isMobile ? 0 : 220,
+        flex: 1,
+        display:"flex", flexDirection:"column",
+        overflow:"hidden",
+        minWidth:0,
+      }}>
+        <Topbar
+          isMobile={isMobile}
+          curTab={curTab}
+          userEmail={userEmail}
+          signOut={signOut}
+          setSideOpen={setSideOpen}
+          deferredPrompt={deferredPrompt}
+          installPWA={installPWA}
+        />
 
         {isMobile && (
-          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{curTab?.label}</div>
+          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>
+            {curTab?.label}
+          </div>
         )}
 
-        <div style={{ flex:1, padding:isMobile?"12px 16px":"24px 28px", maxWidth:1200 }}>
-          {tab==="dashboard"  && <TabDashboard data={data} />}
-          {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
-          {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
-          {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
-          {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
-          {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
-          {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
-          {tab==="relatorios" && <TabRelatorios data={data} />}
-          {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
+        <div style={{
+          flex:1, overflowY:"auto",
+          padding: isMobile ? "12px 16px" : "24px 28px",
+          paddingBottom: isMobile ? 82 : 24,
+        }}>
+          <div style={{ maxWidth:1200 }}>
+            {tab==="dashboard"  && <TabDashboard data={data} onViewProcessos={() => setTab("processos")} />}
+            {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
+            {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
+            {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
+            {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
+            {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
+            {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
+            {tab==="relatorios" && <TabRelatorios data={data} />}
+            {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
+          </div>
         </div>
       </div>
 
+      {/* Mobile bottom nav */}
       {isMobile && (
-        <div className="no-print" style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:20, background:C.surface, borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-around", alignItems:"center", padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))" }}>
-          {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"5px 8px", border:"none", background: tab===t.id ? C.accentSubtle : "transparent", borderRadius:6, color: tab===t.id ? C.accent : C.sub, fontSize:9, fontWeight: tab===t.id ? 600 : 400, cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s" }}>
+        <div className="no-print" style={{
+          position:"fixed", bottom:0, left:0, right:0, zIndex:20,
+          background:"#111214", borderTop:`1px solid rgba(255,255,255,0.06)`,
+          display:"flex", justifyContent:"space-around", alignItems:"center",
+          padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))",
+        }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              padding:"5px 8px", border:"none",
+              background: tab===t.id ? C.accentSubtle : "transparent",
+              borderRadius:6,
+              color: tab===t.id ? C.accent : "#8a8d96",
+              fontSize:9, fontWeight: tab===t.id ? 600 : 400,
+              cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s",
+            }}>
               <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} />
               {t.short}
             </button>
