@@ -2060,16 +2060,17 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
-  const initial = loadData() || SEED;
-  const [processos,  setProcessos_]  = useState(initial.processos);
-  const [atas,       setAtas_]       = useState(initial.atas);
-  const [contratos,  setContratos_]  = useState(initial.contratos);
-  const [cotacoes,   setCotacoes_]   = useState(initial.cotacoes);
+  const [processos,  setProcessos_]  = useState(()=>{ const d=loadData()||SEED; return d.processos; });
+  const [atas,       setAtas_]       = useState(()=>{ const d=loadData()||SEED; return d.atas; });
+  const [contratos,  setContratos_]  = useState(()=>{ const d=loadData()||SEED; return d.contratos; });
+  const [cotacoes,   setCotacoes_]   = useState(()=>{ const d=loadData()||SEED; return d.cotacoes; });
 
-  const setProcessos  = useCallback(fn=>{ setProcessos_(p=>{  const n=typeof fn==="function"?fn(p):fn; saveData({processos:n,atas,contratos,cotacoes}); return n; }); },[atas,contratos,cotacoes]);
-  const setAtas       = useCallback(fn=>{ setAtas_(p=>{       const n=typeof fn==="function"?fn(p):fn; saveData({processos,atas:n,contratos,cotacoes}); return n; }); },[processos,contratos,cotacoes]);
-  const setContratos  = useCallback(fn=>{ setContratos_(p=>{  const n=typeof fn==="function"?fn(p):fn; saveData({processos,atas,contratos:n,cotacoes}); return n; }); },[processos,atas,cotacoes]);
-  const setCotacoes   = useCallback(fn=>{ setCotacoes_(p=>{   const n=typeof fn==="function"?fn(p):fn; saveData({processos,atas,contratos,cotacoes:n}); return n; }); },[processos,atas,contratos]);
+  const setProcessos  = useCallback(fn=>{ setProcessos_(fn); }, []);
+  const setAtas       = useCallback(fn=>{ setAtas_(fn); }, []);
+  const setContratos  = useCallback(fn=>{ setContratos_(fn); }, []);
+  const setCotacoes   = useCallback(fn=>{ setCotacoes_(fn); }, []);
+
+  useEffect(()=>{ saveData({ processos, atas, contratos, cotacoes }); },[processos,atas,contratos,cotacoes]);
 
   const showToast = useCallback((msg, type="success") => {
     setToast_({ msg, type });
