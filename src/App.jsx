@@ -2102,8 +2102,14 @@ Preencha campos_nao_encontrados com os nomes dos campos que não constam no docu
 
 const EXTRACTION_RE = /\b(lan[çc]a|cadastra|registra|inclui|insere|importa|salva)\b/i;
 
-function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
-  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nAnexe um PDF ou imagem de contrato, ata ou processo e diga 'cadastra esse contrato' para lançar automaticamente no sistema." }]);
+const EXTRACTION_PROMPTS = {
+  dispensa: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de DISPENSA DE LICITAÇÃO (arts. 74-76 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"dispensa","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":"","data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\nExtraia: numero_processo (número do processo ou da dispensa), objeto (descrição do objeto da contratação), contratada (razão social da empresa contratada), cnpj (CNPJ da empresa), valor_total (apenas o valor numérico), data_ratificacao (data da ratificação ou despacho em YYYY-MM-DD), vigencia (data de término da vigência em YYYY-MM-DD), secretaria (secretaria ou órgão solicitante/contratante). Liste em campos_nao_encontrados os que não constam no documento. Confiança: alta se maioria encontrada, media se metade, baixa se poucos campos encontrados.`,
+  inexigibilidade: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de INEXIGIBILIDADE DE LICITAÇÃO (art. 74 e 79 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"inexigibilidade","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":"","data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\nExtraia: numero_processo, objeto, contratada (razão social), cnpj, valor_total (numérico), data_ratificacao (YYYY-MM-DD), vigencia (YYYY-MM-DD), secretaria. Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
+  ata: `Você é especialista em licitações públicas Lei 14.133/2021. Analise esta ATA DE REGISTRO DE PREÇOS (arts. 82-86 da Lei 14.133/2021) e extraia todos os dados. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"ata","dados":{"numero_ata":"","objeto":"","fornecedor":"","cnpj":"","valor_total":"","data_assinatura":"","data_vigencia":"","orgao_gerenciador":"","itens":[]},"confianca":"alta","campos_nao_encontrados":[]}\nExtraia: numero_ata, objeto, fornecedor (razão social), cnpj, valor_total (numérico), data_assinatura (YYYY-MM-DD), data_vigencia (YYYY-MM-DD), orgao_gerenciador, itens (array com: descricao, unidade, quantidade, valor_unitario). Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
+};
+
+function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, setInexigibilidades, toast }) {
+  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Olá. Sou o assistente LicitaGov com IA, especializado na Lei 14.133/2021. Posso responder dúvidas sobre modalidades licitatórias, atas de RP, contratos, pesquisa de preços e muito mais.\n\nUse os botões de extração rápida abaixo para enviar um PDF ou imagem de Dispensa, Inexigibilidade ou Ata de RP e cadastrar automaticamente no sistema." }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -2112,6 +2118,9 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
   const [editableData, setEditableData] = useState(null);
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
+  const fileRefDispensa = useRef(null);
+  const fileRefInexigib = useRef(null);
+  const fileRefAta = useRef(null);
 
   useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[msgs, extractionCard]);
 
@@ -2163,11 +2172,55 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
       if (!result.tipo || !result.dados) throw new Error("Formato de resposta inválido.");
       setExtractionCard(result);
       setEditableData({ ...result.dados });
-      const tipoLabel = { contrato:"contrato", ata:"ata de registro de preços", processo:"processo licitatório" }[result.tipo] || result.tipo;
+      const tipoLabel = { contrato:"contrato", ata:"ata de registro de preços", processo:"processo licitatório", dispensa:"dispensa de licitação", inexigibilidade:"inexigibilidade" }[result.tipo] || result.tipo;
       setMsgs(prev=>[...prev, { role:"assistant", content:`Documento identificado como ${tipoLabel}. Revise os dados extraídos abaixo e clique em "Confirmar e Salvar".` }]);
     } catch(err) {
       setMsgs(prev=>[...prev, { role:"assistant", content:`Erro na extração: ${err.message}` }]);
     } finally { setExtracting(false); }
+  };
+
+  const TIPO_LABELS = { dispensa:"Dispensa de Licitação", inexigibilidade:"Inexigibilidade", ata:"Ata de Registro de Preços" };
+
+  const extractDocumentTipo = async (tipo, file) => {
+    if (!file) return;
+    setExtracting(true);
+    setExtractionCard(null); setEditableData(null);
+    const displayMsg = { role:"user", content:`(Extração de ${TIPO_LABELS[tipo]})`, attachmentNames:[file.name] };
+    setMsgs(prev=>[...prev, displayMsg]);
+    try {
+      const fileData = await new Promise((res,rej) => { const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
+      const b64 = fileData.split(",")[1];
+      const isPdf = file.type === "application/pdf";
+      const docBlock = isPdf
+        ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data:b64 } }
+        : { type:"image",    source:{ type:"base64", media_type:file.type,          data:b64 } };
+      const headers = { "anthropic-version":"2023-06-01", "content-type":"application/json", ...(isPdf ? { "anthropic-beta":"pdfs-2024-09-25" } : {}) };
+      const res = await anthropicFetch(null, {
+        method:"POST", headers,
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:8192, system:EXTRACTION_PROMPTS[tipo], messages:[{ role:"user", content:[docBlock, { type:"text", text:"Extraia os dados deste documento conforme as instruções." }] }] }),
+      });
+      if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+      const json = await res.json();
+      if (json.stop_reason === "max_tokens") throw new Error("Documento muito extenso. Tente um arquivo menor.");
+      const text = json.content?.[0]?.text || "";
+      const m = text.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("IA não retornou JSON válido. Tente novamente.");
+      const result = JSON.parse(m[0]);
+      if (!result.tipo || !result.dados) throw new Error("Formato de resposta inválido.");
+      setExtractionCard(result);
+      setEditableData({ ...result.dados });
+      setMsgs(prev=>[...prev, { role:"assistant", content:`${TIPO_LABELS[tipo]} identificada. Revise os dados extraídos abaixo e clique em "Confirmar e Salvar".` }]);
+    } catch(err) {
+      setMsgs(prev=>[...prev, { role:"assistant", content:`Erro na extração: ${err.message}` }]);
+    } finally { setExtracting(false); }
+  };
+
+  const handleExtractFile = (tipo) => (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 20*1024*1024) { toast("Arquivo muito grande (máx. 20 MB)","warn"); return; }
+    extractDocumentTipo(tipo, file);
   };
 
   const send = async () => {
@@ -2258,7 +2311,38 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
       }, ...prev]);
       toast("Processo licitatório cadastrado!");
     }
-    const modulo = { contrato:"Contratos", ata:"Ata de RP", processo:"Processos" }[tipo] || tipo;
+    else if (tipo === "dispensa") {
+      setDispensas(prev=>[{
+        id:uid(),
+        numero_processo: editableData.numero_processo || "",
+        objeto:          editableData.objeto          || "",
+        contratada:      editableData.contratada      || "",
+        cnpj:            editableData.cnpj            || "",
+        valor_total:     parseBRL(editableData.valor_total),
+        data_ratificacao:editableData.data_ratificacao|| "",
+        vigencia:        editableData.vigencia        || "",
+        secretaria:      editableData.secretaria      || "",
+        link_drive:      "",
+        status:          editableData.status          || "Em andamento",
+      }, ...prev]);
+      toast("Dispensa cadastrada com sucesso!");
+    } else if (tipo === "inexigibilidade") {
+      setInexigibilidades(prev=>[{
+        id:uid(),
+        numero_processo: editableData.numero_processo || "",
+        objeto:          editableData.objeto          || "",
+        contratada:      editableData.contratada      || "",
+        cnpj:            editableData.cnpj            || "",
+        valor_total:     parseBRL(editableData.valor_total),
+        data_ratificacao:editableData.data_ratificacao|| "",
+        vigencia:        editableData.vigencia        || "",
+        secretaria:      editableData.secretaria      || "",
+        link_drive:      "",
+        status:          editableData.status          || "Em andamento",
+      }, ...prev]);
+      toast("Inexigibilidade cadastrada com sucesso!");
+    }
+    const modulo = { contrato:"Contratos", ata:"Ata de RP", processo:"Processos", dispensa:"Dispensas", inexigibilidade:"Inexigibilidade" }[tipo] || tipo;
     setMsgs(prev=>[...prev, { role:"assistant", content:`Salvo com sucesso! Acesse o módulo ${modulo} para visualizar e editar.` }]);
     setExtractionCard(null);
     setEditableData(null);
@@ -2317,7 +2401,8 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
     if (!extractionCard || !editableData) return null;
     const { tipo, campos_nao_encontrados=[], confianca } = extractionCard;
     const confiancaColor = confianca==="alta" ? C.green : confianca==="media" ? C.gold : C.red;
-    const tipoLabel = { contrato:"Contrato", ata:"Ata de Registro de Preços", processo:"Processo Licitatório" }[tipo] || tipo;
+    const tipoLabel = { contrato:"Contrato", ata:"Ata de Registro de Preços", processo:"Processo Licitatório", dispensa:"Dispensa de Licitação", inexigibilidade:"Inexigibilidade" }[tipo] || tipo;
+    const tipoColor = { dispensa:"#f59e0b", inexigibilidade:"#8b5cf6", ata:C.green, contrato:C.accent, processo:C.accent2 }[tipo] || C.accent;
 
     const FIELDS = {
       contrato: [
@@ -2352,15 +2437,35 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
         { key:"data_abertura",         label:"Data de Abertura" },
         { key:"situacao",              label:"Situação/Fase" },
       ],
+      dispensa: [
+        { key:"numero_processo", label:"Número do Processo" },
+        { key:"objeto",          label:"Objeto" },
+        { key:"contratada",      label:"Contratada (Razão Social)" },
+        { key:"cnpj",            label:"CNPJ" },
+        { key:"valor_total",     label:"Valor Total (R$)" },
+        { key:"data_ratificacao",label:"Data de Ratificação" },
+        { key:"vigencia",        label:"Vigência (Fim)" },
+        { key:"secretaria",      label:"Secretaria" },
+      ],
+      inexigibilidade: [
+        { key:"numero_processo", label:"Número do Processo" },
+        { key:"objeto",          label:"Objeto" },
+        { key:"contratada",      label:"Contratada (Razão Social)" },
+        { key:"cnpj",            label:"CNPJ" },
+        { key:"valor_total",     label:"Valor Total (R$)" },
+        { key:"data_ratificacao",label:"Data de Ratificação" },
+        { key:"vigencia",        label:"Vigência (Fim)" },
+        { key:"secretaria",      label:"Secretaria" },
+      ],
     };
     const fields = FIELDS[tipo] || [];
 
     return (
-      <div style={{ background:C.card, border:`2px solid ${C.accentBorder}`, borderRadius:10, padding:20, boxShadow:"0 4px 16px rgba(26,86,219,0.10)", animation:"fadeUp 0.25s ease" }}>
+      <div style={{ background:C.card, border:`2px solid ${tipoColor}44`, borderRadius:10, padding:20, boxShadow:`0 4px 16px ${tipoColor}18`, animation:"fadeUp 0.25s ease" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
           <div>
             <div style={{ fontSize:14, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:7 }}>
-              <Icon name="sparkle" size={14} color={C.accent} />
+              <Icon name="sparkle" size={14} color={tipoColor} />
               Dados Extraídos — {tipoLabel}
             </div>
             <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>Revise e edite os campos antes de salvar</div>
@@ -2445,6 +2550,25 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
       </div>
 
       {extractionCard && <ExtractionCard />}
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"11px 14px", display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:C.sub, textTransform:"uppercase", letterSpacing:"0.06em" }}>Extração Rápida de Documentos (PDF, JPG, PNG)</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <input type="file" ref={fileRefDispensa} onChange={handleExtractFile("dispensa")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
+          <input type="file" ref={fileRefInexigib} onChange={handleExtractFile("inexigibilidade")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
+          <input type="file" ref={fileRefAta} onChange={handleExtractFile("ata")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
+          <Btn onClick={()=>fileRefDispensa.current?.click()} disabled={busy} color="#f59e0b" size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Dispensa
+          </Btn>
+          <Btn onClick={()=>fileRefInexigib.current?.click()} disabled={busy} color="#8b5cf6" size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Inexigibilidade
+          </Btn>
+          <Btn onClick={()=>fileRefAta.current?.click()} disabled={busy} color={C.green} size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Ata de RP
+          </Btn>
+        </div>
+        <div style={{ fontSize:11, color:C.tertiary }}>Clique no botão, selecione o documento e a IA extrai e preenche automaticamente.</div>
+      </div>
 
       {msgs.length <= 1 && !extractionCard && (
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -2713,7 +2837,7 @@ export default function App() {
           {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
           {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
           {tab==="relatorios" && <TabRelatorios data={data} />}
-          {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} toast={showToast} />}
+          {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
         </div>
       </div>
 
