@@ -1597,55 +1597,198 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 /* ══════════════════════════════════════════════════════════════
    RELATÓRIOS
 ══════════════════════════════════════════════════════════════ */
+const hoje = () => new Date().toLocaleDateString("pt-BR");
+
+function RelAtas({ atas, onClose }) {
+  const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, secTitle:{ fontSize:15, fontWeight:700, borderBottom:"2px solid #4f46e5", paddingBottom:6, marginBottom:14, color:"#4f46e5" }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid4:{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px 16px", marginBottom:12 }, th:{ padding:"8px 12px", fontSize:11, textAlign:"left", background:"#f0f0f0", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em" }, td:{ padding:"8px 12px", fontSize:13, borderBottom:"1px solid #eee" }, bar:{ background:"#eee", borderRadius:4, height:7, marginTop:4 } };
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, overflowY:"auto" }}>
+      <div style={{ background:"#4f46e5", padding:"14px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:10 }}>
+        <span style={{ color:"#fff", fontWeight:700, fontSize:15 }}>Relatório — Atas de Registro de Preços</span>
+        <div style={{ display:"flex", gap:10 }}>
+          <Btn onClick={()=>window.print()} color="#fff" size="sm" style={{ color:"#4f46e5", background:"#fff", border:"none" }}>🖨 Imprimir</Btn>
+          <Btn onClick={onClose} color="#fff" variant="outline" size="sm" style={{ borderColor:"rgba(255,255,255,0.4)", color:"#fff" }}>✕ Fechar</Btn>
+        </div>
+      </div>
+      <div style={S.page}>
+        <div style={S.titulo}>Relatório de Atas de Registro de Preços</div>
+        <div style={S.sub}>Gerado em {hoje()} · {atas.length} ata(s) cadastrada(s)</div>
+        {atas.length === 0 && <div style={{ color:"#888", fontSize:14 }}>Nenhuma ata cadastrada.</div>}
+        {atas.map((a, i) => {
+          const pct = a.valorTotal > 0 ? ((a.valorTotal - a.saldoDisponivel) / a.valorTotal * 100).toFixed(1) : "0.0";
+          const d = diasParaVencer(a.vigencia);
+          return (
+            <div key={a.id} style={{ border:"1px solid #ddd", borderRadius:8, padding:"20px 24px", marginBottom:24, pageBreakInside:"avoid" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+                <div>
+                  <div style={{ fontSize:18, fontWeight:700, color:"#4f46e5" }}>{a.numero}</div>
+                  <div style={{ fontSize:13, color:"#555", marginTop:2 }}>{a.objeto}</div>
+                </div>
+                <div style={{ fontSize:12, padding:"4px 10px", borderRadius:20, background: d > 0 ? "#dcfce7" : "#fee2e2", color: d > 0 ? "#166534" : "#991b1b", fontWeight:600 }}>
+                  {d > 0 ? `Vigente · ${d}d restantes` : d === 0 ? "Vence hoje" : "Vencida"}
+                </div>
+              </div>
+
+              <div style={{ ...S.secTitle }}>Dados do Fornecedor</div>
+              <div style={S.grid2}>
+                <div><div style={S.label}>Razão Social</div><div style={S.val}>{a.fornecedor}</div></div>
+                <div><div style={S.label}>CNPJ</div><div style={S.val}>{a.cnpj || "—"}</div></div>
+                {a.endereco && <div style={{ gridColumn:"1/-1" }}><div style={S.label}>Endereço</div><div style={S.val}>{a.endereco}</div></div>}
+                {a.telefone && <div><div style={S.label}>Telefone</div><div style={S.val}>{a.telefone}</div></div>}
+                {a.email && <div><div style={S.label}>E-mail</div><div style={S.val}>{a.email}</div></div>}
+              </div>
+
+              <div style={{ ...S.secTitle, marginTop:16 }}>Dados Financeiros</div>
+              <div style={S.grid4}>
+                <div><div style={S.label}>Valor Total</div><div style={{ ...S.val, color:"#111", fontWeight:700 }}>{fmtBRL(a.valorTotal)}</div></div>
+                <div><div style={S.label}>Saldo Disponível</div><div style={{ ...S.val, color:"#166534", fontWeight:700 }}>{fmtBRL(a.saldoDisponivel)}</div></div>
+                <div><div style={S.label}>Utilizado</div><div style={{ ...S.val, color:"#92400e" }}>{pct}%</div></div>
+                <div><div style={S.label}>Vigência</div><div style={S.val}>{fmtDate(a.vigencia)}</div></div>
+              </div>
+              <div style={S.bar}><div style={{ width:`${pct}%`, height:"100%", background: parseFloat(pct) > 80 ? "#ef4444" : "#4f46e5", borderRadius:4 }} /></div>
+
+              {a.itens?.length > 0 && (
+                <div style={{ marginTop:16 }}>
+                  <div style={S.secTitle}>Itens da Ata ({a.itens.length})</div>
+                  <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                    <thead><tr>{["Descrição","Unidade","Qtd Reg.","Qtd Util.","Vlr Unit.","Saldo Qtd"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+                    <tbody>{a.itens.map(it=>(
+                      <tr key={it.id}>
+                        <td style={S.td}>{it.descricao}</td>
+                        <td style={S.td}>{it.unidade}</td>
+                        <td style={S.td}>{it.qtdRegistrada?.toLocaleString("pt-BR")}</td>
+                        <td style={S.td}>{it.qtdUtilizada?.toLocaleString("pt-BR")}</td>
+                        <td style={S.td}>{fmtBRL(it.valorUnit)}</td>
+                        <td style={S.td}>{(it.qtdRegistrada - it.qtdUtilizada).toLocaleString("pt-BR")}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RelContratos({ contratos, onClose }) {
+  const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
+  const statusColor = { "Vigente":["#dcfce7","#166534"], "A vencer":["#fef9c3","#854d0e"], "Vencido":["#fee2e2","#991b1b"], "Encerrado":["#f3f4f6","#374151"] };
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, overflowY:"auto" }}>
+      <div style={{ background:"#16a34a", padding:"14px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:10 }}>
+        <span style={{ color:"#fff", fontWeight:700, fontSize:15 }}>Relatório — Contratos</span>
+        <div style={{ display:"flex", gap:10 }}>
+          <Btn onClick={()=>window.print()} color="#fff" size="sm" style={{ color:"#16a34a", background:"#fff", border:"none" }}>🖨 Imprimir</Btn>
+          <Btn onClick={onClose} color="#fff" variant="outline" size="sm" style={{ borderColor:"rgba(255,255,255,0.4)", color:"#fff" }}>✕ Fechar</Btn>
+        </div>
+      </div>
+      <div style={S.page}>
+        <div style={S.titulo}>Relatório de Contratos</div>
+        <div style={S.sub}>Gerado em {hoje()} · {contratos.length} contrato(s) cadastrado(s) · Valor vigente total: {fmtBRL(contratos.filter(c=>c.status==="Vigente").reduce((a,c)=>a+c.valor,0))}</div>
+        {contratos.length === 0 && <div style={{ color:"#888", fontSize:14 }}>Nenhum contrato cadastrado.</div>}
+        {contratos.map(c => {
+          const d = diasParaVencer(c.fim);
+          let status = c.status;
+          if (d !== null && c.status !== "Encerrado") { if (d < 0) status = "Vencido"; else if (d <= 30) status = "A vencer"; else status = "Vigente"; }
+          const [bg, fg] = statusColor[status] || ["#f3f4f6","#374151"];
+          return (
+            <div key={c.id} style={{ border:"1px solid #ddd", borderRadius:8, padding:"20px 24px", marginBottom:20, pageBreakInside:"avoid", borderLeft:`4px solid ${fg}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+                <div>
+                  <div style={{ fontSize:18, fontWeight:700, color:"#16a34a" }}>{c.numero}</div>
+                  <div style={{ fontSize:13, color:"#555", marginTop:2 }}>{c.objeto}</div>
+                  {c.processo && <div style={{ fontSize:12, color:"#888", marginTop:2 }}>Processo: {c.processo}</div>}
+                </div>
+                <div style={{ fontSize:12, padding:"4px 12px", borderRadius:20, background:bg, color:fg, fontWeight:600 }}>{status}</div>
+              </div>
+              <div style={S.grid2}>
+                <div><div style={S.label}>Fornecedor</div><div style={S.val}>{c.fornecedor}</div></div>
+                <div><div style={S.label}>CNPJ</div><div style={S.val}>{c.cnpj || "—"}</div></div>
+              </div>
+              <div style={S.grid3}>
+                <div><div style={S.label}>Valor do Contrato</div><div style={{ ...S.val, fontSize:16, fontWeight:700 }}>{fmtBRL(c.valor)}</div></div>
+                <div><div style={S.label}>Início</div><div style={S.val}>{fmtDate(c.inicio)}</div></div>
+                <div><div style={S.label}>Fim / Vigência</div><div style={{ ...S.val, color: d !== null && d < 30 ? "#991b1b" : "#111" }}>{fmtDate(c.fim)}{d !== null && <span style={{ fontSize:12, marginLeft:6 }}>({d < 0 ? `venceu há ${Math.abs(d)}d` : `${d}d`})</span>}</div></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RelProcessos({ processos, onClose }) {
+  const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
+  const faseColor = { "Em andamento":"#4f46e5", "Publicado":"#0891b2", "Homologado":"#166534", "Planejamento":"#92400e", "Revogado":"#991b1b", "Suspenso":"#b45309", "Encerrado":"#374151" };
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, overflowY:"auto" }}>
+      <div style={{ background:"#0891b2", padding:"14px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:10 }}>
+        <span style={{ color:"#fff", fontWeight:700, fontSize:15 }}>Relatório — Processos Licitatórios</span>
+        <div style={{ display:"flex", gap:10 }}>
+          <Btn onClick={()=>window.print()} color="#fff" size="sm" style={{ color:"#0891b2", background:"#fff", border:"none" }}>🖨 Imprimir</Btn>
+          <Btn onClick={onClose} color="#fff" variant="outline" size="sm" style={{ borderColor:"rgba(255,255,255,0.4)", color:"#fff" }}>✕ Fechar</Btn>
+        </div>
+      </div>
+      <div style={S.page}>
+        <div style={S.titulo}>Relatório de Processos Licitatórios</div>
+        <div style={S.sub}>Gerado em {hoje()} · {processos.length} processo(s) cadastrado(s)</div>
+        {processos.length === 0 && <div style={{ color:"#888", fontSize:14 }}>Nenhum processo cadastrado.</div>}
+        {processos.map(p => (
+          <div key={p.id} style={{ border:"1px solid #ddd", borderRadius:8, padding:"20px 24px", marginBottom:20, pageBreakInside:"avoid", borderLeft:`4px solid ${faseColor[p.fase]||"#94a3b8"}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:700, color:"#0891b2" }}>{p.numero}</div>
+                <div style={{ fontSize:13, color:"#555", marginTop:2 }}>{p.objeto}</div>
+                {p.orgao && <div style={{ fontSize:12, color:"#888", marginTop:2 }}>{p.orgao}</div>}
+              </div>
+              <div style={{ fontSize:12, padding:"4px 12px", borderRadius:20, background:(faseColor[p.fase]||"#94a3b8")+"22", color:faseColor[p.fase]||"#374151", fontWeight:600 }}>{p.fase}</div>
+            </div>
+            <div style={S.grid3}>
+              <div><div style={S.label}>Modalidade</div><div style={S.val}>{p.modalidade}</div></div>
+              <div><div style={S.label}>Valor Estimado</div><div style={{ ...S.val, fontWeight:700 }}>{fmtBRL(p.valor)}</div></div>
+              <div><div style={S.label}>Data de Abertura</div><div style={S.val}>{fmtDate(p.abertura)}</div></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TabRelatorios({ data }) {
-  const { processos, contratos, cotacoes, atas } = data;
-  const reports = [
-    { icon:"processos",  title:"Processos por Modalidade",   color:C.accent,  desc:"Distribuição e valores por tipo de licitação" },
-    { icon:"contratos",  title:"Contratos a Vencer",         color:C.gold,    desc:"Contratos nos próximos 30, 60 e 90 dias" },
-    { icon:"atas",       title:"Saldo de Atas de RP",        color:C.accent2, desc:"Utilização e saldo por fornecedor/item" },
-    { icon:"cotacoes",   title:"Mapa de Preços Consolidado", color:C.green,   desc:"Medianas por categoria de objeto" },
-    { icon:"relatorios", title:"Relatório Gerencial",        color:C.purple,  desc:"Visão geral de todos os processos e contratos" },
+  const { processos, contratos, atas } = data;
+  const [rel, setRel] = useState(null);
+
+  if (rel === "atas")      return <RelAtas atas={atas} onClose={()=>setRel(null)} />;
+  if (rel === "contratos") return <RelContratos contratos={contratos} onClose={()=>setRel(null)} />;
+  if (rel === "processos") return <RelProcessos processos={processos} onClose={()=>setRel(null)} />;
+
+  const cards = [
+    { key:"atas",      icon:"atas",      color:C.accent2, title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Exibe dados do fornecedor, valores, saldo e itens por ata`, total: fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)), label:"Valor total" },
+    { key:"contratos", icon:"contratos", color:C.green,   title:"Contratos", desc:`${contratos.length} contrato(s) · Exibe fornecedor, vigência e situação de cada contrato`, total: fmtBRL(contratos.reduce((s,c)=>s+c.valor,0)), label:"Valor total" },
+    { key:"processos", icon:"processos", color:C.accent,  title:"Processos Licitatórios", desc:`${processos.length} processo(s) · Exibe modalidade, fase e valor por processo`, total: processos.filter(p=>p.fase==="Em andamento").length + " em andamento", label:"Situação" },
   ];
-  const byModalidade = processos.reduce((acc,p)=>{ acc[p.modalidade]=(acc[p.modalidade]||0)+1; return acc; },{});
 
   return (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(195px,1fr))", gap:12, marginBottom:24 }}>
-        {reports.map(r=>(
-          <div key={r.title} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:18, cursor:"pointer", transition:"border-color 0.14s, box-shadow 0.14s", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor=r.color; e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.10)"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.06)"; }}
-            onClick={()=>window.print()}>
-            <div style={{ marginBottom:10, color:r.color }}>
-              <Icon name={r.icon} size={20} strokeWidth={1.6} color={r.color} />
+      <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Selecione o relatório que deseja gerar e visualizar ou imprimir.</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:16 }}>
+        {cards.map(r=>(
+          <div key={r.key} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:22, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:10 }}>
+            <div style={{ color:r.color }}><Icon name={r.icon} size={22} strokeWidth={1.5} color={r.color} /></div>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{r.title}</div>
+            <div style={{ fontSize:12, color:C.sub, lineHeight:1.6 }}>{r.desc}</div>
+            <div style={{ background:C.subtle, borderRadius:6, padding:"10px 14px" }}>
+              <div style={{ fontSize:10, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em" }}>{r.label}</div>
+              <div style={{ fontSize:16, fontWeight:700, color:r.color, marginTop:2 }}>{r.total}</div>
             </div>
-            <div style={{ fontSize:13, fontWeight:600, color:C.text, marginBottom:4 }}>{r.title}</div>
-            <div style={{ fontSize:12, color:C.sub, marginBottom:14, lineHeight:1.5 }}>{r.desc}</div>
-            <Btn color={r.color} variant="outline" size="sm">Gerar Relatório</Btn>
+            <Btn onClick={()=>setRel(r.key)} color={r.color} style={{ marginTop:4 }}>Gerar Relatório</Btn>
           </div>
         ))}
-      </div>
-
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:20, marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize:11, fontWeight:600, color:C.sub, marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Processos por Modalidade</div>
-        {Object.entries(byModalidade).map(([mod,qtd])=>(
-          <div key={mod} style={{ marginBottom:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-              <span style={{ fontSize:13, fontWeight:400, color:C.text }}>{mod}</span>
-              <span style={{ fontSize:13, color:C.accent, fontWeight:600 }}>{qtd}</span>
-            </div>
-            <div style={{ background:C.subtle, borderRadius:3, height:5, overflow:"hidden" }}>
-              <div style={{ width:`${(qtd/processos.length)*100}%`, height:"100%", background:C.accent, borderRadius:3 }} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:10 }}>
-        <KpiCard label="Valor total contratos" value={fmtBRL(contratos.filter(c=>c.status==="Vigente").reduce((a,c)=>a+c.valor,0))} color={C.green} />
-        <KpiCard label="Atas ativas" value={atas.filter(a=>diasParaVencer(a.vigencia)>0).length} color={C.accent2} />
-        <KpiCard label="Cotações realizadas" value={cotacoes.length} color={C.gold} />
-        <KpiCard label="Processos ativos" value={processos.filter(p=>!["Revogado","Suspenso"].includes(p.fase)).length} color={C.accent} />
       </div>
     </div>
   );
