@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'LicitaGov — Gestão de Licitações',
         short_name: 'LicitaGov',
         description: 'Sistema de Gestão de Licitações Públicas — Lei 14.133/2021',
-        theme_color: '#080b14',
-        background_color: '#080b14',
+        theme_color: '#18191c',
+        background_color: '#18191c',
         display: 'standalone',
         start_url: '/',
         scope: '/',
@@ -26,6 +26,7 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpeg,jpg,woff2}'],
         navigateFallback: '/',
         navigateFallbackDenylist: [/^\/api/],

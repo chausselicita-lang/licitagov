@@ -5,9 +5,11 @@ import { registerSW } from 'virtual:pwa-register';
 
 registerSW({
   onRegisteredSW(_url, r) {
-    if (r) setInterval(() => r.update(), 60 * 60 * 1000);
+    if (r) setInterval(() => r.update(), 5 * 60 * 1000);
   },
-  onNeedRefresh() {},
+  onNeedRefresh() {
+    window.location.reload();
+  },
   immediate: true,
 });
 
