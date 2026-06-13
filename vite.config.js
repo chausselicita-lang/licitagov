@@ -37,6 +37,15 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    proxy: {
+      '/api/claude': {
+        target: 'https://licitagov-one.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
