@@ -442,16 +442,12 @@ function LoginScreen({ onLogin }) {
           <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
           <div style={{ position:"absolute", bottom:-80, left:-40, width:220, height:220, borderRadius:"50%", background:"rgba(255,255,255,0.07)" }} />
           <div style={{ position:"relative", textAlign:"center", maxWidth:320 }}>
-            <div style={{ fontSize:36, fontWeight:800, fontFamily:"'Syne',sans-serif", letterSpacing:-1, marginBottom:16 }}>
-              Licita<span style={{color:"#93c5fd"}}>Gov</span>
-            </div>
+            <img src="/govcore-logo.png" alt="GovCore" style={{ width:120, marginBottom:24 }} />
             <div style={{ fontSize:20, fontWeight:700, marginBottom:12, lineHeight:1.3 }}>
-              Gestão de Licitações Públicas
+              Núcleo Inteligente da Gestão Pública
             </div>
             <div style={{ fontSize:14, opacity:0.75, lineHeight:1.7, marginBottom:40 }}>
-              Lei 14.133/2021 · IN SEGES 65/2021<br/>
-              Pregão · Concorrência · Ata de RP<br/>
-              Contratos · Pesquisa de Preços com IA
+              Lei 14.133/2021 · IN SEGES 65/2021
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:10, textAlign:"left" }}>
               {["Controle de processos licitatórios","Atas de Registro de Preços","Pesquisa de preços via IA","Alertas de vencimento"].map(item => (
