@@ -1987,22 +1987,24 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
       )}
 
       {attachments.length > 0 && (
-        <div style={{ background:C.accentSubtle, border:`1px solid ${C.accentBorder}`, borderRadius:7, padding:"8px 12px", display:"flex", flexWrap:"wrap", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:12, color:C.accent, fontWeight:600 }}>
-            <Icon name="sparkle" size={11} color={C.accent} /> Dica:
-          </span>
-          <span style={{ fontSize:12, color:C.accent }}>Digite "cadastra esse contrato" ou "lança essa ata" para extração automática</span>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4, width:"100%" }}>
-            {attachments.map(att=>(
-              <div key={att.id} style={{ display:"flex", alignItems:"center", gap:5, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", fontSize:12 }}>
-                <Icon name={att.type==="application/pdf"?"file":att.type.startsWith("image/")?"image":"file"} size={12} color={att.type==="application/pdf"?C.red:C.accent} />
-                <span style={{ color:C.sub, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
-                <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.tertiary, padding:0, display:"flex" }}>
-                  <Icon name="close" size={11} />
-                </button>
-              </div>
-            ))}
+        <div style={{ background:C.card, border:`2px solid ${C.accentBorder}`, borderRadius:8, padding:"10px 14px", display:"flex", flexDirection:"column", gap:8 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {attachments.map(att=>(
+                <div key={att.id} style={{ display:"flex", alignItems:"center", gap:5, background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", fontSize:12 }}>
+                  <Icon name={att.type==="application/pdf"?"file":att.type.startsWith("image/")?"image":"file"} size={12} color={att.type==="application/pdf"?C.red:C.accent} />
+                  <span style={{ color:C.sub, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.name}</span>
+                  <button onClick={()=>setAttachments(p=>p.filter(a=>a.id!==att.id))} style={{ background:"none", border:"none", cursor:"pointer", color:C.tertiary, padding:0, display:"flex" }}>
+                    <Icon name="close" size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Btn onClick={()=>extractDocument(input, attachments)} disabled={busy} color={C.accent} size="sm" style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+              <Icon name="sparkle" size={13} color="#fff" /> Extrair e Cadastrar
+            </Btn>
           </div>
+          <div style={{ fontSize:11, color:C.sub }}>Clique em <strong>Extrair e Cadastrar</strong> para a IA ler o documento e preencher os campos automaticamente.</div>
         </div>
       )}
 
@@ -2014,7 +2016,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
           <Icon name="attach" size={16} />
         </button>
         <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
-          placeholder={attachments.length?"Ex: cadastra esse contrato, lança essa ata...":"Pergunte sobre licitações, Lei 14.133, contratos, RP..."}
+          placeholder="Pergunte sobre licitações, Lei 14.133, contratos, RP..."
           style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"11px 14px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", transition:"border-color 0.14s, box-shadow 0.14s" }}
           onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
           onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
