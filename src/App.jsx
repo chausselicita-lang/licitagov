@@ -81,6 +81,8 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     lock:       <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
     mail:       <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>,
     externallink:<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
+    dispensa:    <><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></>,
+    inexigib:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -128,6 +130,8 @@ const SEED = {
     { id:"c2", numero:"CT 002/2025", objeto:"Manutenção de veículos", fornecedor:"Auto Center Norte", cnpj:"55.666.777/0001-88", valor:85000, inicio:"2025-01-15", fim:"2026-01-15", status:"A vencer", processo:"—" },
     { id:"c3", numero:"CT 003/2024", objeto:"Fornecimento de merenda", fornecedor:"Alimentos Bom Sabor", cnpj:"33.444.555/0001-22", valor:210000, inicio:"2024-02-01", fim:"2025-02-01", status:"Encerrado", processo:"—" },
   ],
+  dispensas: [],
+  inexigibilidades: [],
   cotacoes: [
     { id:"q1", numero:"COT 001/2025", objeto:"Aquisição de papel A4", processo:"003/2025", status:"Finalizada", dataCriacao:"2025-02-10",
       fornecedores:[
@@ -160,6 +164,8 @@ function Badge({ label, color }) {
     "Finalizada":   C.green,
     "Em coleta":    C.accent,
     "Rascunho":     C.sub,
+    "Concluída":    C.green,
+    "Cancelada":    C.red,
   };
   const c = color || map[label] || C.subL;
   return (
@@ -1595,6 +1601,145 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DISPENSA / INEXIGIBILIDADE
+══════════════════════════════════════════════════════════════ */
+const CD_STATUS = ["Em andamento","Concluída","Cancelada"];
+const CD_STATUS_COLOR = { "Em andamento": C.accent, "Concluída": C.green, "Cancelada": C.red };
+const CD_FORM_EMPTY = { numero_processo:"", objeto:"", contratada:"", cnpj:"", valor_total:"", data_ratificacao:"", vigencia:"", secretaria:"", link_drive:"", status:"Em andamento" };
+
+function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
+  const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filtro, setFiltro] = useState("Todos");
+  const [form, setForm] = useState(CD_FORM_EMPTY);
+
+  const f = v => v => setForm(p => ({ ...p, ...v }));
+  const ff = k => v => setForm(p => ({ ...p, [k]: v }));
+
+  const filtered = items.filter(it => {
+    const okStatus = filtro === "Todos" || it.status === filtro;
+    const s = search.toLowerCase();
+    return okStatus && (
+      (it.numero_processo||"").toLowerCase().includes(s) ||
+      (it.objeto||"").toLowerCase().includes(s) ||
+      (it.contratada||"").toLowerCase().includes(s)
+    );
+  });
+
+  const openNovo = () => { setEditId(null); setForm(CD_FORM_EMPTY); setModal(true); };
+  const openEdit = (it) => {
+    setEditId(it.id);
+    setForm({ numero_processo:it.numero_processo||"", objeto:it.objeto||"", contratada:it.contratada||"", cnpj:it.cnpj||"", valor_total:String(it.valor_total||""), data_ratificacao:it.data_ratificacao||"", vigencia:it.vigencia||"", secretaria:it.secretaria||"", link_drive:it.link_drive||"", status:it.status||"Em andamento" });
+    setModal(true);
+  };
+  const deletar = (id) => { if (!window.confirm(`Excluir esta ${tipo.toLowerCase()}?`)) return; setItems(prev=>prev.filter(it=>it.id!==id)); toast(`${tipo} excluída`); };
+
+  const salvar = () => {
+    if (!form.numero_processo || !form.objeto || !form.contratada) { toast("Preencha os campos obrigatórios","error"); return; }
+    if (editId) {
+      setItems(prev=>prev.map(it=>it.id===editId ? { ...it, ...form, valor_total:parseFloat(form.valor_total)||0 } : it));
+      toast(`${tipo} atualizada!`);
+    } else {
+      setItems(prev=>[{ id:uid(), ...form, valor_total:parseFloat(form.valor_total)||0 }, ...prev]);
+      toast(`${tipo} cadastrada!`);
+    }
+    setModal(false); setForm(CD_FORM_EMPTY);
+  };
+
+  const valorTotal = filtered.reduce((s,it)=>s+(it.valor_total||0),0);
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={`Buscar ${tipo.toLowerCase()}...`}
+          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+          onFocus={e=>{ e.target.style.borderColor=color; e.target.style.boxShadow=`0 0 0 3px ${color}22`; }}
+          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+        <Select value={filtro} onChange={setFiltro} options={["Todos",...CD_STATUS]} />
+        <Btn onClick={openNovo} color={color}>+ Nova {tipo}</Btn>
+      </div>
+
+      {filtered.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:10, marginBottom:16 }}>
+          <KpiCard label="Registros" value={filtered.length} color={color} />
+          <KpiCard label="Valor Total" value={fmtBRL(valorTotal)} color={color} />
+          <KpiCard label="Em andamento" value={filtered.filter(it=>it.status==="Em andamento").length} color={C.accent} />
+          <KpiCard label="Concluídas" value={filtered.filter(it=>it.status==="Concluída").length} color={C.green} />
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={tipo==="Dispensa"?"dispensa":"inexigib"} title={`Nenhuma ${tipo} encontrada`} sub={`Cadastre uma ${tipo} de contratação`} />
+      ) : (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          {filtered.map((it,i) => (
+            <div key={it.id} style={{ padding:"13px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${CD_STATUS_COLOR[it.status]||C.border}`, transition:"background 0.12s" }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14, fontWeight:700, color, fontFamily:"'Syne',sans-serif" }}>{it.numero_processo}</span>
+                    <Badge label={it.status} />
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{it.objeto}</div>
+                  <div style={{ fontSize:12, color:C.sub }}>
+                    {it.contratada}{it.cnpj ? ` · CNPJ ${it.cnpj}` : ""}
+                    {it.secretaria ? ` · ${it.secretaria}` : ""}
+                  </div>
+                  <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>
+                    {it.data_ratificacao && <>Ratificação: {fmtDate(it.data_ratificacao)}</>}
+                    {it.vigencia && <> · Vigência: {fmtDate(it.vigencia)}</>}
+                  </div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ textAlign:"right", marginRight:4 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmtBRL(it.valor_total)}</div>
+                  </div>
+                  {it.link_drive && (
+                    <IconBtn name="externallink" color={color} title="Abrir no Google Drive" onClick={()=>window.open(it.link_drive,"_blank","noopener")} />
+                  )}
+                  <IconBtn name="edit" color={C.accent} title="Editar" onClick={()=>openEdit(it)} />
+                  <IconBtn name="trash" color={C.red} title="Excluir" onClick={()=>deletar(it.id)} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modal && (
+        <Modal title={editId ? `Editar ${tipo}` : `Nova ${tipo}`} onClose={()=>setModal(false)}>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Input label="Número do Processo" value={form.numero_processo} onChange={ff("numero_processo")} placeholder="001/2025" required />
+              <div><div style={{ fontSize:12, color:C.sub, marginBottom:4 }}>Status</div><Select value={form.status} onChange={ff("status")} options={CD_STATUS} /></div>
+            </div>
+            <Input label="Objeto" value={form.objeto} onChange={ff("objeto")} placeholder="Objeto da contratação" required />
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Input label="Contratada (Razão Social)" value={form.contratada} onChange={ff("contratada")} placeholder="Razão social" required />
+              <Input label="CNPJ" value={form.cnpj} onChange={ff("cnpj")} placeholder="00.000.000/0001-00" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+              <Input label="Valor Total (R$)" value={form.valor_total} onChange={ff("valor_total")} type="number" placeholder="0,00" />
+              <Input label="Data de Ratificação" value={form.data_ratificacao} onChange={ff("data_ratificacao")} type="date" />
+              <Input label="Vigência (Fim)" value={form.vigencia} onChange={ff("vigencia")} type="date" />
+            </div>
+            <Input label="Secretaria" value={form.secretaria} onChange={ff("secretaria")} placeholder="Secretaria solicitante" />
+            <Input label="Link do documento (Google Drive)" value={form.link_drive} onChange={ff("link_drive")} type="url" placeholder="https://drive.google.com/..." />
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+              <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
+              <Btn onClick={salvar} color={color}>{editId ? "Salvar Alterações" : `Salvar ${tipo}`}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    RELATÓRIOS
 ══════════════════════════════════════════════════════════════ */
 const esc = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -2359,13 +2504,15 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
    APP ROOT
 ══════════════════════════════════════════════════════════════ */
 const TABS = [
-  { id:"dashboard",  icon:"dashboard",  label:"Dashboard",  short:"Início" },
-  { id:"processos",  icon:"processos",  label:"Processos",  short:"Proc." },
-  { id:"atas",       icon:"atas",       label:"Ata de RP",  short:"Atas" },
-  { id:"contratos",  icon:"contratos",  label:"Contratos",  short:"Contr." },
-  { id:"cotacoes",   icon:"cotacoes",   label:"Cotações",   short:"Cot." },
-  { id:"relatorios", icon:"relatorios", label:"Relatórios", short:"Relat." },
-  { id:"claude",     icon:"claude",     label:"IA Claude",  short:"IA" },
+  { id:"dashboard",      icon:"dashboard",  label:"Dashboard",        short:"Início" },
+  { id:"processos",      icon:"processos",  label:"Processos",        short:"Proc." },
+  { id:"atas",           icon:"atas",       label:"Ata de RP",        short:"Atas" },
+  { id:"contratos",      icon:"contratos",  label:"Contratos",        short:"Contr." },
+  { id:"dispensas",      icon:"dispensa",   label:"Dispensas",        short:"Disp." },
+  { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
+  { id:"cotacoes",       icon:"cotacoes",   label:"Cotações",         short:"Cot." },
+  { id:"relatorios",     icon:"relatorios", label:"Relatórios",       short:"Relat." },
+  { id:"claude",         icon:"claude",     label:"IA Claude",        short:"IA" },
 ];
 
 export default function App() {
@@ -2387,13 +2534,15 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
-  const [appData, setAppData] = useState(() => loadData() || SEED);
-  const { processos, atas, contratos, cotacoes } = appData;
+  const [appData, setAppData] = useState(() => { const d = loadData() || SEED; return { dispensas:[], inexigibilidades:[], ...d }; });
+  const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = appData;
 
-  const setProcessos  = useCallback(fn=>{ setAppData(prev=>{ const processos=typeof fn==="function"?fn(prev.processos):fn; const next={...prev,processos}; saveData(next); return next; }); }, []);
-  const setAtas       = useCallback(fn=>{ setAppData(prev=>{ const atas=typeof fn==="function"?fn(prev.atas):fn;             const next={...prev,atas};       saveData(next); return next; }); }, []);
-  const setContratos  = useCallback(fn=>{ setAppData(prev=>{ const contratos=typeof fn==="function"?fn(prev.contratos):fn;   const next={...prev,contratos};  saveData(next); return next; }); }, []);
-  const setCotacoes   = useCallback(fn=>{ setAppData(prev=>{ const cotacoes=typeof fn==="function"?fn(prev.cotacoes):fn;     const next={...prev,cotacoes};   saveData(next); return next; }); }, []);
+  const setProcessos        = useCallback(fn=>{ setAppData(prev=>{ const processos=typeof fn==="function"?fn(prev.processos):fn; const next={...prev,processos}; saveData(next); return next; }); }, []);
+  const setAtas             = useCallback(fn=>{ setAppData(prev=>{ const atas=typeof fn==="function"?fn(prev.atas):fn;             const next={...prev,atas};       saveData(next); return next; }); }, []);
+  const setContratos        = useCallback(fn=>{ setAppData(prev=>{ const contratos=typeof fn==="function"?fn(prev.contratos):fn;   const next={...prev,contratos};  saveData(next); return next; }); }, []);
+  const setCotacoes         = useCallback(fn=>{ setAppData(prev=>{ const cotacoes=typeof fn==="function"?fn(prev.cotacoes):fn;     const next={...prev,cotacoes};   saveData(next); return next; }); }, []);
+  const setDispensas        = useCallback(fn=>{ setAppData(prev=>{ const dispensas=typeof fn==="function"?fn(prev.dispensas||[]):fn;           const next={...prev,dispensas};        saveData(next); return next; }); }, []);
+  const setInexigibilidades = useCallback(fn=>{ setAppData(prev=>{ const inexigibilidades=typeof fn==="function"?fn(prev.inexigibilidades||[]):fn; const next={...prev,inexigibilidades}; saveData(next); return next; }); }, []);
 
   const showToast = useCallback((msg, type="success") => {
     setToast_({ msg, type });
@@ -2560,6 +2709,8 @@ export default function App() {
           {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
           {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
           {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
+          {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
+          {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
           {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
           {tab==="relatorios" && <TabRelatorios data={data} />}
           {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} toast={showToast} />}
