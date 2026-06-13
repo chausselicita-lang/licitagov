@@ -1714,10 +1714,11 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, toast }) {
     try {
       const res = await anthropicFetch(null, {
         method:"POST", headers,
-        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:4096, system:EXTRACTION_SYSTEM, messages:[{ role:"user", content:userContent }] }),
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:8192, system:EXTRACTION_SYSTEM, messages:[{ role:"user", content:userContent }] }),
       });
       if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
       const json = await res.json();
+      if (json.stop_reason === "max_tokens") throw new Error("Documento muito extenso para extração automática. Tente um documento menor ou com menos itens.");
       const text = json.content?.[0]?.text || "";
       const m = text.match(/\{[\s\S]*\}/);
       if (!m) throw new Error("IA não retornou JSON válido. Tente novamente.");
