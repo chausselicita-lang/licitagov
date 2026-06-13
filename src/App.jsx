@@ -2102,10 +2102,12 @@ Preencha campos_nao_encontrados com os nomes dos campos que não constam no docu
 
 const EXTRACTION_RE = /\b(lan[çc]a|cadastra|registra|inclui|insere|importa|salva)\b/i;
 
+const VALOR_INSTRUCAO = `REGRA CRÍTICA PARA VALORES MONETÁRIOS: retorne SOMENTE dígitos inteiros, sem R$, sem pontos de milhar, sem vírgulas. Exemplos obrigatórios: "R$ 20.000,00" → 20000 | "R$ 1.500.000,00" → 1500000 | "R$ 9.800,50" → 9800 | "R$ 320.000,00" → 320000. NUNCA coloque pontos ou vírgulas no número — apenas dígitos.`;
+
 const EXTRACTION_PROMPTS = {
-  dispensa: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de DISPENSA DE LICITAÇÃO (arts. 74-76 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"dispensa","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":"","data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\nExtraia: numero_processo (número do processo ou da dispensa), objeto (descrição do objeto da contratação), contratada (razão social da empresa contratada), cnpj (CNPJ da empresa), valor_total (apenas o valor numérico), data_ratificacao (data da ratificação ou despacho em YYYY-MM-DD), vigencia (data de término da vigência em YYYY-MM-DD), secretaria (secretaria ou órgão solicitante/contratante). Liste em campos_nao_encontrados os que não constam no documento. Confiança: alta se maioria encontrada, media se metade, baixa se poucos campos encontrados.`,
-  inexigibilidade: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de INEXIGIBILIDADE DE LICITAÇÃO (art. 74 e 79 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"inexigibilidade","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":"","data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\nExtraia: numero_processo, objeto, contratada (razão social), cnpj, valor_total (numérico), data_ratificacao (YYYY-MM-DD), vigencia (YYYY-MM-DD), secretaria. Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
-  ata: `Você é especialista em licitações públicas Lei 14.133/2021. Analise esta ATA DE REGISTRO DE PREÇOS (arts. 82-86 da Lei 14.133/2021) e extraia todos os dados. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"ata","dados":{"numero_ata":"","objeto":"","fornecedor":"","cnpj":"","valor_total":"","data_assinatura":"","data_vigencia":"","orgao_gerenciador":"","itens":[]},"confianca":"alta","campos_nao_encontrados":[]}\nExtraia: numero_ata, objeto, fornecedor (razão social), cnpj, valor_total (numérico), data_assinatura (YYYY-MM-DD), data_vigencia (YYYY-MM-DD), orgao_gerenciador, itens (array com: descricao, unidade, quantidade, valor_unitario). Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
+  dispensa: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de DISPENSA DE LICITAÇÃO (arts. 74-76 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"dispensa","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":0,"data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_processo (número do processo ou da dispensa), objeto (descrição do objeto da contratação), contratada (razão social da empresa contratada), cnpj (CNPJ da empresa), valor_total (SOMENTE dígitos inteiros — veja regra acima), data_ratificacao (data da ratificação ou despacho em YYYY-MM-DD), vigencia (data de término da vigência em YYYY-MM-DD), secretaria (secretaria ou órgão solicitante/contratante). Liste em campos_nao_encontrados os que não constam no documento. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
+  inexigibilidade: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de INEXIGIBILIDADE DE LICITAÇÃO (art. 74 e 79 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"inexigibilidade","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":0,"data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_processo, objeto, contratada (razão social), cnpj, valor_total (SOMENTE dígitos inteiros — veja regra acima), data_ratificacao (YYYY-MM-DD), vigencia (YYYY-MM-DD), secretaria. Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
+  ata: `Você é especialista em licitações públicas Lei 14.133/2021. Analise esta ATA DE REGISTRO DE PREÇOS (arts. 82-86 da Lei 14.133/2021) e extraia todos os dados. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"ata","dados":{"numero_ata":"","objeto":"","fornecedor":"","cnpj":"","valor_total":0,"data_assinatura":"","data_vigencia":"","orgao_gerenciador":"","itens":[]},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_ata, objeto, fornecedor (razão social), cnpj, valor_total (SOMENTE dígitos inteiros — veja regra acima), data_assinatura (YYYY-MM-DD), data_vigencia (YYYY-MM-DD), orgao_gerenciador, itens (array com: descricao, unidade, quantidade, valor_unitario — valor_unitario também SOMENTE dígitos, ex: "R$ 5,80" → 5.80). Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
 };
 
 function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, setInexigibilidades, toast }) {
@@ -2254,7 +2256,30 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
     } finally { setLoading(false); }
   };
 
-  const parseBRL = (v) => parseFloat(String(v||"0").replace(/[R$\s.]/g,"").replace(",",".")) || 0;
+  const parseBRL = (v) => {
+    if (!v && v !== 0) return 0;
+    const s = String(v).trim().replace(/[R$\s]/g, "");
+    if (!s) return 0;
+    const hasComma = s.includes(","), hasDot = s.includes(".");
+    if (hasComma && hasDot) {
+      return s.lastIndexOf(",") > s.lastIndexOf(".")
+        ? parseFloat(s.replace(/\./g,"").replace(",",".")) || 0  // BR: 20.000,50
+        : parseFloat(s.replace(/,/g,"")) || 0;                   // US: 20,000.50
+    }
+    if (hasComma) {
+      const parts = s.split(",");
+      return (parts.length === 2 && parts[1].length <= 2)
+        ? parseFloat(s.replace(",",".")) || 0   // BR decimal: 20000,50
+        : parseFloat(s.replace(/,/g,"")) || 0;  // US thousands: 20,000
+    }
+    if (hasDot) {
+      const parts = s.split(".");
+      return (parts.length > 2 || (parts.length === 2 && parts[1].length === 3))
+        ? parseFloat(s.replace(/\./g,"")) || 0  // BR/multiple thousands: 20.000 ou 20.000.000
+        : parseFloat(s) || 0;                   // decimal normal: 20.50
+    }
+    return parseFloat(s) || 0;
+  };
 
   const confirmarExtracao = () => {
     if (!extractionCard || !editableData) return;
