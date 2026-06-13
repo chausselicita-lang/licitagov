@@ -442,7 +442,7 @@ function LoginScreen({ onLogin }) {
           <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
           <div style={{ position:"absolute", bottom:-80, left:-40, width:220, height:220, borderRadius:"50%", background:"rgba(255,255,255,0.07)" }} />
           <div style={{ position:"relative", textAlign:"center", maxWidth:320 }}>
-            <img src="/govcore-logo.png" alt="GovCore" style={{ width:120, marginBottom:24 }} />
+            <img src="/govcore-logo.png" alt="GovCore" style={{ width:200, marginBottom:32, filter:"drop-shadow(0 4px 24px rgba(0,0,0,0.35))" }} />
             <div style={{ fontSize:20, fontWeight:700, marginBottom:12, lineHeight:1.3 }}>
               Núcleo Inteligente da Gestão Pública
             </div>
