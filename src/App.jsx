@@ -80,6 +80,7 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     logout:     <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
     lock:       <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
     mail:       <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>,
+    externallink:<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -721,14 +722,14 @@ function TabAtas({ atas, setAtas, toast }) {
   const [modal, setModal] = useState(false);
   const [modalItem, setModalItem] = useState(false);
   const [ataAtiva, setAtaAtiva] = useState(null);
-  const [form, setForm] = useState({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"" });
+  const [form, setForm] = useState({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"" });
   const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
 
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
     setAtas(prev=>[{ id:uid(), ...form, valorTotal:parseFloat(form.valorTotal)||0, saldoDisponivel:parseFloat(form.valorTotal)||0, itens:[] }, ...prev]);
     setModal(false);
-    setForm({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"" });
+    setForm({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"" });
     toast("Ata registrada com sucesso!");
   };
 
@@ -781,7 +782,14 @@ function TabAtas({ atas, setAtas, toast }) {
               <div style={{ fontSize:12, color:C.sub }}>{ata.objeto}</div>
             </div>
           </div>
-          <Btn onClick={()=>setModalItem(true)} color={C.accent2} size="sm">+ Adicionar Item</Btn>
+          <div style={{ display:"flex", gap:8 }}>
+            {ata.link_drive && (
+              <Btn onClick={()=>window.open(ata.link_drive,"_blank","noopener")} color={C.accent} size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <Icon name="externallink" size={13} /> Abrir no Drive
+              </Btn>
+            )}
+            <Btn onClick={()=>setModalItem(true)} color={C.accent2} size="sm">+ Adicionar Item</Btn>
+          </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:12, marginBottom:18 }}>
           <KpiCard label="Fornecedor" value={ata.fornecedor.split(" ").slice(0,2).join(" ")} color={C.accent} />
@@ -888,6 +896,10 @@ function TabAtas({ atas, setAtas, toast }) {
                       <div style={{ fontSize:11, color:C.sub }}>saldo disponível</div>
                       <div style={{ fontSize:11, color:C.gold, marginTop:1 }}>{pct}% utilizado</div>
                     </div>
+                    {a.link_drive && (
+                      <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
+                        onClick={(e)=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
+                    )}
                     <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={(e)=>deletarAta(a.id,e)} />
                   </div>
                 </div>
@@ -912,6 +924,7 @@ function TabAtas({ atas, setAtas, toast }) {
               <Input label="CNPJ" value={form.cnpj} onChange={v=>setForm(f=>({...f,cnpj:v}))} placeholder="00.000.000/0001-00" />
             </div>
             <Input label="Valor Total da Ata (R$)" value={form.valorTotal} onChange={v=>setForm(f=>({...f,valorTotal:v}))} type="number" placeholder="0,00" />
+            <Input label="Link do documento (Google Drive)" value={form.link_drive} onChange={v=>setForm(f=>({...f,link_drive:v}))} type="url" placeholder="https://drive.google.com/..." />
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
               <Btn onClick={salvar} color={C.accent2}>Salvar Ata</Btn>
@@ -926,7 +939,7 @@ function TabAtas({ atas, setAtas, toast }) {
 /* ══════════════════════════════════════════════════════════════
    CONTRATOS
 ══════════════════════════════════════════════════════════════ */
-const FORM_CT_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", valor:"", inicio:"", fim:"", processo:"" };
+const FORM_CT_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", valor:"", inicio:"", fim:"", processo:"", link_drive:"" };
 
 function TabContratos({ contratos, setContratos, toast }) {
   const [modal, setModal] = useState(false);
@@ -953,7 +966,7 @@ function TabContratos({ contratos, setContratos, toast }) {
   const openNovo = () => { setEditId(null); setForm(FORM_CT_EMPTY); setModal(true); };
   const openEdit = (c) => {
     setEditId(c.id);
-    setForm({ numero:c.numero, objeto:c.objeto, fornecedor:c.fornecedor, cnpj:c.cnpj||"", valor:String(c.valor||""), inicio:c.inicio||"", fim:c.fim||"", processo:c.processo||"" });
+    setForm({ numero:c.numero, objeto:c.objeto, fornecedor:c.fornecedor, cnpj:c.cnpj||"", valor:String(c.valor||""), inicio:c.inicio||"", fim:c.fim||"", processo:c.processo||"", link_drive:c.link_drive||"" });
     setModal(true);
   };
   const deletar = (id) => { if (!window.confirm("Excluir este contrato?")) return; setContratos(prev=>prev.filter(c=>c.id!==id)); toast("Contrato excluído"); };
@@ -1011,6 +1024,10 @@ function TabContratos({ contratos, setContratos, toast }) {
                   <div style={{ textAlign:"right", marginRight:4 }}>
                     <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmtBRL(c.valor)}</div>
                   </div>
+                  {c.link_drive && (
+                    <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
+                      onClick={()=>window.open(c.link_drive,"_blank","noopener")} />
+                  )}
                   <IconBtn name="edit" color={C.accent} title="Editar" onClick={()=>openEdit(c)} />
                   <IconBtn name="trash" color={C.red} title="Excluir" onClick={()=>deletar(c.id)} />
                 </div>
@@ -1037,6 +1054,7 @@ function TabContratos({ contratos, setContratos, toast }) {
               <Input label="Início" value={form.inicio} onChange={v=>setForm(f=>({...f,inicio:v}))} type="date" />
               <Input label="Fim" value={form.fim} onChange={v=>setForm(f=>({...f,fim:v}))} type="date" />
             </div>
+            <Input label="Link do documento (Google Drive)" value={form.link_drive} onChange={v=>setForm(f=>({...f,link_drive:v}))} type="url" placeholder="https://drive.google.com/..." />
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
               <Btn onClick={salvar} color={C.green}>{editId?"Salvar Alterações":"Salvar Contrato"}</Btn>
