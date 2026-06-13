@@ -1759,13 +1759,8 @@ function RelProcessos({ processos, onClose }) {
   );
 }
 
-function TabRelatorios({ data }) {
+function TabRelatorios({ data, onOpenReport }) {
   const { processos, contratos, atas } = data;
-  const [rel, setRel] = useState(null);
-
-  if (rel === "atas")      return <RelAtas atas={atas} onClose={()=>setRel(null)} />;
-  if (rel === "contratos") return <RelContratos contratos={contratos} onClose={()=>setRel(null)} />;
-  if (rel === "processos") return <RelProcessos processos={processos} onClose={()=>setRel(null)} />;
 
   const cards = [
     { key:"atas",      icon:"atas",      color:C.accent2, title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Exibe dados do fornecedor, valores, saldo e itens por ata`, total: fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)), label:"Valor total" },
@@ -1786,7 +1781,7 @@ function TabRelatorios({ data }) {
               <div style={{ fontSize:10, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em" }}>{r.label}</div>
               <div style={{ fontSize:16, fontWeight:700, color:r.color, marginTop:2 }}>{r.total}</div>
             </div>
-            <Btn onClick={()=>setRel(r.key)} color={r.color} style={{ marginTop:4 }}>Gerar Relatório</Btn>
+            <Btn onClick={()=>onOpenReport(r.key)} color={r.color} style={{ marginTop:4 }}>Gerar Relatório</Btn>
           </div>
         ))}
       </div>
@@ -2237,6 +2232,7 @@ export default function App() {
   const [session, setSession] = useState(undefined); // undefined = loading
   const [supabaseReady, setSupabaseReady] = useState(isSupabaseReady());
   const [tab, setTab] = useState("dashboard");
+  const [activeReport, setActiveReport] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sideOpen, setSideOpen] = useState(false);
   const [toast, setToast_] = useState(null);
@@ -2365,6 +2361,9 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text }}>
       <GlobalStyles />
+      {activeReport === "atas"      && <RelAtas atas={atas} onClose={()=>setActiveReport(null)} />}
+      {activeReport === "contratos" && <RelContratos contratos={contratos} onClose={()=>setActiveReport(null)} />}
+      {activeReport === "processos" && <RelProcessos processos={processos} onClose={()=>setActiveReport(null)} />}
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
       {isMobile && sideOpen && (
@@ -2426,7 +2425,7 @@ export default function App() {
           {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
           {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
           {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
-          {tab==="relatorios" && <TabRelatorios data={data} />}
+          {tab==="relatorios" && <TabRelatorios data={data} onOpenReport={setActiveReport} />}
           {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} toast={showToast} />}
         </div>
       </div>
