@@ -718,19 +718,35 @@ function TabProcessos({ processos, setProcessos, toast }) {
 /* ══════════════════════════════════════════════════════════════
    ATAS
 ══════════════════════════════════════════════════════════════ */
+const ATA_FORM_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"" };
+
 function TabAtas({ atas, setAtas, toast }) {
   const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [modalItem, setModalItem] = useState(false);
   const [ataAtiva, setAtaAtiva] = useState(null);
-  const [form, setForm] = useState({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"" });
+  const [form, setForm] = useState(ATA_FORM_EMPTY);
   const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
+
+  const openNova = () => { setEditId(null); setForm(ATA_FORM_EMPTY); setModal(true); };
+  const openEdit = (a, e) => {
+    e.stopPropagation();
+    setEditId(a.id);
+    setForm({ numero:a.numero, objeto:a.objeto, fornecedor:a.fornecedor, cnpj:a.cnpj||"", vigencia:a.vigencia||"", valorTotal:String(a.valorTotal||""), link_drive:a.link_drive||"" });
+    setModal(true);
+  };
 
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
-    setAtas(prev=>[{ id:uid(), ...form, valorTotal:parseFloat(form.valorTotal)||0, saldoDisponivel:parseFloat(form.valorTotal)||0, itens:[] }, ...prev]);
+    if (editId) {
+      setAtas(prev=>prev.map(a=>a.id===editId?{ ...a, ...form, valorTotal:parseFloat(form.valorTotal)||a.valorTotal }:a));
+      toast("Ata atualizada!");
+    } else {
+      setAtas(prev=>[{ id:uid(), ...form, valorTotal:parseFloat(form.valorTotal)||0, saldoDisponivel:parseFloat(form.valorTotal)||0, itens:[] }, ...prev]);
+      toast("Ata registrada com sucesso!");
+    }
     setModal(false);
-    setForm({ numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"" });
-    toast("Ata registrada com sucesso!");
+    setForm(ATA_FORM_EMPTY);
   };
 
   const deletarAta = (id, e) => {
@@ -869,7 +885,7 @@ function TabAtas({ atas, setAtas, toast }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
-        <Btn onClick={()=>setModal(true)} color={C.accent2}>+ Nova Ata de RP</Btn>
+        <Btn onClick={openNova} color={C.accent2}>+ Nova Ata de RP</Btn>
       </div>
       {atas.length===0 ? <EmptyState icon="atas" title="Nenhuma Ata cadastrada" sub="Registre uma Ata de Registro de Preços" /> : (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
@@ -900,6 +916,7 @@ function TabAtas({ atas, setAtas, toast }) {
                       <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
                         onClick={(e)=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
                     )}
+                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={(e)=>openEdit(a,e)} />
                     <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={(e)=>deletarAta(a.id,e)} />
                   </div>
                 </div>
@@ -912,7 +929,7 @@ function TabAtas({ atas, setAtas, toast }) {
         </div>
       )}
       {modal && (
-        <Modal title="Nova Ata de Registro de Preços" onClose={()=>setModal(false)}>
+        <Modal title={editId?"Editar Ata de Registro de Preços":"Nova Ata de Registro de Preços"} onClose={()=>setModal(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Input label="Número da Ata" value={form.numero} onChange={v=>setForm(f=>({...f,numero:v}))} placeholder="ARP 001/2025" required />
@@ -927,7 +944,7 @@ function TabAtas({ atas, setAtas, toast }) {
             <Input label="Link do documento (Google Drive)" value={form.link_drive} onChange={v=>setForm(f=>({...f,link_drive:v}))} type="url" placeholder="https://drive.google.com/..." />
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
-              <Btn onClick={salvar} color={C.accent2}>Salvar Ata</Btn>
+              <Btn onClick={salvar} color={C.accent2}>{editId?"Salvar Alterações":"Salvar Ata"}</Btn>
             </div>
           </div>
         </Modal>
