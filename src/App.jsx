@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar.jsx";
 import Topbar from "./components/Topbar.jsx";
 import KPICards from "./components/KPICards.jsx";
 import ProcessosTable from "./components/ProcessosTable.jsx";
+import StatusBadge from "./components/StatusBadge.jsx";
 
 /* ═══════════════════════════════════════════════════════════════
    LICITAGOV — Sistema de Gestão de Licitações Públicas
