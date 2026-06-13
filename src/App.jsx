@@ -718,7 +718,7 @@ function TabProcessos({ processos, setProcessos, toast }) {
 /* ══════════════════════════════════════════════════════════════
    ATAS
 ══════════════════════════════════════════════════════════════ */
-const ATA_FORM_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"" };
+const ATA_FORM_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"", endereco:"", telefone:"", email:"" };
 
 function TabAtas({ atas, setAtas, toast }) {
   const [modal, setModal] = useState(false);
@@ -731,7 +731,7 @@ function TabAtas({ atas, setAtas, toast }) {
   const openNova = () => { setEditId(null); setForm(ATA_FORM_EMPTY); setModal(true); };
   const openEdit = (a) => {
     setEditId(a.id);
-    setForm({ numero:a.numero, objeto:a.objeto, fornecedor:a.fornecedor, cnpj:a.cnpj||"", vigencia:a.vigencia||"", valorTotal:String(a.valorTotal||""), link_drive:a.link_drive||"" });
+    setForm({ numero:a.numero, objeto:a.objeto, fornecedor:a.fornecedor, cnpj:a.cnpj||"", vigencia:a.vigencia||"", valorTotal:String(a.valorTotal||""), link_drive:a.link_drive||"", endereco:a.endereco||"", telefone:a.telefone||"", email:a.email||"" });
     setModal(true);
   };
 
@@ -806,8 +806,17 @@ function TabAtas({ atas, setAtas, toast }) {
             <Btn onClick={()=>setModalItem(true)} color={C.accent2} size="sm">+ Adicionar Item</Btn>
           </div>
         </div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"14px 18px", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize:11, fontWeight:600, color:C.sub, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Dados do Fornecedor</div>
+          <div style={{ fontSize:15, fontWeight:700, color:C.accent, marginBottom:4 }}>{ata.fornecedor}</div>
+          {ata.cnpj && <div style={{ fontSize:13, color:C.text, marginBottom:3 }}>CNPJ: <span style={{ fontWeight:500 }}>{ata.cnpj}</span></div>}
+          {ata.endereco && <div style={{ fontSize:13, color:C.sub, marginBottom:3 }}>📍 {ata.endereco}</div>}
+          <div style={{ display:"flex", gap:18, flexWrap:"wrap", marginTop: (ata.telefone||ata.email) ? 4 : 0 }}>
+            {ata.telefone && <div style={{ fontSize:13, color:C.sub }}>📞 {ata.telefone}</div>}
+            {ata.email && <div style={{ fontSize:13, color:C.sub }}>✉ {ata.email}</div>}
+          </div>
+        </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:12, marginBottom:18 }}>
-          <KpiCard label="Fornecedor" value={ata.fornecedor.split(" ").slice(0,2).join(" ")} color={C.accent} />
           <KpiCard label="Valor Total" value={fmtBRL(ata.valorTotal)} color={C.accent2} />
           <KpiCard label="Saldo" value={fmtBRL(ata.saldoDisponivel)} sub={`${(100-parseFloat(pctUsado)).toFixed(1)}% disponível`} color={C.green} />
           <KpiCard label="Vigência" value={fmtDate(ata.vigencia)} sub={diasV!==null?`${diasV} dias`:""} color={diasV!==null&&diasV<30?C.red:C.amber} />
@@ -940,6 +949,11 @@ function TabAtas({ atas, setAtas, toast }) {
               <Input label="CNPJ" value={form.cnpj} onChange={v=>setForm(f=>({...f,cnpj:v}))} placeholder="00.000.000/0001-00" />
             </div>
             <Input label="Valor Total da Ata (R$)" value={form.valorTotal} onChange={v=>setForm(f=>({...f,valorTotal:v}))} type="number" placeholder="0,00" />
+            <Input label="Endereço do Fornecedor" value={form.endereco} onChange={v=>setForm(f=>({...f,endereco:v}))} placeholder="Rua, número, bairro, cidade/UF" />
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Input label="Telefone" value={form.telefone} onChange={v=>setForm(f=>({...f,telefone:v}))} placeholder="(00) 00000-0000" />
+              <Input label="E-mail" value={form.email} onChange={v=>setForm(f=>({...f,email:v}))} type="email" placeholder="contato@empresa.com.br" />
+            </div>
             <Input label="Link do documento (Google Drive)" value={form.link_drive} onChange={v=>setForm(f=>({...f,link_drive:v}))} type="url" placeholder="https://drive.google.com/..." />
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
