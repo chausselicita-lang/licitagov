@@ -729,8 +729,7 @@ function TabAtas({ atas, setAtas, toast }) {
   const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
 
   const openNova = () => { setEditId(null); setForm(ATA_FORM_EMPTY); setModal(true); };
-  const openEdit = (a, e) => {
-    e.stopPropagation();
+  const openEdit = (a) => {
     setEditId(a.id);
     setForm({ numero:a.numero, objeto:a.objeto, fornecedor:a.fornecedor, cnpj:a.cnpj||"", vigencia:a.vigencia||"", valorTotal:String(a.valorTotal||""), link_drive:a.link_drive||"" });
     setModal(true);
@@ -916,7 +915,7 @@ function TabAtas({ atas, setAtas, toast }) {
                       <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
                         onClick={(e)=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
                     )}
-                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={(e)=>openEdit(a,e)} />
+                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={()=>openEdit(a)} />
                     <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={(e)=>deletarAta(a.id,e)} />
                   </div>
                 </div>
