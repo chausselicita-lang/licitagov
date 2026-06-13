@@ -1597,7 +1597,147 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
 /* ══════════════════════════════════════════════════════════════
    RELATÓRIOS
 ══════════════════════════════════════════════════════════════ */
-const hoje = () => new Date().toLocaleDateString("pt-BR");
+const esc = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const hojeStr = () => new Date().toLocaleDateString("pt-BR");
+
+const BASE_CSS = `
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:32px 40px;font-size:14px;line-height:1.5}
+  .hdr{border-bottom:3px solid #1e3a8a;padding-bottom:14px;margin-bottom:24px}
+  .hdr h1{font-size:20px;font-weight:700;color:#1e3a8a}
+  .hdr .sub{font-size:12px;color:#666;margin-top:4px}
+  .card{border:1px solid #ddd;border-radius:8px;padding:18px 22px;margin-bottom:18px;page-break-inside:avoid}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+  .card-num{font-size:16px;font-weight:700}
+  .card-obj{font-size:13px;color:#555;margin-top:3px}
+  .badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;white-space:nowrap}
+  .sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#555;margin:14px 0 8px;border-bottom:1px solid #eee;padding-bottom:4px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:10px}
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;margin-bottom:10px}
+  .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 16px;margin-bottom:10px}
+  .lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+  .val{font-size:13px;font-weight:500;color:#111}
+  .val.big{font-size:16px;font-weight:700}
+  .bar-bg{background:#eee;border-radius:4px;height:6px;margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+  th{padding:7px 10px;text-align:left;background:#f5f5f5;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #ddd}
+  td{padding:7px 10px;border-bottom:1px solid #eee}
+  .footer{margin-top:36px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:10px}
+  @media print{body{padding:16px 20px}}
+`;
+
+const openPrintWindow = (titulo, corpo) => {
+  const win = window.open('','_blank');
+  if (!win) { alert('Permita pop-ups para gerar o relatório.'); return; }
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${titulo}</title><style>${BASE_CSS}</style></head><body>${corpo}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+};
+
+const gerarRelatorioAtas = (atas) => {
+  const total = atas.reduce((s,a)=>s+a.valorTotal,0);
+  const saldoTotal = atas.reduce((s,a)=>s+a.saldoDisponivel,0);
+  let html = `<div class="hdr"><h1>Relatório — Atas de Registro de Preços</h1><div class="sub">Gerado em ${hojeStr()} &nbsp;·&nbsp; ${atas.length} ata(s) cadastrada(s) &nbsp;·&nbsp; Valor total: ${fmtBRL(total)} &nbsp;·&nbsp; Saldo disponível: ${fmtBRL(saldoTotal)}</div></div>`;
+  if (!atas.length) { html += '<p style="color:#888">Nenhuma ata cadastrada.</p>'; }
+  atas.forEach(a => {
+    const pct = a.valorTotal>0?((a.valorTotal-a.saldoDisponivel)/a.valorTotal*100).toFixed(1):"0.0";
+    const d = diasParaVencer(a.vigencia);
+    const statusLabel = d>0?`Vigente · ${d} dias restantes`:d===0?"Vence hoje":"Vencida";
+    const statusBg = d>0?"background:#dcfce7;color:#166534":d===0?"background:#fef9c3;color:#854d0e":"background:#fee2e2;color:#991b1b";
+    const barColor = parseFloat(pct)>80?"#ef4444":"#1e3a8a";
+    html += `<div class="card" style="border-left:4px solid #4f46e5">
+      <div class="card-top">
+        <div><div class="card-num" style="color:#4f46e5">${esc(a.numero)}</div><div class="card-obj">${esc(a.objeto)}</div></div>
+        <span class="badge" style="${statusBg}">${statusLabel}</span>
+      </div>
+      <div class="sec">Dados do Fornecedor</div>
+      <div class="g2">
+        <div><div class="lbl">Razão Social</div><div class="val">${esc(a.fornecedor)}</div></div>
+        <div><div class="lbl">CNPJ</div><div class="val">${esc(a.cnpj)||"—"}</div></div>
+        ${a.endereco?`<div style="grid-column:1/-1"><div class="lbl">Endereço</div><div class="val">${esc(a.endereco)}</div></div>`:""}
+        ${a.telefone?`<div><div class="lbl">Telefone</div><div class="val">${esc(a.telefone)}</div></div>`:""}
+        ${a.email?`<div><div class="lbl">E-mail</div><div class="val">${esc(a.email)}</div></div>`:""}
+      </div>
+      <div class="sec">Dados Financeiros</div>
+      <div class="g4">
+        <div><div class="lbl">Valor Total</div><div class="val big">${fmtBRL(a.valorTotal)}</div></div>
+        <div><div class="lbl">Saldo Disponível</div><div class="val big" style="color:#166534">${fmtBRL(a.saldoDisponivel)}</div></div>
+        <div><div class="lbl">Utilizado</div><div class="val" style="color:#92400e">${pct}%</div></div>
+        <div><div class="lbl">Vigência</div><div class="val">${fmtDate(a.vigencia)}</div></div>
+      </div>
+      <div class="bar-bg"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px"></div></div>
+      ${a.itens?.length?`
+      <div class="sec" style="margin-top:14px">Itens da Ata (${a.itens.length})</div>
+      <table><thead><tr><th>Descrição</th><th>Unidade</th><th>Qtd Reg.</th><th>Qtd Util.</th><th>Vlr Unit.</th><th>Saldo Qtd</th></tr></thead><tbody>
+      ${a.itens.map(it=>`<tr><td>${esc(it.descricao)}</td><td>${esc(it.unidade)}</td><td>${(it.qtdRegistrada||0).toLocaleString("pt-BR")}</td><td>${(it.qtdUtilizada||0).toLocaleString("pt-BR")}</td><td>${fmtBRL(it.valorUnit)}</td><td>${((it.qtdRegistrada||0)-(it.qtdUtilizada||0)).toLocaleString("pt-BR")}</td></tr>`).join("")}
+      </tbody></table>`:""}</div>`;
+  });
+  html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 · ${hojeStr()}</div>`;
+  return html;
+};
+
+const gerarRelatorioContratos = (contratos) => {
+  const totalVigente = contratos.filter(c=>c.status==="Vigente").reduce((s,c)=>s+c.valor,0);
+  let html = `<div class="hdr"><h1>Relatório — Contratos</h1><div class="sub">Gerado em ${hojeStr()} &nbsp;·&nbsp; ${contratos.length} contrato(s) &nbsp;·&nbsp; Valor total vigente: ${fmtBRL(totalVigente)}</div></div>`;
+  if (!contratos.length) { html += '<p style="color:#888">Nenhum contrato cadastrado.</p>'; }
+  contratos.forEach(c => {
+    const d = diasParaVencer(c.fim);
+    let status = c.status;
+    if (d!==null && c.status!=="Encerrado") { if(d<0) status="Vencido"; else if(d<=30) status="A vencer"; else status="Vigente"; }
+    const statusStyle = status==="Vigente"?"background:#dcfce7;color:#166534":status==="A vencer"?"background:#fef9c3;color:#854d0e":status==="Vencido"?"background:#fee2e2;color:#991b1b":"background:#f3f4f6;color:#374151";
+    const borderColor = status==="Vigente"?"#166534":status==="A vencer"?"#854d0e":status==="Vencido"?"#991b1b":"#9ca3af";
+    const diasInfo = d!==null?(d<0?`Venceu há ${Math.abs(d)} dias`:`${d} dias restantes`):"";
+    html += `<div class="card" style="border-left:4px solid ${borderColor}">
+      <div class="card-top">
+        <div>
+          <div class="card-num" style="color:#16a34a">${esc(c.numero)}</div>
+          <div class="card-obj">${esc(c.objeto)}</div>
+          ${c.processo?`<div style="font-size:12px;color:#888;margin-top:2px">Processo: ${esc(c.processo)}</div>`:""}
+        </div>
+        <span class="badge" style="${statusStyle}">${status}</span>
+      </div>
+      <div class="g2">
+        <div><div class="lbl">Fornecedor</div><div class="val">${esc(c.fornecedor)}</div></div>
+        <div><div class="lbl">CNPJ</div><div class="val">${esc(c.cnpj)||"—"}</div></div>
+      </div>
+      <div class="g3">
+        <div><div class="lbl">Valor do Contrato</div><div class="val big">${fmtBRL(c.valor)}</div></div>
+        <div><div class="lbl">Início</div><div class="val">${fmtDate(c.inicio)}</div></div>
+        <div><div class="lbl">Fim / Vigência</div><div class="val" style="color:${d!==null&&d<30?"#991b1b":"#111"}">${fmtDate(c.fim)}${diasInfo?` <span style="font-size:11px;color:#666">(${diasInfo})</span>`:""}</div></div>
+      </div>
+    </div>`;
+  });
+  html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 · ${hojeStr()}</div>`;
+  return html;
+};
+
+const gerarRelatorioProcessos = (processos) => {
+  const faseColor = { "Em andamento":"#4f46e5","Publicado":"#0891b2","Homologado":"#166534","Planejamento":"#92400e","Revogado":"#991b1b","Suspenso":"#b45309","Encerrado":"#374151" };
+  const valorTotal = processos.reduce((s,p)=>s+(p.valor||0),0);
+  let html = `<div class="hdr"><h1>Relatório — Processos Licitatórios</h1><div class="sub">Gerado em ${hojeStr()} &nbsp;·&nbsp; ${processos.length} processo(s) &nbsp;·&nbsp; Valor estimado total: ${fmtBRL(valorTotal)}</div></div>`;
+  if (!processos.length) { html += '<p style="color:#888">Nenhum processo cadastrado.</p>'; }
+  processos.forEach(p => {
+    const cor = faseColor[p.fase]||"#6b7280";
+    html += `<div class="card" style="border-left:4px solid ${cor}">
+      <div class="card-top">
+        <div>
+          <div class="card-num" style="color:#0891b2">${esc(p.numero)}</div>
+          <div class="card-obj">${esc(p.objeto)}</div>
+          ${p.orgao?`<div style="font-size:12px;color:#888;margin-top:2px">${esc(p.orgao)}</div>`:""}
+        </div>
+        <span class="badge" style="background:${cor}22;color:${cor}">${esc(p.fase)}</span>
+      </div>
+      <div class="g3">
+        <div><div class="lbl">Modalidade</div><div class="val">${esc(p.modalidade)}</div></div>
+        <div><div class="lbl">Valor Estimado</div><div class="val big">${fmtBRL(p.valor)}</div></div>
+        <div><div class="lbl">Data de Abertura</div><div class="val">${fmtDate(p.abertura)}</div></div>
+      </div>
+    </div>`;
+  });
+  html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 · ${hojeStr()}</div>`;
+  return html;
+};
 
 function RelAtas({ atas, onClose }) {
   const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, secTitle:{ fontSize:15, fontWeight:700, borderBottom:"2px solid #4f46e5", paddingBottom:6, marginBottom:14, color:"#4f46e5" }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid4:{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px 16px", marginBottom:12 }, th:{ padding:"8px 12px", fontSize:11, textAlign:"left", background:"#f0f0f0", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em" }, td:{ padding:"8px 12px", fontSize:13, borderBottom:"1px solid #eee" }, bar:{ background:"#eee", borderRadius:4, height:7, marginTop:4 } };
@@ -1759,21 +1899,21 @@ function RelProcessos({ processos, onClose }) {
   );
 }
 
-function TabRelatorios({ data, onOpenReport }) {
+function TabRelatorios({ data }) {
   const { processos, contratos, atas } = data;
 
   const cards = [
-    { key:"atas",      icon:"atas",      color:C.accent2, title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Exibe dados do fornecedor, valores, saldo e itens por ata`, total: fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)), label:"Valor total" },
-    { key:"contratos", icon:"contratos", color:C.green,   title:"Contratos", desc:`${contratos.length} contrato(s) · Exibe fornecedor, vigência e situação de cada contrato`, total: fmtBRL(contratos.reduce((s,c)=>s+c.valor,0)), label:"Valor total" },
-    { key:"processos", icon:"processos", color:C.accent,  title:"Processos Licitatórios", desc:`${processos.length} processo(s) · Exibe modalidade, fase e valor por processo`, total: processos.filter(p=>p.fase==="Em andamento").length + " em andamento", label:"Situação" },
+    { icon:"atas",      color:C.accent2, title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Fornecedor, valores, saldo e itens`, total:fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)), label:"Valor total", gerar:()=>openPrintWindow("Relatório — Atas de RP", gerarRelatorioAtas(atas)) },
+    { icon:"contratos", color:C.green,   title:"Contratos",                  desc:`${contratos.length} contrato(s) · Fornecedor, vigência e situação`, total:fmtBRL(contratos.reduce((s,c)=>s+c.valor,0)), label:"Valor total", gerar:()=>openPrintWindow("Relatório — Contratos", gerarRelatorioContratos(contratos)) },
+    { icon:"processos", color:C.accent,  title:"Processos Licitatórios",     desc:`${processos.length} processo(s) · Modalidade, fase e valor`, total:processos.filter(p=>p.fase==="Em andamento").length+" em andamento", label:"Situação", gerar:()=>openPrintWindow("Relatório — Processos", gerarRelatorioProcessos(processos)) },
   ];
 
   return (
     <div>
-      <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Selecione o relatório que deseja gerar e visualizar ou imprimir.</div>
+      <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Selecione o relatório. Será aberto em nova janela pronto para imprimir.</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:16 }}>
         {cards.map(r=>(
-          <div key={r.key} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:22, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:10 }}>
+          <div key={r.title} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:22, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:10 }}>
             <div style={{ color:r.color }}><Icon name={r.icon} size={22} strokeWidth={1.5} color={r.color} /></div>
             <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{r.title}</div>
             <div style={{ fontSize:12, color:C.sub, lineHeight:1.6 }}>{r.desc}</div>
@@ -1781,7 +1921,7 @@ function TabRelatorios({ data, onOpenReport }) {
               <div style={{ fontSize:10, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em" }}>{r.label}</div>
               <div style={{ fontSize:16, fontWeight:700, color:r.color, marginTop:2 }}>{r.total}</div>
             </div>
-            <Btn onClick={()=>onOpenReport(r.key)} color={r.color} style={{ marginTop:4 }}>Gerar Relatório</Btn>
+            <Btn onClick={r.gerar} color={r.color} style={{ marginTop:4 }}>Gerar Relatório</Btn>
           </div>
         ))}
       </div>
@@ -2232,7 +2372,6 @@ export default function App() {
   const [session, setSession] = useState(undefined); // undefined = loading
   const [supabaseReady, setSupabaseReady] = useState(isSupabaseReady());
   const [tab, setTab] = useState("dashboard");
-  const [activeReport, setActiveReport] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sideOpen, setSideOpen] = useState(false);
   const [toast, setToast_] = useState(null);
@@ -2361,9 +2500,6 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text }}>
       <GlobalStyles />
-      {activeReport === "atas"      && <RelAtas atas={atas} onClose={()=>setActiveReport(null)} />}
-      {activeReport === "contratos" && <RelContratos contratos={contratos} onClose={()=>setActiveReport(null)} />}
-      {activeReport === "processos" && <RelProcessos processos={processos} onClose={()=>setActiveReport(null)} />}
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
       {isMobile && sideOpen && (
@@ -2425,7 +2561,7 @@ export default function App() {
           {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
           {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
           {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
-          {tab==="relatorios" && <TabRelatorios data={data} onOpenReport={setActiveReport} />}
+          {tab==="relatorios" && <TabRelatorios data={data} />}
           {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} toast={showToast} />}
         </div>
       </div>
