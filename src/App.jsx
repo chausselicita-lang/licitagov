@@ -105,7 +105,7 @@ function loadData() {
   return null;
 }
 function saveData(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { console.error('[LicitaGov] localStorage falhou:', e); }
 }
 
 const SEED = {
@@ -2534,7 +2534,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
-  const [appData, setAppData] = useState(() => { const d = loadData() || SEED; return { dispensas:[], inexigibilidades:[], ...d }; });
+  const [appData, setAppData] = useState(() => { const d = loadData() || SEED; return { ...d, dispensas: Array.isArray(d.dispensas) ? d.dispensas : [], inexigibilidades: Array.isArray(d.inexigibilidades) ? d.inexigibilidades : [] }; });
   const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = appData;
 
   const setProcessos        = useCallback(fn=>{ setAppData(prev=>{ const processos=typeof fn==="function"?fn(prev.processos):fn; const next={...prev,processos}; saveData(next); return next; }); }, []);
