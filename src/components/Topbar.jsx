@@ -39,7 +39,7 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
         )}
         {isMobile ? (
           <span style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif", color:T.text }}>
-            Licita<span style={{ color:T.accent }}>Gov</span>
+            Gov<span style={{ color:T.accent }}>Core</span>
           </span>
         ) : (
           <div>

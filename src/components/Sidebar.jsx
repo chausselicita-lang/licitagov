@@ -32,7 +32,7 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
         </div>
         <div>
           <div style={{ fontSize:14, fontWeight:700, fontFamily:"'Syne',sans-serif", color:S.accentFg, letterSpacing:-0.3 }}>
-            LicitaGov
+            GovCore
           </div>
           <div style={{ fontSize:10, color:S.sub, marginTop:1 }}>Lei 14.133 / 2021</div>
         </div>
