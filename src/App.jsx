@@ -442,20 +442,12 @@ function LoginScreen({ onLogin }) {
           <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
           <div style={{ position:"absolute", bottom:-80, left:-40, width:220, height:220, borderRadius:"50%", background:"rgba(255,255,255,0.07)" }} />
           <div style={{ position:"relative", textAlign:"center", maxWidth:320 }}>
-            <img src="/govcore-logo.png" alt="GovCore" style={{ maxWidth:220, width:"80%", marginBottom:36, filter:"drop-shadow(0 6px 32px rgba(0,0,0,0.45))" }} />
+            <img src="/govcore-logo.png" alt="GovCore" style={{ maxWidth:300, width:"90%", marginBottom:36, filter:"drop-shadow(0 6px 32px rgba(0,0,0,0.45))" }} />
             <div style={{ fontSize:20, fontWeight:700, marginBottom:12, lineHeight:1.3 }}>
               Núcleo Inteligente da Gestão Pública
             </div>
-            <div style={{ fontSize:14, opacity:0.75, lineHeight:1.7, marginBottom:40 }}>
+            <div style={{ fontSize:14, opacity:0.75, lineHeight:1.7 }}>
               Lei 14.133/2021 · IN SEGES 65/2021
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:10, textAlign:"left" }}>
-              {["Controle de processos licitatórios","Atas de Registro de Preços","Pesquisa de preços via IA","Alertas de vencimento"].map(item => (
-                <div key={item} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, opacity:0.85 }}>
-                  <div style={{ width:6, height:6, borderRadius:3, background:"#93c5fd", flexShrink:0 }} />
-                  {item}
-                </div>
-              ))}
             </div>
           </div>
         </div>
