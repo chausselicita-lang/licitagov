@@ -1,19 +1,31 @@
 /**
  * Teste E2E — fluxo de recuperação de senha (PASSWORD_RECOVERY)
  *
- * Pré-requisito: SUPABASE_SERVICE_ROLE_KEY e RECOVERY_EMAIL definidos.
+ * Uso:
  *   $env:SUPABASE_SERVICE_ROLE_KEY="sb_secret_..."
  *   $env:RECOVERY_EMAIL="chausselicita@gmail.com"
- *   node "G:\Desktop\licitaGov\node_modules\@playwright\test\cli.js" test tests/recovery-flow.spec.mjs
+ *   node "G:\Desktop\licitaGov\node_modules\@playwright\test\cli.js" test --config "G:\Desktop\licitaGov\playwright.config.mjs" --reporter=line
  */
 
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import https from "https";
 
 const SUPABASE_URL = "https://xqlrfsrjvqmucchzpapk.supabase.co";
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const EMAIL        = process.env.RECOVERY_EMAIL || "chausselicita@gmail.com";
 const PROD_URL     = "https://licitagov-one.vercel.app";
+
+/** Segue um redirect HTTP e devolve o Location header (inclui o hash). */
+function followRedirect(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, (res) => {
+      const loc = res.headers["location"];
+      resolve(loc || url);
+      res.resume(); // consumir o body para não vazar
+    }).on("error", reject);
+  });
+}
 
 test("recovery link abre tela Definir nova senha", async ({ browser }) => {
   if (!SERVICE_KEY) throw new Error("Defina SUPABASE_SERVICE_ROLE_KEY antes de rodar o teste.");
@@ -31,43 +43,49 @@ test("recovery link abre tela Definir nova senha", async ({ browser }) => {
 
   if (error) throw new Error("Supabase Admin generateLink falhou: " + error.message);
 
-  // Supabase retorna o link como data.properties.action_link
   const actionLink = data?.properties?.action_link;
-  if (!actionLink) throw new Error("Link de recuperação não retornado: " + JSON.stringify(data));
+  if (!actionLink) throw new Error("Link não retornado: " + JSON.stringify(data));
+  console.log("Action link:", actionLink);
 
-  console.log("Link gerado:", actionLink);
+  // 2. Resolver o redirect server-side (Node.js) para obter a URL final com hash
+  //    Isso evita a cadeia Playwright→Supabase→Vercel que dispara bot-detection
+  const appUrlWithHash = await followRedirect(actionLink);
+  console.log("URL com hash (resolvida no Node):", appUrlWithHash);
 
-  // 2. Navegar para o link no site de produção
+  // Se o Supabase fez redirect encadeado, seguir mais um nível
+  const finalAppUrl = appUrlWithHash.startsWith("https://xqlrfsrjvqmucchzpapk")
+    ? await followRedirect(appUrlWithHash)
+    : appUrlWithHash;
+  console.log("URL final do app:", finalAppUrl);
+
+  // 3. Abrir nova página e navegar DIRETO para a URL do app (sem passar pelo Supabase no browser)
   const page = await browser.newPage();
 
-  // Capturar todos os logs do browser
   const browserLogs = [];
   page.on("console", msg => {
     const text = `[${msg.type()}] ${msg.text()}`;
     browserLogs.push(text);
-    console.log("Browser:", text);
+    if (msg.text().startsWith("[Auth]")) console.log("Browser Auth log:", text);
   });
 
-  await page.goto(actionLink, { waitUntil: "networkidle", timeout: 30000 });
+  // Navegar direto para a URL final (app Vercel + hash com tokens)
+  await page.goto(finalAppUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-  // 3. O link redireciona para o PROD_URL com o hash de recuperação.
-  //    Aguardar o app React montar + processar o hash
-  await page.waitForTimeout(5000);
+  // Aguardar React montar e processar o hash
+  await page.waitForTimeout(4000);
 
-  const finalUrl = page.url();
-  console.log("URL final:", finalUrl);
+  const pageUrl = page.url();
+  const bodyText = (await page.evaluate(() => document.body.innerText)).slice(0, 400);
+  console.log("URL no browser:", pageUrl);
+  console.log("Conteúdo da página:", bodyText);
+  console.log("Logs [Auth]:", browserLogs.filter(l => l.includes("[Auth]")).join(" | ") || "(nenhum)");
 
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  console.log("Texto na página (primeiros 300 chars):", bodyText.slice(0, 300));
-  console.log("Logs do browser:", browserLogs.join(" | "));
-
-  // Screenshot diagnóstico
+  // Screenshot como evidência
   await page.screenshot({ path: "G:\\Desktop\\licitaGov\\tests\\recovery-screenshot.png", fullPage: true });
 
   // 4. Verificar que a tela "Definir nova senha" aparece
   const heading = page.locator("text=Definir nova senha");
-  await expect(heading).toBeVisible({ timeout: 10000 });
+  await expect(heading).toBeVisible({ timeout: 12000 });
 
   console.log("✅ Tela 'Definir nova senha' confirmada na produção.");
-
 });
