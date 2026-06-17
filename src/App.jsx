@@ -1265,6 +1265,8 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const [loadingIA, setLoadingIA] = useState(false);
   const [resultadoIA, setResultadoIA] = useState(null);
   const [mostrarTextoIA, setMostrarTextoIA] = useState(false);
+  // Estado INDEPENDENTE para visualizar uma fonte — não interfere em nenhum outro estado
+  const [fonteAberta, setFonteAberta] = useState(null);
 
   const addFornecedor = () => setFornecedores(p=>[...p,{ id:uid(), razao:"", cnpj:"" }]);
   const remFornecedor = id => setFornecedores(p=>p.filter(f=>f.id!==id));
@@ -1367,6 +1369,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   if (resultadoIA) {
     const { fontes, mediana, precos_inexequiveis, precos_excessivos, texto_mapa_precos } = resultadoIA;
     return (
+      <>
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
           <div>
@@ -1419,11 +1422,11 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                       </td>
                       <td style={{ padding:"11px 14px" }}>
                         {f.url ? (
-                          <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color:C.accent, fontSize:12, textDecoration:"none" }}
-                            onMouseEnter={e=>e.target.style.textDecoration="underline"}
-                            onMouseLeave={e=>e.target.style.textDecoration="none"}>
+                          <button
+                            onClick={e=>{ e.stopPropagation(); setFonteAberta({ url:f.url, fornecedor:f.fornecedor, descricao:f.descricao||objetoIA, valor:f.valor_unitario }); }}
+                            style={{ background:"none", border:`1px solid ${C.accentBorder}`, borderRadius:5, padding:"3px 10px", color:C.accent, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
                             Ver fonte ↗
-                          </a>
+                          </button>
                         ) : <span style={{ fontSize:12, color:C.tertiary }}>—</span>}
                       </td>
                     </tr>
@@ -1481,6 +1484,46 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
           <Btn color={C.green} onClick={confirmarIA}>Confirmar e Salvar Cotação</Btn>
         </div>
       </div>
+
+      {/* Mini-modal de visualização de fonte — estado INDEPENDENTE (fonteAberta), não afeta nenhum outro estado */}
+      {fonteAberta && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", backdropFilter:"blur(3px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+          onClick={e=>{ if(e.target===e.currentTarget) setFonteAberta(null); }}>
+          <div style={{ background:C.card, border:`1px solid ${C.borderStrong}`, borderRadius:12, padding:"28px 32px", width:"100%", maxWidth:480, boxShadow:"0 20px 48px rgba(0,0,0,0.2)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+              <span style={{ fontSize:15, fontWeight:700, color:C.text }}>Fonte Pesquisada</span>
+              <button onClick={()=>setFonteAberta(null)} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", padding:4, borderRadius:4, display:"flex" }}>
+                <Icon name="close" size={17} />
+              </button>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {fonteAberta.fornecedor && (
+                <div><div style={{ fontSize:11, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:3 }}>Fornecedor / Plataforma</div>
+                  <div style={{ fontSize:14, fontWeight:600, color:C.text }}>{fonteAberta.fornecedor}</div>
+                </div>
+              )}
+              {fonteAberta.descricao && (
+                <div><div style={{ fontSize:11, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:3 }}>Descrição</div>
+                  <div style={{ fontSize:13, color:C.text }}>{fonteAberta.descricao}</div>
+                </div>
+              )}
+              {fonteAberta.valor && (
+                <div><div style={{ fontSize:11, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:3 }}>Valor Unitário</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:C.green }}>{fmtBRL(parseFloat(fonteAberta.valor)||0)}</div>
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize:11, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>URL da Fonte</div>
+                <div style={{ background:C.overlay, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", fontSize:12, color:C.sub, wordBreak:"break-all", marginBottom:10 }}>{fonteAberta.url}</div>
+                <Btn onClick={()=>window.open(fonteAberta.url,"_blank","noopener,noreferrer")} color={C.accent}>
+                  Abrir site em nova aba ↗
+                </Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
