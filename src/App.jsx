@@ -375,6 +375,90 @@ function SetupScreen({ onReady }) {
   );
 }
 
+/* ── DEFINIR NOVA SENHA ────────────────────────────────────── */
+function SetPasswordScreen({ onDone }) {
+  const [senha, setSenha] = useState("");
+  const [confirma, setConfirma] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState(false);
+
+  const salvar = async () => {
+    if (!senha || senha.length < 6) { setErr("A senha deve ter pelo menos 6 caracteres."); return; }
+    if (senha !== confirma) { setErr("As senhas não coincidem."); return; }
+    setLoading(true); setErr("");
+    try {
+      const sb = getSupabase();
+      const { error } = await sb.auth.updateUser({ password: senha });
+      if (error) throw error;
+      setOk(true);
+      setTimeout(() => { sb.auth.signOut(); onDone(); }, 2000);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const inputStyle = {
+    background: C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+    padding:"11px 14px", color:C.text, fontSize:14, outline:"none",
+    width:"100%", transition:"border-color 0.14s, box-shadow 0.14s",
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:C.bg, fontFamily:"'DM Sans',sans-serif" }}>
+      <GlobalStyles />
+      <div style={{ width:"100%", maxWidth:380, padding:24, animation:"fadeUp 0.3s ease" }}>
+        <div style={{ textAlign:"center", marginBottom:28 }}>
+          <img src="/govcore-logo.png" alt="GovCore" style={{ maxWidth:180, width:"65%", marginBottom:12 }} />
+        </div>
+        <div style={{ fontSize:20, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>Definir nova senha</div>
+        <div style={{ fontSize:13, color:C.sub, marginBottom:24 }}>Crie uma senha segura para acessar o sistema.</div>
+
+        {ok ? (
+          <div style={{ textAlign:"center", color:C.green, fontSize:14, fontWeight:600, padding:16 }}>
+            ✓ Senha definida com sucesso! Redirecionando...
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Nova senha</label>
+              <div style={{ position:"relative" }}>
+                <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.tertiary }}>
+                  <Icon name="lock" size={15} />
+                </div>
+                <input value={senha} onChange={e=>setSenha(e.target.value)} type="password" placeholder="Mínimo 6 caracteres"
+                  style={{...inputStyle, paddingLeft:38}}
+                  onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                  onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+                  onKeyDown={e=>e.key==="Enter"&&salvar()} />
+              </div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Confirmar senha</label>
+              <div style={{ position:"relative" }}>
+                <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.tertiary }}>
+                  <Icon name="lock" size={15} />
+                </div>
+                <input value={confirma} onChange={e=>setConfirma(e.target.value)} type="password" placeholder="Repita a senha"
+                  style={{...inputStyle, paddingLeft:38}}
+                  onFocus={e=>{ e.target.style.borderColor=C.accent; e.target.style.boxShadow=`0 0 0 3px ${C.accentSubtle}`; }}
+                  onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+                  onKeyDown={e=>e.key==="Enter"&&salvar()} />
+              </div>
+            </div>
+            {err && <div style={{ fontSize:12, color:C.red, background:"rgba(220,38,38,0.06)", padding:"8px 12px", borderRadius:6, border:"1px solid rgba(220,38,38,0.15)" }}>{err}</div>}
+            <button onClick={salvar} disabled={loading}
+              style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+              {loading ? (
+                <><div style={{ width:16, height:16, border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"#fff", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Salvando...</>
+              ) : "Salvar senha"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── LOGIN SCREEN ───────────────────────────────────────────── */
 function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -2751,6 +2835,7 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(false);
   const [toast, setToast_] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   // Auth bootstrap
   useEffect(() => {
@@ -2758,7 +2843,10 @@ export default function App() {
     const sb = getSupabase();
     if (!sb) { setSession(null); return; }
     sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
-    const { data: { subscription } } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY") { setRecoveryMode(true); setSession(s); }
+      else { setRecoveryMode(false); setSession(s); }
+    });
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
@@ -2815,9 +2903,12 @@ export default function App() {
     setSession(null);
   };
 
-  // Gates: setup → login → app
+  // Gates: setup → recovery → login → app
   if (!supabaseReady) {
     return <SetupScreen onReady={()=>setSupabaseReady(true)} />;
+  }
+  if (recoveryMode) {
+    return <SetPasswordScreen onDone={()=>{ setRecoveryMode(false); setSession(null); }} />;
   }
   if (session === undefined) {
     return (
