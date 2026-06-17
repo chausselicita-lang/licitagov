@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
+import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import Sidebar from "./components/Sidebar.jsx";
 import Topbar from "./components/Topbar.jsx";
 import KPICards from "./components/KPICards.jsx";
@@ -48,7 +49,7 @@ const calcMediana = arr => {
   const m = Math.floor(s.length/2);
   return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
 };
-const uid = () => Math.random().toString(36).slice(2,10);
+const uid = () => crypto.randomUUID();
 
 /* ── SVG ICON SYSTEM ───────────────────────────────────────── */
 function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
@@ -336,7 +337,7 @@ function SetupScreen({ onReady }) {
           <div style={{ fontSize:13, color:C.sub }}>Configuração inicial — conexão Supabase</div>
         </div>
         <div style={{ background:C.accentSubtle, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"12px 16px", fontSize:13, color:C.accent, marginBottom:20, lineHeight:1.6 }}>
-          Acesse <strong>supabase.com/dashboard/project/zigghtvlmftgjlohuhla/settings/api</strong> e copie a <strong>anon public key</strong>.
+          Acesse <strong>supabase.com/dashboard/project/xqlrfsrjvqmucchzpapk/settings/api</strong> e copie a <strong>anon public key</strong>.
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Chave Anon Public</label>
@@ -591,16 +592,28 @@ function TabProcessos({ processos, setProcessos, toast }) {
 
   const openNovo = () => { setEditId(null); setForm(FORM_PROC_EMPTY); setModal(true); };
   const openEdit = (p) => { setEditId(p.id); setForm({ numero:p.numero, objeto:p.objeto, modalidade:p.modalidade, fase:p.fase, valor:String(p.valor||""), abertura:p.abertura||"", orgao:p.orgao||"" }); setModal(true); };
-  const deletar = (id) => { if (!window.confirm("Excluir este processo?")) return; setProcessos(prev=>prev.filter(p=>p.id!==id)); toast("Processo excluído"); };
+  const deletar = (id) => {
+    if (!window.confirm("Excluir este processo?")) return;
+    setProcessos(prev=>prev.filter(p=>p.id!==id));
+    toast("Processo excluído");
+    sbDeleteProcesso(id).then(({error})=>{ if(error) toast("Erro ao excluir: "+error.message,"error"); });
+  };
 
   const salvar = () => {
     if (!form.numero||!form.objeto) { toast("Número e objeto são obrigatórios","error"); return; }
     if (editId) {
-      setProcessos(prev=>prev.map(p=>p.id===editId?{ ...p, ...form, valor:parseFloat(form.valor)||0 }:p));
+      const fields = { ...form, valor:parseFloat(form.valor)||0 };
+      setProcessos(prev=>prev.map(p=>p.id===editId?{ ...p, ...fields }:p));
       toast("Processo atualizado!");
+      sbUpdateProcesso(editId, { numero:fields.numero, objeto:fields.objeto, modalidade:fields.modalidade, fase:fields.fase, valor:fields.valor, abertura:fields.abertura||null, orgao:fields.orgao||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
-      setProcessos(prev=>[{ id:uid(), ...form, valor:parseFloat(form.valor)||0 }, ...prev]);
+      const id = uid();
+      const newItem = { id, ...form, valor:parseFloat(form.valor)||0 };
+      setProcessos(prev=>[newItem, ...prev]);
       toast("Processo cadastrado com sucesso!");
+      sbCreateProcesso({ id, numero:form.numero, objeto:form.objeto, modalidade:form.modalidade, fase:form.fase, valor:parseFloat(form.valor)||0, abertura:form.abertura||null, orgao:form.orgao||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false);
   };
@@ -696,11 +709,19 @@ function TabAtas({ atas, setAtas, toast }) {
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
     if (editId) {
-      setAtas(prev=>prev.map(a=>a.id===editId?{ ...a, ...form, valorTotal:parseFloat(form.valorTotal)||a.valorTotal }:a));
+      const vt = parseFloat(form.valorTotal)||0;
+      setAtas(prev=>prev.map(a=>a.id===editId?{ ...a, ...form, valorTotal:vt }:a));
       toast("Ata atualizada!");
+      sbUpdateAta(editId, { numero:form.numero, objeto:form.objeto, fornecedor:form.fornecedor, cnpj:form.cnpj||null, vigencia:form.vigencia||null, valor_total:vt, link_drive:form.link_drive||null, endereco:form.endereco||null, telefone:form.telefone||null, email:form.email||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
-      setAtas(prev=>[{ id:uid(), ...form, valorTotal:parseFloat(form.valorTotal)||0, saldoDisponivel:parseFloat(form.valorTotal)||0, itens:[] }, ...prev]);
+      const id = uid();
+      const vt = parseFloat(form.valorTotal)||0;
+      const newAta = { id, ...form, valorTotal:vt, saldoDisponivel:vt, itens:[] };
+      setAtas(prev=>[newAta, ...prev]);
       toast("Ata registrada com sucesso!");
+      sbCreateAta({ id, numero:form.numero, objeto:form.objeto, fornecedor:form.fornecedor, cnpj:form.cnpj||null, vigencia:form.vigencia||null, valor_total:vt, saldo_disponivel:vt, link_drive:form.link_drive||null, endereco:form.endereco||null, telefone:form.telefone||null, email:form.email||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false);
     setForm(ATA_FORM_EMPTY);
@@ -709,9 +730,11 @@ function TabAtas({ atas, setAtas, toast }) {
   const deletarAta = (id) => setConfirmarExcluirId(id);
 
   const confirmarExclusaoAta = () => {
-    setAtas(prev=>prev.filter(a=>a.id!==confirmarExcluirId));
+    const idParaExcluir = confirmarExcluirId;
+    setAtas(prev=>prev.filter(a=>a.id!==idParaExcluir));
     setConfirmarExcluirId(null);
     toast("Ata excluída");
+    sbDeleteAta(idParaExcluir).then(({error})=>{ if(error) toast("Erro ao excluir: "+error.message,"error"); });
   };
 
   const salvarItem = () => {
@@ -719,24 +742,38 @@ function TabAtas({ atas, setAtas, toast }) {
     const qtdReg = parseFloat(formItem.qtdRegistrada)||0;
     const qtdUtil = parseFloat(formItem.qtdUtilizada)||0;
     const vUnit = parseFloat(formItem.valorUnit)||0;
+    const itemId = uid();
+    const newItem = { id:itemId, descricao:formItem.descricao, unidade:formItem.unidade, qtdRegistrada:qtdReg, qtdUtilizada:qtdUtil, valorUnit:vUnit };
+    const ataAtual = atas.find(a=>a.id===ataAtiva);
+    const newSaldo = (ataAtual?.saldoDisponivel||0) - (qtdUtil*vUnit);
     setAtas(prev=>prev.map(a=>a.id===ataAtiva?{
       ...a,
-      itens:[...a.itens,{ id:uid(), descricao:formItem.descricao, unidade:formItem.unidade, qtdRegistrada:qtdReg, qtdUtilizada:qtdUtil, valorUnit:vUnit }],
-      saldoDisponivel: a.saldoDisponivel - (qtdUtil*vUnit),
+      itens:[...a.itens, newItem],
+      saldoDisponivel: newSaldo,
     }:a));
     setModalItem(false);
     setFormItem({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
     toast("Item adicionado!");
+    Promise.all([
+      sbCreateAtaItem(ataAtiva, newItem),
+      sbUpdateAtaSaldo(ataAtiva, newSaldo),
+    ]).then(results=>{ const err=results.find(r=>r.error); if(err) toast("Erro ao salvar item: "+err.error.message,"error"); });
   };
 
   const deletarItem = (itemId) => {
     if (!window.confirm("Remover este item?")) return;
+    const ataAtual = atas.find(a=>a.id===ataAtiva);
+    const it = ataAtual?.itens.find(i=>i.id===itemId);
+    const newSaldo = (ataAtual?.saldoDisponivel||0) + (it ? it.qtdUtilizada*it.valorUnit : 0);
     setAtas(prev=>prev.map(a=>{
       if (a.id!==ataAtiva) return a;
-      const it = a.itens.find(i=>i.id===itemId);
-      return { ...a, itens:a.itens.filter(i=>i.id!==itemId), saldoDisponivel:a.saldoDisponivel+(it.qtdUtilizada*it.valorUnit) };
+      return { ...a, itens:a.itens.filter(i=>i.id!==itemId), saldoDisponivel:newSaldo };
     }));
     toast("Item removido");
+    Promise.all([
+      sbDeleteAtaItem(itemId),
+      sbUpdateAtaSaldo(ataAtiva, newSaldo),
+    ]).then(results=>{ const err=results.find(r=>r.error); if(err) toast("Erro ao remover item: "+err.error.message,"error"); });
   };
 
   if (ataAtiva) {
@@ -973,16 +1010,28 @@ function TabContratos({ contratos, setContratos, toast }) {
     setForm({ numero:c.numero, objeto:c.objeto, fornecedor:c.fornecedor, cnpj:c.cnpj||"", valor:String(c.valor||""), inicio:c.inicio||"", fim:c.fim||"", processo:c.processo||"", link_drive:c.link_drive||"" });
     setModal(true);
   };
-  const deletar = (id) => { if (!window.confirm("Excluir este contrato?")) return; setContratos(prev=>prev.filter(c=>c.id!==id)); toast("Contrato excluído"); };
+  const deletar = (id) => {
+    if (!window.confirm("Excluir este contrato?")) return;
+    setContratos(prev=>prev.filter(c=>c.id!==id));
+    toast("Contrato excluído");
+    sbDeleteContrato(id).then(({error})=>{ if(error) toast("Erro ao excluir: "+error.message,"error"); });
+  };
 
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
     if (editId) {
-      setContratos(prev=>prev.map(c=>c.id===editId?{ ...c, ...form, valor:parseFloat(form.valor)||0 }:c));
+      const fields = { ...form, valor:parseFloat(form.valor)||0 };
+      setContratos(prev=>prev.map(c=>c.id===editId?{ ...c, ...fields }:c));
       toast("Contrato atualizado!");
+      sbUpdateContrato(editId, { numero:fields.numero, objeto:fields.objeto, fornecedor:fields.fornecedor, cnpj:fields.cnpj||null, valor:fields.valor, inicio:fields.inicio||null, fim:fields.fim||null, processo:fields.processo||null, link_drive:fields.link_drive||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
-      setContratos(prev=>[{ id:uid(), ...form, valor:parseFloat(form.valor)||0, status:"Vigente" }, ...prev]);
+      const id = uid();
+      const newItem = { id, ...form, valor:parseFloat(form.valor)||0, status:"Vigente" };
+      setContratos(prev=>[newItem, ...prev]);
       toast("Contrato cadastrado!");
+      sbCreateContrato({ id, numero:form.numero, objeto:form.objeto, fornecedor:form.fornecedor, cnpj:form.cnpj||null, valor:parseFloat(form.valor)||0, inicio:form.inicio||null, fim:form.fim||null, status:'Vigente', processo:form.processo||null, link_drive:form.link_drive||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false);
   };
@@ -1152,10 +1201,11 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const confirmarIA = () => {
     if (!resultadoIA) return;
     const n = cotacoes.length+1;
-    const fornFormatados = resultadoIA.fontes.map((f,i)=>({ id:`fia${i+1}`, razao:f.fornecedor||`Fornecedor ${i+1}`, cnpj:"" }));
-    const valoresItem = Object.fromEntries(resultadoIA.fontes.map((f,i)=>[`fia${i+1}`, parseFloat(f.valor_unitario)||0]));
-    setCotacoes(prev=>[{
-      id:uid(),
+    const fornFormatados = resultadoIA.fontes.map((f,i)=>({ id:uid(), razao:f.fornecedor||`Fornecedor ${i+1}`, cnpj:"" }));
+    const valoresItem = Object.fromEntries(resultadoIA.fontes.map((f,i)=>[fornFormatados[i].id, parseFloat(f.valor_unitario)||0]));
+    const cotId = uid();
+    const newCot = {
+      id:cotId,
       numero:`COT-IA ${String(n).padStart(3,"0")}/${new Date().getFullYear()}`,
       objeto:objetoIA.trim(),
       processo:"",
@@ -1166,10 +1216,12 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
       mediana:resultadoIA.mediana,
       texto_mapa_precos:resultadoIA.texto_mapa_precos,
       fornecedores:fornFormatados,
-      itens:[{ id:"it1", descricao:objetoIA.trim(), unidade:"Un", qtd:"1", valores:valoresItem }],
-    },...prev]);
+      itens:[{ id:uid(), descricao:objetoIA.trim(), unidade:"Un", qtd:"1", valores:valoresItem }],
+    };
+    setCotacoes(prev=>[newCot,...prev]);
     setResultadoIA(null); setObjetoIA("");
     toast("Cotação salva com mapa de preços gerado pela IA!");
+    sbCreateCotacao(newCot).catch(err=>toast("Erro ao salvar no banco: "+err.message,"error"));
   };
 
   const salvarCotacao = () => {
@@ -1178,9 +1230,12 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     if (fornsValidos.length < 2) { toast("Informe ao menos 2 fornecedores (Lei 14.133)","error"); return; }
     const itensValidos = itens.filter(i=>i.descricao.trim());
     if (!itensValidos.length) { toast("Adicione ao menos 1 item","error"); return; }
-    setCotacoes(p=>[{ id:uid(), ...form, status:"Finalizada", dataCriacao:hoje(), fornecedores:fornsValidos, itens:itensValidos },...p]);
+    const cotId = uid();
+    const newCot = { id:cotId, ...form, status:"Finalizada", dataCriacao:hoje(), fornecedores:fornsValidos, itens:itensValidos };
+    setCotacoes(p=>[newCot,...p]);
     setModal(null); resetForm();
     toast("Cotação finalizada — mapa de preços gerado!");
+    sbCreateCotacao(newCot).catch(err=>toast("Erro ao salvar no banco: "+err.message,"error"));
   };
 
   // ── Tela de resultado IA ──────────────────────────────────
@@ -1463,7 +1518,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <span style={{ fontSize:12, color:C.accent, fontWeight:500 }}>Ver mapa →</span>
-                  <IconBtn name="trash" color={C.red} title="Excluir cotação" onClick={()=>{ if(window.confirm("Excluir esta cotação?")) { setCotacoes(p=>p.filter(x=>x.id!==c.id)); toast("Cotação excluída"); } }} />
+                  <IconBtn name="trash" color={C.red} title="Excluir cotação" onClick={()=>{ if(window.confirm("Excluir esta cotação?")) { setCotacoes(p=>p.filter(x=>x.id!==c.id)); toast("Cotação excluída"); sbDeleteCotacao(c.id).then(({error})=>{ if(error) toast("Erro ao excluir: "+error.message,"error"); }); } }} />
                 </div>
               </div>
             </div>
@@ -1601,16 +1656,31 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
     setForm({ numero_processo:it.numero_processo||"", objeto:it.objeto||"", contratada:it.contratada||"", cnpj:it.cnpj||"", valor_total:String(it.valor_total||""), data_ratificacao:it.data_ratificacao||"", vigencia:it.vigencia||"", secretaria:it.secretaria||"", link_drive:it.link_drive||"", status:it.status||"Em andamento" });
     setModal(true);
   };
-  const deletar = (id) => { if (!window.confirm(`Excluir esta ${tipo.toLowerCase()}?`)) return; setItems(prev=>prev.filter(it=>it.id!==id)); toast(`${tipo} excluída`); };
+  const deletar = (id) => {
+    if (!window.confirm(`Excluir esta ${tipo.toLowerCase()}?`)) return;
+    setItems(prev=>prev.filter(it=>it.id!==id));
+    toast(`${tipo} excluída`);
+    const sbDel = tipo==="Dispensa" ? sbDeleteDispensa : sbDeleteInexigibilidade;
+    sbDel(id).then(({error})=>{ if(error) toast("Erro ao excluir: "+error.message,"error"); });
+  };
 
   const salvar = () => {
     if (!form.numero_processo || !form.objeto || !form.contratada) { toast("Preencha os campos obrigatórios","error"); return; }
     if (editId) {
-      setItems(prev=>prev.map(it=>it.id===editId ? { ...it, ...form, valor_total:parseFloat(form.valor_total)||0 } : it));
+      const fields = { ...form, valor_total:parseFloat(form.valor_total)||0 };
+      setItems(prev=>prev.map(it=>it.id===editId ? { ...it, ...fields } : it));
       toast(`${tipo} atualizada!`);
+      const sbUpd = tipo==="Dispensa" ? sbUpdateDispensa : sbUpdateInexigibilidade;
+      sbUpd(editId, { numero_processo:fields.numero_processo, objeto:fields.objeto, contratada:fields.contratada, cnpj:fields.cnpj||null, valor_total:fields.valor_total, data_ratificacao:fields.data_ratificacao||null, vigencia:fields.vigencia||null, secretaria:fields.secretaria||null, link_drive:fields.link_drive||null, status:fields.status })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
-      setItems(prev=>[{ id:uid(), ...form, valor_total:parseFloat(form.valor_total)||0 }, ...prev]);
+      const id = uid();
+      const newItem = { id, ...form, valor_total:parseFloat(form.valor_total)||0 };
+      setItems(prev=>[newItem, ...prev]);
       toast(`${tipo} cadastrada!`);
+      const sbCreate = tipo==="Dispensa" ? sbCreateDispensa : sbCreateInexigibilidade;
+      sbCreate({ id, numero_processo:form.numero_processo, objeto:form.objeto, contratada:form.contratada, cnpj:form.cnpj||null, valor_total:parseFloat(form.valor_total)||0, data_ratificacao:form.data_ratificacao||null, vigencia:form.vigencia||null, secretaria:form.secretaria||null, link_drive:form.link_drive||null, status:form.status })
+        .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false); setForm(CD_FORM_EMPTY);
   };
@@ -2253,8 +2323,9 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
     if (!extractionCard || !editableData) return;
     const { tipo } = extractionCard;
     if (tipo === "contrato") {
-      setContratos(prev=>[{
-        id:uid(), status:"Vigente",
+      const ctId = uid();
+      const novoContrato = {
+        id:ctId, status:"Vigente",
         numero: editableData.numero_contrato || "",
         objeto: editableData.objeto || "",
         fornecedor: editableData.fornecedor || "",
@@ -2266,8 +2337,11 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
         dotacao: editableData.dotacao_orcamentaria || "",
         secretaria: editableData.secretaria || "",
         fiscal: editableData.fiscal_contrato || "",
-      }, ...prev]);
+      };
+      setContratos(prev=>[novoContrato, ...prev]);
       toast("Contrato cadastrado com sucesso!");
+      sbCreateContrato({ id:ctId, status:'Vigente', numero:novoContrato.numero, objeto:novoContrato.objeto, fornecedor:novoContrato.fornecedor, cnpj:novoContrato.cnpj||null, valor:novoContrato.valor, inicio:novoContrato.inicio||null, fim:novoContrato.fim||null, processo:null, link_drive:null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar contrato: "+error.message,"error"); });
     } else if (tipo === "ata") {
       const itens = (Array.isArray(editableData.itens) ? editableData.itens : []).map(it=>({
         id:uid(),
@@ -2278,8 +2352,9 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
         valorUnit: parseBRL(it.valor_unitario),
       }));
       const vt = parseBRL(editableData.valor_total);
-      setAtas(prev=>[{
-        id:uid(),
+      const ataId = uid();
+      const novaAta = {
+        id:ataId,
         numero: editableData.numero_ata || "",
         objeto: editableData.objeto || "",
         fornecedor: editableData.fornecedor || "",
@@ -2289,11 +2364,18 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
         saldoDisponivel: vt,
         itens,
         orgaoGerenciador: editableData.orgao_gerenciador || "",
-      }, ...prev]);
+      };
+      setAtas(prev=>[novaAta, ...prev]);
       toast("Ata de Registro de Preços cadastrada!");
+      sbCreateAta({ id:ataId, numero:novaAta.numero, objeto:novaAta.objeto, fornecedor:novaAta.fornecedor, cnpj:novaAta.cnpj||null, vigencia:novaAta.vigencia||null, valor_total:vt, saldo_disponivel:vt, link_drive:null, endereco:null, telefone:null, email:null })
+        .then(({error})=>{
+          if(error) { toast("Erro ao salvar ata: "+error.message,"error"); return; }
+          if(itens.length) Promise.all(itens.map(it=>sbCreateAtaItem(ataId,it))).then(rs=>{ const e=rs.find(r=>r.error); if(e) toast("Erro ao salvar itens: "+e.error.message,"error"); });
+        });
     } else if (tipo === "processo") {
-      setProcessos(prev=>[{
-        id:uid(),
+      const procId = uid();
+      const novoProc = {
+        id:procId,
         numero: editableData.numero_processo || "",
         objeto: editableData.objeto || "",
         modalidade: editableData.modalidade || "Pregão Eletrônico",
@@ -2301,12 +2383,16 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
         valor: parseBRL(editableData.valor_estimado),
         abertura: editableData.data_abertura || "",
         orgao: editableData.secretaria_solicitante || "",
-      }, ...prev]);
+      };
+      setProcessos(prev=>[novoProc, ...prev]);
       toast("Processo licitatório cadastrado!");
+      sbCreateProcesso({ id:procId, numero:novoProc.numero, objeto:novoProc.objeto, modalidade:novoProc.modalidade, fase:novoProc.fase, valor:novoProc.valor, abertura:novoProc.abertura||null, orgao:novoProc.orgao||null })
+        .then(({error})=>{ if(error) toast("Erro ao salvar processo: "+error.message,"error"); });
     }
     else if (tipo === "dispensa") {
-      setDispensas(prev=>[{
-        id:uid(),
+      const dispId = uid();
+      const novaDisp = {
+        id:dispId,
         numero_processo: editableData.numero_processo || "",
         objeto:          editableData.objeto          || "",
         contratada:      editableData.contratada      || "",
@@ -2317,11 +2403,15 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
         secretaria:      editableData.secretaria      || "",
         link_drive:      "",
         status:          editableData.status          || "Em andamento",
-      }, ...prev]);
+      };
+      setDispensas(prev=>[novaDisp, ...prev]);
       toast("Dispensa cadastrada com sucesso!");
+      sbCreateDispensa({ id:dispId, numero_processo:novaDisp.numero_processo, objeto:novaDisp.objeto, contratada:novaDisp.contratada, cnpj:novaDisp.cnpj||null, valor_total:novaDisp.valor_total, data_ratificacao:novaDisp.data_ratificacao||null, vigencia:novaDisp.vigencia||null, secretaria:novaDisp.secretaria||null, link_drive:null, status:novaDisp.status })
+        .then(({error})=>{ if(error) toast("Erro ao salvar dispensa: "+error.message,"error"); });
     } else if (tipo === "inexigibilidade") {
-      setInexigibilidades(prev=>[{
-        id:uid(),
+      const inexId = uid();
+      const novaInex = {
+        id:inexId,
         numero_processo: editableData.numero_processo || "",
         objeto:          editableData.objeto          || "",
         contratada:      editableData.contratada      || "",
@@ -2332,8 +2422,11 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
         secretaria:      editableData.secretaria      || "",
         link_drive:      "",
         status:          editableData.status          || "Em andamento",
-      }, ...prev]);
+      };
+      setInexigibilidades(prev=>[novaInex, ...prev]);
       toast("Inexigibilidade cadastrada com sucesso!");
+      sbCreateInexigibilidade({ id:inexId, numero_processo:novaInex.numero_processo, objeto:novaInex.objeto, contratada:novaInex.contratada, cnpj:novaInex.cnpj||null, valor_total:novaInex.valor_total, data_ratificacao:novaInex.data_ratificacao||null, vigencia:novaInex.vigencia||null, secretaria:novaInex.secretaria||null, link_drive:null, status:novaInex.status })
+        .then(({error})=>{ if(error) toast("Erro ao salvar inexigibilidade: "+error.message,"error"); });
     }
     const modulo = { contrato:"Contratos", ata:"Ata de RP", processo:"Processos", dispensa:"Dispensas", inexigibilidade:"Inexigibilidade" }[tipo] || tipo;
     setMsgs(prev=>[...prev, { role:"assistant", content:`Salvo com sucesso! Acesse o módulo ${modulo} para visualizar e editar.` }]);
@@ -2651,20 +2744,33 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
-  const [appData, setAppData] = useState(() => { const d = loadData() || SEED; return { ...d, dispensas: Array.isArray(d.dispensas) ? d.dispensas : [], inexigibilidades: Array.isArray(d.inexigibilidades) ? d.inexigibilidades : [] }; });
+  const [appData, setAppData] = useState(SEED);
+  const [dataLoading, setDataLoading] = useState(true);
   const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = appData;
 
-  const setProcessos        = useCallback(fn=>{ setAppData(prev=>{ const processos=typeof fn==="function"?fn(prev.processos):fn; const next={...prev,processos}; saveData(next); return next; }); }, []);
-  const setAtas             = useCallback(fn=>{ setAppData(prev=>{ const atas=typeof fn==="function"?fn(prev.atas):fn;             const next={...prev,atas};       saveData(next); return next; }); }, []);
-  const setContratos        = useCallback(fn=>{ setAppData(prev=>{ const contratos=typeof fn==="function"?fn(prev.contratos):fn;   const next={...prev,contratos};  saveData(next); return next; }); }, []);
-  const setCotacoes         = useCallback(fn=>{ setAppData(prev=>{ const cotacoes=typeof fn==="function"?fn(prev.cotacoes):fn;     const next={...prev,cotacoes};   saveData(next); return next; }); }, []);
-  const setDispensas        = useCallback(fn=>{ setAppData(prev=>{ const dispensas=typeof fn==="function"?fn(prev.dispensas||[]):fn;           const next={...prev,dispensas};        saveData(next); return next; }); }, []);
-  const setInexigibilidades = useCallback(fn=>{ setAppData(prev=>{ const inexigibilidades=typeof fn==="function"?fn(prev.inexigibilidades||[]):fn; const next={...prev,inexigibilidades}; saveData(next); return next; }); }, []);
+  const setProcessos        = useCallback(fn=>setAppData(prev=>({ ...prev, processos:       typeof fn==="function"?fn(prev.processos):fn })), []);
+  const setAtas             = useCallback(fn=>setAppData(prev=>({ ...prev, atas:            typeof fn==="function"?fn(prev.atas):fn })), []);
+  const setContratos        = useCallback(fn=>setAppData(prev=>({ ...prev, contratos:       typeof fn==="function"?fn(prev.contratos):fn })), []);
+  const setCotacoes         = useCallback(fn=>setAppData(prev=>({ ...prev, cotacoes:        typeof fn==="function"?fn(prev.cotacoes):fn })), []);
+  const setDispensas        = useCallback(fn=>setAppData(prev=>({ ...prev, dispensas:       typeof fn==="function"?fn(prev.dispensas||[]):fn })), []);
+  const setInexigibilidades = useCallback(fn=>setAppData(prev=>({ ...prev, inexigibilidades:typeof fn==="function"?fn(prev.inexigibilidades||[]):fn })), []);
 
   const showToast = useCallback((msg, type="success") => {
     setToast_({ msg, type });
     setTimeout(()=>setToast_(null), 3500);
   }, []);
+
+  useEffect(() => {
+    if (!session) { setDataLoading(false); return; }
+    setDataLoading(true);
+    loadAllData()
+      .then(data => { setAppData(data); setDataLoading(false); })
+      .catch(err => {
+        console.error('[LicitaGov] Erro ao carregar dados:', err);
+        showToast('Erro ao carregar dados do servidor: ' + (err.message || 'verifique a conexão'), 'error');
+        setDataLoading(false);
+      });
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -2708,6 +2814,18 @@ export default function App() {
   }
   if (!session) {
     return <LoginScreen onLogin={(s)=>setSession(s)} />;
+  }
+
+  if (dataLoading) {
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+        <GlobalStyles />
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, color:C.sub }}>
+          <div style={{ width:28, height:28, border:`3px solid ${C.border}`, borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+          <span style={{ fontSize:13 }}>Carregando dados...</span>
+        </div>
+      </div>
+    );
   }
 
   const data = { processos, atas, contratos, cotacoes };

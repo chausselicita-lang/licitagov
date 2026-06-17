@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zigghtvlmftgjlohuhla.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_o5ibiwWTvnZ8gXfdJQkFqA_jKZhTiGU';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://xqlrfsrjvqmucchzpapk.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_4t3DTecH3GAtG6t-Q2UZ3w_Mwuyemgc';
 const SB_KEY_STORAGE = 'licitagov_sb_anon_key';
 
 let _client = null;
