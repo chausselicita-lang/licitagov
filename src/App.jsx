@@ -2835,18 +2835,34 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(false);
   const [toast, setToast_] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [recoveryMode, setRecoveryMode] = useState(false);
+  // Detect recovery link immediately from URL hash — before any async Supabase operations
+  const [recoveryMode, setRecoveryMode] = useState(
+    () => window.location.hash.includes('type=recovery')
+  );
 
   // Auth bootstrap
   useEffect(() => {
     if (!supabaseReady) { setSession(null); return; }
     const sb = getSupabase();
     if (!sb) { setSession(null); return; }
-    sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
+    // Subscribe BEFORE getSession so PASSWORD_RECOVERY event is never missed
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, s) => {
-      if (event === "PASSWORD_RECOVERY") { setRecoveryMode(true); setSession(s); }
-      else { setRecoveryMode(false); setSession(s); }
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryMode(true);
+        setSession(s);
+      } else if (event === "SIGNED_OUT") {
+        setRecoveryMode(false);
+        setSession(null);
+      } else {
+        // SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED — never reset recoveryMode here,
+        // because Supabase fires SIGNED_IN right after PASSWORD_RECOVERY for the same session
+        setSession(s ?? null);
+      }
     });
+    // Skip getSession for recovery URLs — the session comes via PASSWORD_RECOVERY event
+    if (!window.location.hash.includes('type=recovery')) {
+      sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
+    }
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
 
