@@ -64,7 +64,7 @@ export default function ProcessosTable({ processos, onViewAll }) {
             </tr>
           </thead>
           <tbody>
-            {processos.slice(0, 5).map((p, i) => (
+            {processos.filter(p => !["Dispensa","Dispensa de Licitação","Inexigibilidade","Inexigibilidade de Licitação"].includes(p.modalidade)).slice(0, 5).map((p, i) => (
               <tr key={p.id}
                 style={{
                   borderTop:`1px solid ${P.border}`,

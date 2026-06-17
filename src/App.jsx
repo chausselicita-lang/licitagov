@@ -117,7 +117,7 @@ const SEED = {
   processos: [
     { id:"p1", numero:"001/2025", objeto:"Aquisição de combustíveis", modalidade:"Pregão Eletrônico", fase:"Homologado", valor:180000, abertura:"2025-03-10", orgao:"Secretaria de Obras" },
     { id:"p2", numero:"002/2025", objeto:"Serviços de limpeza urbana", modalidade:"Pregão Eletrônico", fase:"Em andamento", valor:320000, abertura:"2025-04-22", orgao:"Secretaria de Serviços" },
-    { id:"p3", numero:"003/2025", objeto:"Material de escritório", modalidade:"Dispensa", fase:"Planejamento", valor:12000, abertura:"2025-05-15", orgao:"Administrativo" },
+    { id:"p3", numero:"003/2025", objeto:"Material de escritório", modalidade:"Pregão Eletrônico", fase:"Planejamento", valor:12000, abertura:"2025-05-15", orgao:"Administrativo" },
     { id:"p4", numero:"004/2025", objeto:"Equipamentos de TI", modalidade:"Pregão Eletrônico", fase:"Publicado", valor:95000, abertura:"2025-06-01", orgao:"Secretaria de TI" },
   ],
   atas: [
@@ -595,7 +595,7 @@ function TabDashboard({ data, onViewProcessos }) {
    PROCESSOS
 ══════════════════════════════════════════════════════════════ */
 const FASES_PROC = ["Planejamento","Publicado","Em andamento","Homologado","Revogado","Suspenso"];
-const MODALIDADES = ["Pregão Eletrônico","Pregão Presencial","Concorrência","Concurso","Leilão","Diálogo Competitivo","Dispensa","Inexigibilidade"];
+const MODALIDADES = ["Pregão Eletrônico","Pregão Presencial","Concorrência Eletrônica","Concorrência Presencial","Concorrência","Concurso","Leilão","Diálogo Competitivo"];
 const FORM_PROC_EMPTY = { numero:"", objeto:"", modalidade:"Pregão Eletrônico", fase:"Planejamento", valor:"", abertura:"", orgao:"" };
 
 function IconBtn({ name, color, title, onClick }) {
@@ -616,7 +616,9 @@ function TabProcessos({ processos, setProcessos, toast }) {
   const [filtroFase, setFiltroFase] = useState("Todos");
   const [form, setForm] = useState(FORM_PROC_EMPTY);
 
+  const EXCLUIR_MODALIDADES = new Set(["Dispensa","Dispensa de Licitação","Inexigibilidade","Inexigibilidade de Licitação"]);
   const filtered = processos.filter(p => {
+    if (EXCLUIR_MODALIDADES.has(p.modalidade)) return false;
     const ok = filtroFase==="Todos" || p.fase===filtroFase;
     const s = search.toLowerCase();
     return ok && (p.numero.toLowerCase().includes(s) || p.objeto.toLowerCase().includes(s) || (p.orgao||"").toLowerCase().includes(s));
