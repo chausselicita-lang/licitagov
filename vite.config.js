@@ -16,8 +16,8 @@ export default defineConfig({
         theme_color: '#18191c',
         background_color: '#18191c',
         display: 'standalone',
-        start_url: '/',
-        scope: '/',
+        start_url: '/licitagov/',
+        scope: '/licitagov/',
         orientation: 'any',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
@@ -29,7 +29,7 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpeg,jpg,woff2}'],
-        navigateFallback: '/',
+        navigateFallback: '/licitagov/index.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
