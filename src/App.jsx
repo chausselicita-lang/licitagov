@@ -1,4 +1,22 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Component } from "react";
+
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(e, info) { console.error('[LicitaGov] Crash:', e, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ minHeight:'100vh', background:'#18191c', color:'#e8e9ed', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:'monospace', gap:12 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:'#f15b5b' }}>Erro na aplicação</div>
+          <div style={{ fontSize:13, color:'#8a8d96', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
+          <button onClick={()=>window.location.reload()} style={{ marginTop:8, padding:'8px 20px', background:'#4f7ef7', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontSize:13 }}>Recarregar</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import Sidebar from "./components/Sidebar.jsx";

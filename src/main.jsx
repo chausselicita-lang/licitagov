@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import { ErrorBoundary } from './App.jsx';
 import { registerSW } from 'virtual:pwa-register';
 
 registerSW({
@@ -19,6 +20,8 @@ navigator.serviceWorker?.addEventListener('controllerchange', () => {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>
 );
