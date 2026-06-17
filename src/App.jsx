@@ -1295,7 +1295,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
       for (let iter = 0; iter < 6; iter++) {
         const res = await anthropicFetch(null, {
           method:"POST", headers,
-          body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:4096, tools:[{ type:"web_search_20250305", name:"web_search" }], system:SYSTEM_PESQUISA, messages }),
+          body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:4096, tools:[{ type:"web_search_20250305", name:"web_search" }], system:SYSTEM_PESQUISA, messages }),
         });
         if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.error?.message||`HTTP ${res.status}`); }
         const json = await res.json();
