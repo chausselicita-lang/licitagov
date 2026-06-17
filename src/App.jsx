@@ -740,8 +740,7 @@ function TabAtas({ atas, setAtas, toast }) {
     setForm(ATA_FORM_EMPTY);
   };
 
-  const deletarAta = (id, e) => {
-    e.stopPropagation();
+  const deletarAta = (id) => {
     if (!window.confirm("Excluir esta ata?")) return;
     setAtas(prev=>prev.filter(a=>a.id!==id));
     toast("Ata excluída");
@@ -917,7 +916,7 @@ function TabAtas({ atas, setAtas, toast }) {
                         onClick={(e)=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
                     )}
                     <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={()=>openEdit(a)} />
-                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={(e)=>deletarAta(a.id,e)} />
+                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={()=>deletarAta(a.id)} />
                   </div>
                 </div>
                 <div style={{ marginTop:10, background:C.subtle, borderRadius:3, height:3, overflow:"hidden" }}>
