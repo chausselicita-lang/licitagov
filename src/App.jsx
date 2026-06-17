@@ -55,6 +55,29 @@ const C = {
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
+const parseBRL = v => {
+  if (!v && v !== 0) return 0;
+  const s = String(v).trim().replace(/[R$\s]/g,"");
+  if (!s) return 0;
+  const hasComma = s.includes(","), hasDot = s.includes(".");
+  if (hasComma && hasDot)
+    return s.lastIndexOf(",") > s.lastIndexOf(".")
+      ? parseFloat(s.replace(/\./g,"").replace(",",".")) || 0   // BR: 2.234.567,23
+      : parseFloat(s.replace(/,/g,"")) || 0;                    // US: 2,234,567.23
+  if (hasComma) {
+    const p = s.split(",");
+    return (p.length===2 && p[1].length<=2)
+      ? parseFloat(s.replace(",",".")) || 0   // BR decimal: 1234,56
+      : parseFloat(s.replace(/,/g,"")) || 0;  // US milhar: 1,234
+  }
+  if (hasDot) {
+    const p = s.split(".");
+    return (p.length>2 || (p.length===2 && p[1].length===3))
+      ? parseFloat(s.replace(/\./g,"")) || 0  // BR milhar: 1.234 ou 1.234.567
+      : parseFloat(s) || 0;                   // decimal normal: 1234.56
+  }
+  return parseFloat(s) || 0;
+};
 const fmtDate = d => d ? new Date(d+"T00:00:00").toLocaleDateString("pt-BR") : "—";
 const hoje = () => new Date().toISOString().slice(0,10);
 const diasParaVencer = d => {
@@ -704,17 +727,17 @@ function TabProcessos({ processos, setProcessos, toast }) {
   const salvar = () => {
     if (!form.numero||!form.objeto) { toast("Número e objeto são obrigatórios","error"); return; }
     if (editId) {
-      const fields = { ...form, valor:parseFloat(form.valor)||0 };
+      const fields = { ...form, valor:parseBRL(form.valor) };
       setProcessos(prev=>prev.map(p=>p.id===editId?{ ...p, ...fields }:p));
       toast("Processo atualizado!");
       sbUpdateProcesso(editId, { numero:fields.numero, objeto:fields.objeto, modalidade:fields.modalidade, fase:fields.fase, valor:fields.valor, abertura:fields.abertura||null, orgao:fields.orgao||null })
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
       const id = uid();
-      const newItem = { id, ...form, valor:parseFloat(form.valor)||0 };
+      const newItem = { id, ...form, valor:parseBRL(form.valor) };
       setProcessos(prev=>[newItem, ...prev]);
       toast("Processo cadastrado com sucesso!");
-      sbCreateProcesso({ id, numero:form.numero, objeto:form.objeto, modalidade:form.modalidade, fase:form.fase, valor:parseFloat(form.valor)||0, abertura:form.abertura||null, orgao:form.orgao||null })
+      sbCreateProcesso({ id, numero:form.numero, objeto:form.objeto, modalidade:form.modalidade, fase:form.fase, valor:parseBRL(form.valor), abertura:form.abertura||null, orgao:form.orgao||null })
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false);
@@ -773,7 +796,7 @@ function TabProcessos({ processos, setProcessos, toast }) {
               <Select label="Fase" value={form.fase} onChange={v=>setForm(f=>({...f,fase:v}))} options={FASES_PROC} />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-              <Input label="Valor Estimado (R$)" value={form.valor} onChange={v=>setForm(f=>({...f,valor:v}))} type="number" placeholder="0,00" />
+              <Input label="Valor Estimado (R$)" value={form.valor} onChange={v=>setForm(f=>({...f,valor:v}))} placeholder="0,00" />
               <Input label="Data de Abertura" value={form.abertura} onChange={v=>setForm(f=>({...f,abertura:v}))} type="date" />
             </div>
             <div style={{ display:"flex", gap:10, marginTop:8, justifyContent:"flex-end" }}>
@@ -811,14 +834,14 @@ function TabAtas({ atas, setAtas, toast }) {
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
     if (editId) {
-      const vt = parseFloat(form.valorTotal)||0;
+      const vt = parseBRL(form.valorTotal);
       setAtas(prev=>prev.map(a=>a.id===editId?{ ...a, ...form, valorTotal:vt }:a));
       toast("Ata atualizada!");
       sbUpdateAta(editId, { numero:form.numero, objeto:form.objeto, fornecedor:form.fornecedor, cnpj:form.cnpj||null, vigencia:form.vigencia||null, valor_total:vt, link_drive:form.link_drive||null, endereco:form.endereco||null, telefone:form.telefone||null, email:form.email||null })
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
       const id = uid();
-      const vt = parseFloat(form.valorTotal)||0;
+      const vt = parseBRL(form.valorTotal);
       const newAta = { id, ...form, valorTotal:vt, saldoDisponivel:vt, itens:[] };
       setAtas(prev=>[newAta, ...prev]);
       toast("Ata registrada com sucesso!");
@@ -843,7 +866,7 @@ function TabAtas({ atas, setAtas, toast }) {
     if (!formItem.descricao||!formItem.qtdRegistrada) { toast("Descrição e quantidade são obrigatórios","error"); return; }
     const qtdReg = parseFloat(formItem.qtdRegistrada)||0;
     const qtdUtil = parseFloat(formItem.qtdUtilizada)||0;
-    const vUnit = parseFloat(formItem.valorUnit)||0;
+    const vUnit = parseBRL(formItem.valorUnit);
     const itemId = uid();
     const newItem = { id:itemId, descricao:formItem.descricao, unidade:formItem.unidade, qtdRegistrada:qtdReg, qtdUtilizada:qtdUtil, valorUnit:vUnit };
     const ataAtual = atas.find(a=>a.id===ataAtiva);
@@ -971,7 +994,7 @@ function TabAtas({ atas, setAtas, toast }) {
               <Input label="Descrição do Item" value={formItem.descricao} onChange={v=>setFormItem(f=>({...f,descricao:v}))} placeholder="Descrição completa" required />
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <Input label="Unidade" value={formItem.unidade} onChange={v=>setFormItem(f=>({...f,unidade:v}))} placeholder="Un, Kg, L..." />
-                <Input label="Valor Unitário (R$)" value={formItem.valorUnit} onChange={v=>setFormItem(f=>({...f,valorUnit:v}))} type="number" placeholder="0,00" />
+                <Input label="Valor Unitário (R$)" value={formItem.valorUnit} onChange={v=>setFormItem(f=>({...f,valorUnit:v}))} placeholder="0,00" />
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <Input label="Qtd. Registrada" value={formItem.qtdRegistrada} onChange={v=>setFormItem(f=>({...f,qtdRegistrada:v}))} type="number" required />
@@ -1046,7 +1069,7 @@ function TabAtas({ atas, setAtas, toast }) {
               <Input label="Fornecedor" value={form.fornecedor} onChange={v=>setForm(f=>({...f,fornecedor:v}))} placeholder="Razão social" required />
               <Input label="CNPJ" value={form.cnpj} onChange={v=>setForm(f=>({...f,cnpj:v}))} placeholder="00.000.000/0001-00" />
             </div>
-            <Input label="Valor Total da Ata (R$)" value={form.valorTotal} onChange={v=>setForm(f=>({...f,valorTotal:v}))} type="number" placeholder="0,00" />
+            <Input label="Valor Total da Ata (R$)" value={form.valorTotal} onChange={v=>setForm(f=>({...f,valorTotal:v}))} placeholder="0,00" />
             <Input label="Endereço do Fornecedor" value={form.endereco} onChange={v=>setForm(f=>({...f,endereco:v}))} placeholder="Rua, número, bairro, cidade/UF" />
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Input label="Telefone" value={form.telefone} onChange={v=>setForm(f=>({...f,telefone:v}))} placeholder="(00) 00000-0000" />
@@ -1122,17 +1145,17 @@ function TabContratos({ contratos, setContratos, toast }) {
   const salvar = () => {
     if (!form.numero||!form.objeto||!form.fornecedor) { toast("Preencha os campos obrigatórios","error"); return; }
     if (editId) {
-      const fields = { ...form, valor:parseFloat(form.valor)||0 };
+      const fields = { ...form, valor:parseBRL(form.valor) };
       setContratos(prev=>prev.map(c=>c.id===editId?{ ...c, ...fields }:c));
       toast("Contrato atualizado!");
       sbUpdateContrato(editId, { numero:fields.numero, objeto:fields.objeto, fornecedor:fields.fornecedor, cnpj:fields.cnpj||null, valor:fields.valor, inicio:fields.inicio||null, fim:fields.fim||null, processo:fields.processo||null, link_drive:fields.link_drive||null })
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
       const id = uid();
-      const newItem = { id, ...form, valor:parseFloat(form.valor)||0, status:"Vigente" };
+      const newItem = { id, ...form, valor:parseBRL(form.valor), status:"Vigente" };
       setContratos(prev=>[newItem, ...prev]);
       toast("Contrato cadastrado!");
-      sbCreateContrato({ id, numero:form.numero, objeto:form.objeto, fornecedor:form.fornecedor, cnpj:form.cnpj||null, valor:parseFloat(form.valor)||0, inicio:form.inicio||null, fim:form.fim||null, status:'Vigente', processo:form.processo||null, link_drive:form.link_drive||null })
+      sbCreateContrato({ id, numero:form.numero, objeto:form.objeto, fornecedor:form.fornecedor, cnpj:form.cnpj||null, valor:parseBRL(form.valor), inicio:form.inicio||null, fim:form.fim||null, status:'Vigente', processo:form.processo||null, link_drive:form.link_drive||null })
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false);
@@ -1205,7 +1228,7 @@ function TabContratos({ contratos, setContratos, toast }) {
               <Input label="CNPJ" value={form.cnpj} onChange={v=>setForm(f=>({...f,cnpj:v}))} placeholder="00.000.000/0001-00" />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
-              <Input label="Valor (R$)" value={form.valor} onChange={v=>setForm(f=>({...f,valor:v}))} type="number" />
+              <Input label="Valor (R$)" value={form.valor} onChange={v=>setForm(f=>({...f,valor:v}))} placeholder="0,00" />
               <Input label="Início" value={form.inicio} onChange={v=>setForm(f=>({...f,inicio:v}))} type="date" />
               <Input label="Fim" value={form.fim} onChange={v=>setForm(f=>({...f,fim:v}))} type="date" />
             </div>
@@ -1249,7 +1272,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const addItem = () => setItens(p=>[...p,{ id:uid(), descricao:"", unidade:"", qtd:"", valores:{} }]);
   const remItem = id => setItens(p=>p.filter(i=>i.id!==id));
   const updItem = (id,field,val) => setItens(p=>p.map(i=>i.id===id?{...i,[field]:val}:i));
-  const updValor = (itemId,fornId,val) => setItens(p=>p.map(i=>i.id===itemId?{...i,valores:{...i.valores,[fornId]:parseFloat(val)||0}}:i));
+  const updValor = (itemId,fornId,val) => setItens(p=>p.map(i=>i.id===itemId?{...i,valores:{...i.valores,[fornId]:parseBRL(val)}}:i));
 
   const resetForm = () => {
     setForm({ numero:"", objeto:"", processo:"" });
@@ -1696,7 +1719,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:8 }}>
                     {fornecedores.filter(f=>f.razao.trim()).map((f,fi)=>(
                       <Input key={f.id} label={`F${fi+1}: ${f.razao.split(" ")[0]}`}
-                        value={it.valores[f.id]||""} onChange={v=>updValor(it.id,f.id,v)} type="number" placeholder="0,00" />
+                        value={it.valores[f.id]||""} onChange={v=>updValor(it.id,f.id,v)} placeholder="0,00" />
                     ))}
                   </div>
                   {(() => {
@@ -1769,7 +1792,7 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
   const salvar = () => {
     if (!form.numero_processo || !form.objeto || !form.contratada) { toast("Preencha os campos obrigatórios","error"); return; }
     if (editId) {
-      const fields = { ...form, valor_total:parseFloat(form.valor_total)||0 };
+      const fields = { ...form, valor_total:parseBRL(form.valor_total) };
       setItems(prev=>prev.map(it=>it.id===editId ? { ...it, ...fields } : it));
       toast(`${tipo} atualizada!`);
       const sbUpd = tipo==="Dispensa" ? sbUpdateDispensa : sbUpdateInexigibilidade;
@@ -1777,11 +1800,11 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     } else {
       const id = uid();
-      const newItem = { id, ...form, valor_total:parseFloat(form.valor_total)||0 };
+      const newItem = { id, ...form, valor_total:parseBRL(form.valor_total) };
       setItems(prev=>[newItem, ...prev]);
       toast(`${tipo} cadastrada!`);
       const sbCreate = tipo==="Dispensa" ? sbCreateDispensa : sbCreateInexigibilidade;
-      sbCreate({ id, numero_processo:form.numero_processo, objeto:form.objeto, contratada:form.contratada, cnpj:form.cnpj||null, valor_total:parseFloat(form.valor_total)||0, data_ratificacao:form.data_ratificacao||null, vigencia:form.vigencia||null, secretaria:form.secretaria||null, link_drive:form.link_drive||null, status:form.status })
+      sbCreate({ id, numero_processo:form.numero_processo, objeto:form.objeto, contratada:form.contratada, cnpj:form.cnpj||null, valor_total:parseBRL(form.valor_total), data_ratificacao:form.data_ratificacao||null, vigencia:form.vigencia||null, secretaria:form.secretaria||null, link_drive:form.link_drive||null, status:form.status })
         .then(({error})=>{ if(error) toast("Erro ao salvar: "+error.message,"error"); });
     }
     setModal(false); setForm(CD_FORM_EMPTY);
@@ -1862,7 +1885,7 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
               <Input label="CNPJ" value={form.cnpj} onChange={ff("cnpj")} placeholder="00.000.000/0001-00" />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
-              <Input label="Valor Total (R$)" value={form.valor_total} onChange={ff("valor_total")} type="number" placeholder="0,00" />
+              <Input label="Valor Total (R$)" value={form.valor_total} onChange={ff("valor_total")} placeholder="0,00" />
               <Input label="Data de Ratificação" value={form.data_ratificacao} onChange={ff("data_ratificacao")} type="date" />
               <Input label="Vigência (Fim)" value={form.vigencia} onChange={ff("vigencia")} type="date" />
             </div>
