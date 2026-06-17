@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/licitagov/',
+  base: '/',
   plugins: [
     react(),
     VitePWA({
@@ -16,8 +16,8 @@ export default defineConfig({
         theme_color: '#18191c',
         background_color: '#18191c',
         display: 'standalone',
-        start_url: '/licitagov/',
-        scope: '/licitagov/',
+        start_url: '/',
+        scope: '/',
         orientation: 'any',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
@@ -29,7 +29,7 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpeg,jpg,woff2}'],
-        navigateFallback: '/licitagov/index.html',
+        navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
