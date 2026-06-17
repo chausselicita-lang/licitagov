@@ -2836,11 +2836,9 @@ export default function App() {
   const [toast, setToast_] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   // Detect recovery link immediately from URL hash — before any async Supabase operations
-  const [recoveryMode, setRecoveryMode] = useState(() => {
-    const h = window.location.hash;
-    console.log('[Auth] hash no mount:', h);
-    return h.includes('type=recovery');
-  });
+  const [recoveryMode, setRecoveryMode] = useState(
+    () => window.location.hash.includes('type=recovery')
+  );
 
   // Auth bootstrap
   useEffect(() => {
@@ -2849,7 +2847,6 @@ export default function App() {
     if (!sb) { setSession(null); return; }
     // Subscribe BEFORE getSession so PASSWORD_RECOVERY event is never missed
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, s) => {
-      console.log('[Auth] onAuthStateChange event:', event, '| session:', !!s);
       if (event === "PASSWORD_RECOVERY") {
         setRecoveryMode(true);
         setSession(s);
@@ -2863,9 +2860,7 @@ export default function App() {
       }
     });
     // Skip getSession for recovery URLs — the session comes via PASSWORD_RECOVERY event
-    const hashNow = window.location.hash;
-    console.log('[Auth] hash no useEffect:', hashNow);
-    if (!hashNow.includes('type=recovery')) {
+    if (!window.location.hash.includes('type=recovery')) {
       sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
     }
     return () => subscription.unsubscribe();
