@@ -717,6 +717,7 @@ function TabAtas({ atas, setAtas, toast }) {
   const [editId, setEditId] = useState(null);
   const [modalItem, setModalItem] = useState(false);
   const [ataAtiva, setAtaAtiva] = useState(null);
+  const [confirmarExcluirId, setConfirmarExcluirId] = useState(null);
   const [form, setForm] = useState(ATA_FORM_EMPTY);
   const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
 
@@ -740,9 +741,11 @@ function TabAtas({ atas, setAtas, toast }) {
     setForm(ATA_FORM_EMPTY);
   };
 
-  const deletarAta = (id) => {
-    if (!window.confirm("Excluir esta ata?")) return;
-    setAtas(prev=>prev.filter(a=>a.id!==id));
+  const deletarAta = (id) => setConfirmarExcluirId(id);
+
+  const confirmarExclusaoAta = () => {
+    setAtas(prev=>prev.filter(a=>a.id!==confirmarExcluirId));
+    setConfirmarExcluirId(null);
     toast("Ata excluída");
   };
 
@@ -949,6 +952,21 @@ function TabAtas({ atas, setAtas, toast }) {
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
               <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Cancelar</Btn>
               <Btn onClick={salvar} color={C.accent2}>{editId?"Salvar Alterações":"Salvar Ata"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {confirmarExcluirId && (
+        <Modal title="Excluir Ata" onClose={()=>setConfirmarExcluirId(null)}>
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            <div style={{ fontSize:14, color:C.text, lineHeight:1.6 }}>
+              Tem certeza que deseja excluir esta Ata de Registro de Preços?<br/>
+              <span style={{ fontSize:12, color:C.sub }}>Esta ação não pode ser desfeita.</span>
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <Btn variant="outline" onClick={()=>setConfirmarExcluirId(null)} color={C.sub}>Cancelar</Btn>
+              <Btn onClick={confirmarExclusaoAta} color={C.red}>Excluir</Btn>
             </div>
           </div>
         </Modal>
