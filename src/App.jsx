@@ -2991,6 +2991,7 @@ export default function App() {
       });
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
+
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", h);
