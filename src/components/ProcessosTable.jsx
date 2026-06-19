@@ -1,13 +1,14 @@
 import StatusBadge from "./StatusBadge.jsx";
-import { fmtBRL, fmtDate } from "../lib/utils.js";
+import { fmtBRL } from "../lib/utils.js";
 
 const P = {
-  card:    "#1c1d21",
-  border:  "rgba(255,255,255,0.07)",
-  text:    "#e8e9ed",
-  sub:     "#8a8d96",
-  accent:  "#4f7ef7",
-  overlay: "#222327",
+  card:    "#ffffff",
+  border:  "#e4e8ef",
+  subtle:  "#f8fafc",
+  text:    "#111827",
+  sub:     "#6b7280",
+  accent:  "#1d4ed8",
+  hover:   "#f8fafc",
 };
 
 export default function ProcessosTable({ processos, onViewAll }) {
@@ -16,13 +17,14 @@ export default function ProcessosTable({ processos, onViewAll }) {
       background: P.card,
       border:`1px solid ${P.border}`,
       borderRadius:12,
-      boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
+      boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
       overflow:"hidden",
     }}>
       {/* Section header */}
       <div style={{
         display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
         borderBottom:`1px solid ${P.border}`, padding:"14px 20px",
+        background: P.subtle,
       }}>
         <div>
           <div style={{ fontSize:14, fontWeight:600, color:P.text }}>Processos Recentes</div>
@@ -34,7 +36,7 @@ export default function ProcessosTable({ processos, onViewAll }) {
             onMouseLeave={e => e.currentTarget.style.opacity="1"}
             style={{
               background:"none", border:"none", color:P.accent,
-              cursor:"pointer", fontSize:12, fontWeight:500, fontFamily:"inherit",
+              cursor:"pointer", fontSize:12, fontWeight:600, fontFamily:"inherit",
               display:"flex", alignItems:"center", gap:4, flexShrink:0,
               transition:"opacity 0.12s",
             }}>
@@ -47,7 +49,7 @@ export default function ProcessosTable({ processos, onViewAll }) {
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
           <thead>
-            <tr>
+            <tr style={{ background: P.subtle, borderBottom:`1px solid ${P.border}` }}>
               {[
                 { label:"Número / Objeto", align:"left" },
                 { label:"Modalidade",      align:"left" },
@@ -57,7 +59,7 @@ export default function ProcessosTable({ processos, onViewAll }) {
                 <th key={h.label} style={{
                   padding:"10px 20px",
                   fontSize:11, color:P.sub, fontWeight:600,
-                  textTransform:"uppercase", letterSpacing:"0.06em",
+                  textTransform:"uppercase", letterSpacing:"0.07em",
                   textAlign: h.align, whiteSpace:"nowrap",
                 }}>{h.label}</th>
               ))}
@@ -67,15 +69,15 @@ export default function ProcessosTable({ processos, onViewAll }) {
             {processos.filter(p => !["Dispensa","Dispensa de Licitação","Inexigibilidade","Inexigibilidade de Licitação"].includes(p.modalidade)).slice(0, 5).map((p, i) => (
               <tr key={p.id}
                 style={{
-                  borderTop:`1px solid ${P.border}`,
-                  background: i % 2 === 1 ? "rgba(255,255,255,0.02)" : "transparent",
+                  borderBottom:`1px solid ${P.border}`,
+                  background: P.card,
                   transition:"background 0.1s",
                 }}
-                onMouseEnter={e => e.currentTarget.style.background=P.overlay}
-                onMouseLeave={e => e.currentTarget.style.background=i%2===1?"rgba(255,255,255,0.02)":"transparent"}
+                onMouseEnter={e => e.currentTarget.style.background = P.hover}
+                onMouseLeave={e => e.currentTarget.style.background = P.card}
               >
                 <td style={{ padding:"12px 20px", maxWidth:300 }}>
-                  <div style={{ fontWeight:600, color:P.accent }}>{p.numero}</div>
+                  <div style={{ fontWeight:700, color:P.accent }}>{p.numero}</div>
                   <div style={{
                     fontSize:12, color:P.sub,
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:260,
@@ -85,7 +87,7 @@ export default function ProcessosTable({ processos, onViewAll }) {
                 <td style={{ padding:"12px 20px" }}>
                   <StatusBadge label={p.fase} />
                 </td>
-                <td style={{ padding:"12px 20px", textAlign:"right", fontWeight:600, color:P.text, whiteSpace:"nowrap" }}>
+                <td style={{ padding:"12px 20px", textAlign:"right", fontWeight:700, color:P.text, whiteSpace:"nowrap" }}>
                   {fmtBRL(p.valor)}
                 </td>
               </tr>

@@ -40,7 +40,7 @@ function CotacaoDetalhe({ cot, onVoltar }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
         <Btn variant="outline" onClick={onVoltar} color={C.sub} size="sm">← Voltar</Btn>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Syne',sans-serif", color: C.text }}>{cot.numero}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{cot.numero}</div>
           <div style={{ fontSize: 12, color: C.sub }}>{cot.objeto} · {fmtDate(cot.dataCriacao)}</div>
         </div>
         <Badge label={cot.status} />

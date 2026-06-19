@@ -1,34 +1,36 @@
 const STATUS_MAP = {
-  "Vigente":      { bg:"rgba(46,160,105,0.15)",   fg:"#4ade80" },
-  "Homologado":   { bg:"rgba(46,160,105,0.15)",   fg:"#4ade80" },
-  "Concluída":    { bg:"rgba(46,160,105,0.15)",   fg:"#4ade80" },
-  "Finalizada":   { bg:"rgba(46,160,105,0.15)",   fg:"#4ade80" },
-  "Em andamento": { bg:"rgba(79,126,247,0.15)",   fg:"#6b9bff" },
-  "Em coleta":    { bg:"rgba(79,126,247,0.15)",   fg:"#6b9bff" },
-  "Publicado":    { bg:"rgba(79,126,247,0.15)",   fg:"#6b9bff" },
-  "Planejamento": { bg:"rgba(230,145,56,0.15)",   fg:"#f0a45c" },
-  "A vencer":     { bg:"rgba(217,180,50,0.15)",   fg:"#e2c14d" },
-  "Rascunho":     { bg:"rgba(138,141,150,0.15)",  fg:"#8a8d96" },
-  "Encerrado":    { bg:"rgba(138,141,150,0.15)",  fg:"#8a8d96" },
-  "Vencido":      { bg:"rgba(241,91,91,0.15)",    fg:"#f15b5b" },
-  "Cancelada":    { bg:"rgba(241,91,91,0.15)",    fg:"#f15b5b" },
-  "Revogado":     { bg:"rgba(241,91,91,0.15)",    fg:"#f15b5b" },
-  "Suspenso":     { bg:"rgba(167,139,250,0.15)",  fg:"#a78bfa" },
+  "Vigente":      { bg:"#f0fdf4", fg:"#15803d" },
+  "Homologado":   { bg:"#f0fdf4", fg:"#15803d" },
+  "Concluída":    { bg:"#f0fdf4", fg:"#15803d" },
+  "Finalizada":   { bg:"#f0fdf4", fg:"#15803d" },
+  "Adjudicado":   { bg:"#ecfdf5", fg:"#059669" },
+  "Em andamento": { bg:"#eff6ff", fg:"#1d4ed8" },
+  "Em coleta":    { bg:"#eff6ff", fg:"#1d4ed8" },
+  "Publicado":    { bg:"#eff6ff", fg:"#1d4ed8" },
+  "Planejamento": { bg:"#fffbeb", fg:"#b45309" },
+  "A vencer":     { bg:"#fffbeb", fg:"#b45309" },
+  "Suspenso":     { bg:"#fffbeb", fg:"#b45309" },
+  "Rascunho":     { bg:"#f3f4f6", fg:"#6b7280" },
+  "Encerrado":    { bg:"#f3f4f6", fg:"#6b7280" },
+  "Vencido":      { bg:"#fef2f2", fg:"#b91c1c" },
+  "Cancelada":    { bg:"#fef2f2", fg:"#b91c1c" },
+  "Revogado":     { bg:"#fef2f2", fg:"#b91c1c" },
+  "Deserto":      { bg:"#fff7ed", fg:"#c2410c" },
+  "Fracassado":   { bg:"#fff7ed", fg:"#c2410c" },
 };
 
 export default function StatusBadge({ label, color }) {
   const preset = STATUS_MAP[label];
-  const fg = color || (preset ? preset.fg : "#8a8d96");
-  const bg = preset ? preset.bg : "rgba(138,141,150,0.15)";
+  const fg = color || (preset ? preset.fg : "#6b7280");
+  const bg = preset ? preset.bg : "#f3f4f6";
   return (
     <span style={{
       display:"inline-flex", alignItems:"center", gap:5,
       background: bg,
       color: fg,
-      border:`1px solid ${fg}30`,
       borderRadius:999,
       padding:"3px 10px",
-      fontSize:11, fontWeight:600, letterSpacing:"0.02em",
+      fontSize:12, fontWeight:600,
       whiteSpace:"nowrap",
     }}>
       <span style={{ width:5, height:5, borderRadius:"50%", background:"currentColor", flexShrink:0 }} />

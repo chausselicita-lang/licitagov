@@ -26,7 +26,7 @@ export function Modal({ title, onClose, children, wide = false }) {
         boxShadow: shadow.modal,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Syne',sans-serif", color: C.text }}>{title}</span>
+          <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "Inter,system-ui,sans-serif", color: C.text }}>{title}</span>
           <button
             onClick={onClose}
             style={{ background: "none", border: "none", color: C.sub, cursor: "pointer", padding: 6, borderRadius: 6, display: "flex", alignItems: "center", transition: "background 0.12s" }}
@@ -84,7 +84,7 @@ export function KpiCard({ label, value, sub, color = C.accent }) {
       boxShadow: shadow.card,
     }}>
       <div style={{ fontSize: 11, color: C.sub, fontWeight: 500, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: C.text, fontFamily: "'Syne',sans-serif", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: C.text, fontFamily: "Inter,system-ui,sans-serif", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: C.tertiary, marginTop: 5 }}>{sub}</div>}
     </div>
   );

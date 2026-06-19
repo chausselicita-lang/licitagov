@@ -7,10 +7,10 @@ export class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ minHeight:'100vh', background:'#18191c', color:'#e8e9ed', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:'monospace', gap:12 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#f15b5b' }}>Erro na aplicação</div>
-          <div style={{ fontSize:13, color:'#8a8d96', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
-          <button onClick={()=>window.location.reload()} style={{ marginTop:8, padding:'8px 20px', background:'#4f7ef7', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontSize:13 }}>Recarregar</button>
+        <div style={{ minHeight:'100vh', background:'#f0f2f5', color:'#111827', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Inter',system-ui,sans-serif", gap:12 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:'#b91c1c' }}>Erro na aplicação</div>
+          <div style={{ fontSize:13, color:'#6b7280', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
+          <button onClick={()=>window.location.reload()} style={{ marginTop:8, padding:'8px 20px', background:'#1d4ed8', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:13, fontFamily:"'Inter',system-ui,sans-serif" }}>Recarregar</button>
         </div>
       );
     }
@@ -31,27 +31,27 @@ import StatusBadge from "./components/StatusBadge.jsx";
 ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg:           "#18191c",
-  surface:      "#1c1d21",
-  card:         "#1c1d21",
-  overlay:      "#222327",
-  subtle:       "#1f2024",
-  border:       "rgba(255,255,255,0.07)",
-  borderStrong: "rgba(255,255,255,0.12)",
-  accent:       "#4f7ef7",
-  accentHover:  "#3d6de0",
-  accentSubtle: "rgba(79,126,247,0.15)",
-  accentBorder: "rgba(79,126,247,0.25)",
-  accent2:      "#22d3ee",
-  gold:         "#e2c14d",
-  red:          "#f15b5b",
-  green:        "#4ade80",
-  amber:        "#f0a45c",
-  purple:       "#a78bfa",
-  text:         "#e8e9ed",
-  sub:          "#8a8d96",
-  subL:         "#8a8d96",
-  tertiary:     "#6b7280",
+  bg:           "#f0f2f5",
+  surface:      "#ffffff",
+  card:         "#ffffff",
+  overlay:      "#f8fafc",
+  subtle:       "#f1f5f9",
+  border:       "#e4e8ef",
+  borderStrong: "#cbd5e1",
+  accent:       "#1d4ed8",
+  accentHover:  "#1e3a8a",
+  accentSubtle: "#eff6ff",
+  accentBorder: "#bfdbfe",
+  accent2:      "#0891b2",
+  gold:         "#d97706",
+  red:          "#b91c1c",
+  green:        "#15803d",
+  amber:        "#b45309",
+  purple:       "#7c3aed",
+  text:         "#111827",
+  sub:          "#6b7280",
+  subL:         "#6b7280",
+  tertiary:     "#9ca3af",
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
@@ -163,29 +163,31 @@ const SEED = {
 
 function Badge({ label, color }) {
   const map = {
-    "Vigente":      "#4ade80",
-    "A vencer":     "#e2c14d",
-    "Encerrado":    "#8a8d96",
-    "Vencido":      "#f15b5b",
-    "Homologado":   "#4ade80",
-    "Em andamento": "#6b9bff",
-    "Publicado":    "#6b9bff",
-    "Planejamento": "#f0a45c",
-    "Revogado":     "#f15b5b",
-    "Suspenso":     "#a78bfa",
-    "Finalizada":   "#4ade80",
-    "Em coleta":    "#6b9bff",
-    "Rascunho":     "#8a8d96",
-    "Concluída":    "#4ade80",
-    "Cancelada":    "#f15b5b",
+    "Vigente":      { bg:"#f0fdf4", fg:"#15803d" },
+    "A vencer":     { bg:"#fffbeb", fg:"#b45309" },
+    "Encerrado":    { bg:"#f3f4f6", fg:"#6b7280" },
+    "Vencido":      { bg:"#fef2f2", fg:"#b91c1c" },
+    "Homologado":   { bg:"#f0fdf4", fg:"#15803d" },
+    "Em andamento": { bg:"#eff6ff", fg:"#1d4ed8" },
+    "Publicado":    { bg:"#eff6ff", fg:"#1d4ed8" },
+    "Planejamento": { bg:"#fffbeb", fg:"#b45309" },
+    "Revogado":     { bg:"#fef2f2", fg:"#b91c1c" },
+    "Suspenso":     { bg:"#fffbeb", fg:"#b45309" },
+    "Finalizada":   { bg:"#f0fdf4", fg:"#15803d" },
+    "Em coleta":    { bg:"#eff6ff", fg:"#1d4ed8" },
+    "Rascunho":     { bg:"#f3f4f6", fg:"#6b7280" },
+    "Concluída":    { bg:"#f0fdf4", fg:"#15803d" },
+    "Cancelada":    { bg:"#fef2f2", fg:"#b91c1c" },
   };
-  const c = color || map[label] || "#8a8d96";
+  const preset = map[label];
+  const bg = preset ? preset.bg : "#f3f4f6";
+  const fg = color || (preset ? preset.fg : "#6b7280");
   return (
     <span style={{
       display:"inline-flex", alignItems:"center", gap:5,
-      background: `${c}18`, color: c, border: `1px solid ${c}30`,
+      background: bg, color: fg,
       borderRadius: 999, padding: "3px 10px",
-      fontSize: 11, fontWeight: 600, letterSpacing: "0.02em",
+      fontSize: 11, fontWeight: 600,
       whiteSpace: "nowrap",
     }}>
       <span style={{ width:5, height:5, borderRadius:"50%", background:"currentColor", flexShrink:0 }} />
@@ -263,7 +265,7 @@ function Modal({ title, onClose, children, wide=false }) {
         boxShadow:"0 20px 48px rgba(0,0,0,0.18)",
       }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <span style={{ fontSize:16, fontWeight:600, fontFamily:"'Syne',sans-serif", color:C.text }}>{title}</span>
+          <span style={{ fontSize:16, fontWeight:600, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>{title}</span>
           <button onClick={onClose} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", display:"flex", alignItems:"center", padding:4, borderRadius:4 }}
             onMouseEnter={e=>e.currentTarget.style.color=C.text}
             onMouseLeave={e=>e.currentTarget.style.color=C.sub}>
@@ -316,7 +318,7 @@ function KpiCard({ label, value, sub, color=C.accent }) {
       onMouseLeave={e => e.currentTarget.style.borderColor=C.border}
     >
       <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
-      <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif", lineHeight:1.1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
+      <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif", lineHeight:1.1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
       {sub && <div style={{ fontSize:12, color:C.sub, marginTop:5 }}>{sub}</div>}
     </div>
   );
@@ -326,15 +328,14 @@ function KpiCard({ label, value, sub, color=C.accent }) {
 function GlobalStyles() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#111827;}
       ::-webkit-scrollbar{width:5px;height:5px;}
-      ::-webkit-scrollbar-track{background:#111214;}
-      ::-webkit-scrollbar-thumb{background:#383a40;border-radius:3px;}
-      ::-webkit-scrollbar-thumb:hover{background:#4a4d56;}
+      ::-webkit-scrollbar-track{background:transparent;}
+      ::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
+      ::-webkit-scrollbar-thumb:hover{background:#cbd5e1;}
       button,input,select,textarea{font-family:inherit;}
-      input::placeholder,textarea::placeholder{color:#6b7280;}
-      select option{background:#1c1d21;color:#e8e9ed;}
+      input::placeholder,textarea::placeholder{color:#9ca3af;}
       @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
       @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
       @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
@@ -368,11 +369,11 @@ function SetupScreen({ onReady }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Inter,system-ui,sans-serif" }}>
       <GlobalStyles />
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"36px 40px", maxWidth:480, width:"100%", boxShadow:"0 8px 32px rgba(0,0,0,0.10)", animation:"fadeUp 0.3s ease" }}>
         <div style={{ marginBottom:28, textAlign:"center" }}>
-          <div style={{ fontSize:22, fontWeight:800, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>
+          <div style={{ fontSize:22, fontWeight:800, fontFamily:"Inter,system-ui,sans-serif", color:C.text, marginBottom:6 }}>
             Licita<span style={{color:C.accent}}>Gov</span>
           </div>
           <div style={{ fontSize:13, color:C.sub }}>Configuração inicial — conexão Supabase</div>
@@ -427,13 +428,13 @@ function SetPasswordScreen({ onDone }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:C.bg, fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:C.bg, fontFamily:"Inter,system-ui,sans-serif" }}>
       <GlobalStyles />
       <div style={{ width:"100%", maxWidth:380, padding:24, animation:"fadeUp 0.3s ease" }}>
         <div style={{ textAlign:"center", marginBottom:28 }}>
           <img src="/govcore-logo.png" alt="GovCore" style={{ maxWidth:180, width:"65%", marginBottom:12 }} />
         </div>
-        <div style={{ fontSize:20, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>Definir nova senha</div>
+        <div style={{ fontSize:20, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text, marginBottom:6 }}>Definir nova senha</div>
         <div style={{ fontSize:13, color:C.sub, marginBottom:24 }}>Crie uma senha segura para acessar o sistema.</div>
 
         {ok ? (
@@ -524,7 +525,7 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", display:"flex", fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ minHeight:"100vh", display:"flex", fontFamily:"Inter,system-ui,sans-serif" }}>
       <GlobalStyles />
 
       {/* Painel esquerdo — identidade */}
@@ -564,7 +565,7 @@ function LoginScreen({ onLogin }) {
             </div>
           ) : resetMode ? (
             <div>
-              <div style={{ fontSize:20, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>Recuperar senha</div>
+              <div style={{ fontSize:20, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text, marginBottom:6 }}>Recuperar senha</div>
               <div style={{ fontSize:13, color:C.sub, marginBottom:24 }}>Informe seu e-mail para receber o link de redefinição.</div>
               <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
@@ -591,7 +592,7 @@ function LoginScreen({ onLogin }) {
             </div>
           ) : (
             <div>
-              <div style={{ fontSize:20, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:6 }}>Bem-vindo</div>
+              <div style={{ fontSize:20, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text, marginBottom:6 }}>Bem-vindo</div>
               <div style={{ fontSize:13, color:C.sub, marginBottom:28 }}>Entre com suas credenciais para acessar o sistema.</div>
               <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
@@ -654,7 +655,7 @@ function TabDashboard({ data, onViewProcessos }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
       <div>
-        <h2 style={{ fontSize:18, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, marginBottom:4 }}>Visão geral</h2>
+        <h2 style={{ fontSize:18, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text, marginBottom:4 }}>Visão geral</h2>
         <p style={{ fontSize:13, color:C.sub }}>Acompanhe processos, contratos e indicadores de compras públicas em tempo real.</p>
       </div>
 
@@ -663,12 +664,12 @@ function TabDashboard({ data, onViewProcessos }) {
       <ProcessosTable processos={processos} onViewAll={onViewProcessos} />
 
       {vencendo.length > 0 && (
-        <div style={{ background:"rgba(241,91,91,0.07)", border:`1px solid rgba(241,91,91,0.20)`, borderRadius:12, padding:18 }}>
+        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:12, padding:18 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:C.red, marginBottom:12 }}>
             <Icon name="warning" size={14} color={C.red} /> Contratos a vencer em 30 dias
           </div>
           {vencendo.map(c => (
-            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid rgba(241,91,91,0.12)`, flexWrap:"wrap", gap:8 }}>
+            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #fecaca", flexWrap:"wrap", gap:8 }}>
               <div>
                 <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.numero} — {c.objeto}</div>
                 <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor}</div>
@@ -763,7 +764,7 @@ function TabProcessos({ processos, setProcessos, toast }) {
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1, minWidth:180 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:14, fontWeight:700, color:C.accent, fontFamily:"'Syne',sans-serif" }}>{p.numero}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.accent, fontFamily:"Inter,system-ui,sans-serif" }}>{p.numero}</span>
                     <Badge label={p.fase} />
                   </div>
                   <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{p.objeto}</div>
@@ -914,7 +915,7 @@ function TabAtas({ atas, setAtas, toast }) {
               <Icon name="back" size={13} /> Voltar
             </button>
             <div>
-              <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{ata.numero}</div>
+              <div style={{ fontSize:16, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>{ata.numero}</div>
               <div style={{ fontSize:12, color:C.sub }}>{ata.objeto}</div>
             </div>
           </div>
@@ -1029,7 +1030,7 @@ function TabAtas({ atas, setAtas, toast }) {
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
-                      <span style={{ fontSize:14, fontWeight:700, color:C.accent2, fontFamily:"'Syne',sans-serif" }}>{a.numero}</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:C.accent2, fontFamily:"Inter,system-ui,sans-serif" }}>{a.numero}</span>
                       <Badge label={d>0?"Vigente":d===0?"Vence hoje":"Vencida"} />
                     </div>
                     <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{a.objeto}</div>
@@ -1183,7 +1184,7 @@ function TabContratos({ contratos, setContratos, toast }) {
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{c.numero}</span>
                     <Badge label={c.status} />
                     {c.processo && <span style={{ fontSize:12, color:C.sub }}>Proc. {c.processo}</span>}
                   </div>
@@ -1373,7 +1374,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
           <div>
-            <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>Resultado da Pesquisa IA</div>
+            <div style={{ fontSize:16, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>Resultado da Pesquisa IA</div>
             <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>{objetoIA}</div>
           </div>
           <div style={{ display:"flex", gap:8 }}>
@@ -1535,7 +1536,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
           <Btn variant="outline" onClick={()=>setCotAtiva(null)} color={C.sub} size="sm">← Voltar</Btn>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>{cot.numero}</div>
+            <div style={{ fontSize:16, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>{cot.numero}</div>
             <div style={{ fontSize:12, color:C.sub }}>{cot.objeto} · {fmtDate(cot.dataCriacao)}</div>
           </div>
           <Badge label={cot.status} />
@@ -1675,7 +1676,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"'Syne',sans-serif" }}>{c.numero}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{c.numero}</span>
                     <Badge label={c.status} />
                   </div>
                   <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{c.objeto}</div>
@@ -1886,7 +1887,7 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:14, fontWeight:700, color, fontFamily:"'Syne',sans-serif" }}>{it.numero_processo}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color, fontFamily:"Inter,system-ui,sans-serif" }}>{it.numero_processo}</span>
                     <Badge label={it.status} />
                   </div>
                   <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{it.objeto}</div>
@@ -2122,7 +2123,7 @@ const gerarRelatorioProcessos = (processos) => {
 };
 
 function RelAtas({ atas, onClose }) {
-  const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, secTitle:{ fontSize:15, fontWeight:700, borderBottom:"2px solid #4f46e5", paddingBottom:6, marginBottom:14, color:"#4f46e5" }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid4:{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px 16px", marginBottom:12 }, th:{ padding:"8px 12px", fontSize:11, textAlign:"left", background:"#f0f0f0", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em" }, td:{ padding:"8px 12px", fontSize:13, borderBottom:"1px solid #eee" }, bar:{ background:"#eee", borderRadius:4, height:7, marginTop:4 } };
+  const S = { page:{ fontFamily:"Inter,system-ui,sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, secTitle:{ fontSize:15, fontWeight:700, borderBottom:"2px solid #4f46e5", paddingBottom:6, marginBottom:14, color:"#4f46e5" }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid4:{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px 16px", marginBottom:12 }, th:{ padding:"8px 12px", fontSize:11, textAlign:"left", background:"#f0f0f0", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em" }, td:{ padding:"8px 12px", fontSize:13, borderBottom:"1px solid #eee" }, bar:{ background:"#eee", borderRadius:4, height:7, marginTop:4 } };
   return (
     <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, overflowY:"auto" }}>
       <div style={{ background:"#4f46e5", padding:"14px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:10 }}>
@@ -2196,7 +2197,7 @@ function RelAtas({ atas, onClose }) {
 }
 
 function RelContratos({ contratos, onClose }) {
-  const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
+  const S = { page:{ fontFamily:"Inter,system-ui,sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid2:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 24px", marginBottom:10 }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
   const statusColor = { "Vigente":["#dcfce7","#166534"], "A vencer":["#fef9c3","#854d0e"], "Vencido":["#fee2e2","#991b1b"], "Encerrado":["#f3f4f6","#374151"] };
   return (
     <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, overflowY:"auto" }}>
@@ -2244,7 +2245,7 @@ function RelContratos({ contratos, onClose }) {
 }
 
 function RelProcessos({ processos, onClose }) {
-  const S = { page:{ fontFamily:"'DM Sans',sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
+  const S = { page:{ fontFamily:"Inter,system-ui,sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
   const faseColor = { "Em andamento":"#4f46e5", "Publicado":"#0891b2", "Homologado":"#166534", "Planejamento":"#92400e", "Revogado":"#991b1b", "Suspenso":"#b45309", "Encerrado":"#374151" };
   return (
     <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, overflowY:"auto" }}>
@@ -2749,7 +2750,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
       <div style={{ background:C.card, border:`2px solid ${tipoColor}44`, borderRadius:10, padding:20, boxShadow:`0 4px 16px ${tipoColor}18`, animation:"fadeUp 0.25s ease" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
           <div>
-            <div style={{ fontSize:14, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:7 }}>
+            <div style={{ fontSize:14, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text, display:"flex", alignItems:"center", gap:7 }}>
               <Icon name="sparkle" size={14} color={tipoColor} />
               Dados Extraídos — {tipoLabel}
             </div>
@@ -2812,7 +2813,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"13px 18px", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize:14, fontWeight:600, fontFamily:"'Syne',sans-serif", color:C.text, display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{ fontSize:14, fontWeight:600, fontFamily:"Inter,system-ui,sans-serif", color:C.text, display:"flex", alignItems:"center", gap:8 }}>
           <Icon name="claude" size={15} color={C.accent} />
           Assistente IA — Lei 14.133/2021
         </div>
@@ -3026,7 +3027,7 @@ export default function App() {
   }
   if (session === undefined) {
     return (
-      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Inter,system-ui,sans-serif" }}>
         <GlobalStyles />
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, color:C.sub }}>
           <div style={{ width:28, height:28, border:`3px solid ${C.border}`, borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
@@ -3041,7 +3042,7 @@ export default function App() {
 
   if (dataLoading) {
     return (
-      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Inter,system-ui,sans-serif" }}>
         <GlobalStyles />
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, color:C.sub }}>
           <div style={{ width:28, height:28, border:`3px solid ${C.border}`, borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
@@ -3057,7 +3058,7 @@ export default function App() {
 
   return (
     <div style={{
-      background: C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text,
+      background: C.bg, fontFamily:"Inter,system-ui,sans-serif", color:C.text,
       height:"100vh", display:"flex", overflow:"hidden",
     }}>
       <GlobalStyles />
@@ -3083,7 +3084,7 @@ export default function App() {
 
       {/* Main content */}
       <div style={{
-        marginLeft: isMobile ? 0 : 220,
+        marginLeft: isMobile ? 0 : 240,
         flex: 1,
         display:"flex", flexDirection:"column",
         overflow:"hidden",
@@ -3100,7 +3101,7 @@ export default function App() {
         />
 
         {isMobile && (
-          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"'Syne',sans-serif", color:C.text }}>
+          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>
             {curTab?.label}
           </div>
         )}
@@ -3128,7 +3129,7 @@ export default function App() {
       {isMobile && (
         <div className="no-print" style={{
           position:"fixed", bottom:0, left:0, right:0, zIndex:20,
-          background:"#111214", borderTop:`1px solid rgba(255,255,255,0.06)`,
+          background:"#ffffff", borderTop:"1px solid #e4e8ef",
           display:"flex", justifyContent:"space-around", alignItems:"center",
           padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))",
         }}>
@@ -3138,7 +3139,7 @@ export default function App() {
               padding:"5px 8px", border:"none",
               background: tab===t.id ? C.accentSubtle : "transparent",
               borderRadius:6,
-              color: tab===t.id ? C.accent : "#8a8d96",
+              color: tab===t.id ? C.accent : C.sub,
               fontSize:9, fontWeight: tab===t.id ? 600 : 400,
               cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s",
             }}>

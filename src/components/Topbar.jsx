@@ -1,13 +1,13 @@
 import Icon from "./Icon.jsx";
 
 const T = {
-  bg:     "rgba(24,25,28,0.88)",
-  border: "rgba(255,255,255,0.07)",
-  card:   "#1c1d21",
-  text:   "#e8e9ed",
-  sub:    "#8a8d96",
-  accent: "#4f7ef7",
-  red:    "#f15b5b",
+  bg:     "#ffffff",
+  border: "#e4e8ef",
+  text:   "#111827",
+  sub:    "#6b7280",
+  accent: "#1d4ed8",
+  red:    "#b91c1c",
+  subtle: "#f8fafc",
 };
 
 export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOpen, deferredPrompt, installPWA }) {
@@ -18,14 +18,13 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
   return (
     <header className="no-print" style={{
       background: T.bg,
-      backdropFilter:"blur(12px)",
-      WebkitBackdropFilter:"blur(12px)",
       borderBottom:`1px solid ${T.border}`,
       padding: isMobile ? "0 16px" : "0 24px",
-      height:64, flexShrink:0,
+      height:56, flexShrink:0,
       display:"flex", alignItems:"center",
       justifyContent:"space-between", gap:12,
       position:"sticky", top:0, zIndex:20,
+      fontFamily:"'Inter',system-ui,sans-serif",
     }}>
       {/* Left */}
       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -38,12 +37,12 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
           </button>
         )}
         {isMobile ? (
-          <span style={{ fontSize:15, fontWeight:800, fontFamily:"'Syne',sans-serif", color:T.text }}>
-            Gov<span style={{ color:T.accent }}>Core</span>
+          <span style={{ fontSize:16, fontWeight:800, color:T.accent }}>
+            Gov<span style={{ color:T.text }}>Core</span>
           </span>
         ) : (
           <div>
-            <div style={{ fontSize:17, fontWeight:700, fontFamily:"'Syne',sans-serif", color:T.text }}>
+            <div style={{ fontSize:18, fontWeight:700, color:T.text }}>
               {curTab?.label}
             </div>
             <div style={{ fontSize:11, color:T.sub, marginTop:1, textTransform:"capitalize" }}>{today}</div>
@@ -55,23 +54,23 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
         {deferredPrompt && isMobile && (
           <button onClick={installPWA} style={{
-            background:T.accent, border:"none", borderRadius:6,
-            padding:"6px 12px", color:"#f0f0f0", fontSize:11, fontWeight:500,
+            background:T.accent, border:"none", borderRadius:8,
+            padding:"6px 12px", color:"#fff", fontSize:11, fontWeight:600,
             cursor:"pointer", fontFamily:"inherit",
             display:"flex", alignItems:"center", gap:5,
           }}>
-            <Icon name="install" size={12} color="#f0f0f0" /> Instalar
+            <Icon name="install" size={12} color="#fff" /> Instalar
           </button>
         )}
 
         {/* User chip */}
         <div style={{
           display:"flex", alignItems:"center", gap:7,
-          background:T.card, border:`1px solid ${T.border}`,
-          borderRadius:6, padding:"5px 11px",
+          background:T.subtle, border:`1px solid ${T.border}`,
+          borderRadius:8, padding:"6px 12px",
         }}>
           <div style={{
-            width:22, height:22, background:`${T.accent}20`, borderRadius:"50%",
+            width:24, height:24, background:"#eff6ff", borderRadius:"50%",
             display:"flex", alignItems:"center", justifyContent:"center",
             fontSize:10, fontWeight:700, color:T.accent, flexShrink:0,
           }}>
@@ -84,11 +83,11 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
 
         {/* Sign out */}
         <button onClick={signOut} title="Sair do sistema"
-          onMouseEnter={e => { e.currentTarget.style.borderColor=T.red; e.currentTarget.style.color=T.red; }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor="#fca5a5"; e.currentTarget.style.color=T.red; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor=T.border; e.currentTarget.style.color=T.sub; }}
           style={{
             background:"none", border:`1px solid ${T.border}`,
-            borderRadius:6, padding:"5px 9px", color:T.sub,
+            borderRadius:8, padding:"6px 10px", color:T.sub,
             cursor:"pointer", display:"flex", alignItems:"center", gap:5,
             fontSize:12, fontFamily:"inherit", transition:"all 0.12s",
           }}>

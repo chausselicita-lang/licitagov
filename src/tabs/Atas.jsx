@@ -15,7 +15,7 @@ function AtaDetalhe({ ata, onVoltar }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
         <Btn variant="outline" onClick={onVoltar} color={C.sub} size="sm">← Voltar</Btn>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Syne',sans-serif", color: C.text }}>{ata.numero}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{ata.numero}</div>
           <div style={{ fontSize: 12, color: C.sub }}>{ata.objeto}</div>
         </div>
       </div>
