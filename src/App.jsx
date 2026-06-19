@@ -3129,7 +3129,7 @@ export default function App() {
       {isMobile && (
         <div className="no-print" style={{
           position:"fixed", bottom:0, left:0, right:0, zIndex:20,
-          background:"#ffffff", borderTop:"1px solid #e4e8ef",
+          background:"#1d4ed8",
           display:"flex", justifyContent:"space-around", alignItems:"center",
           padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))",
         }}>
@@ -3137,13 +3137,13 @@ export default function App() {
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               display:"flex", flexDirection:"column", alignItems:"center", gap:3,
               padding:"5px 8px", border:"none",
-              background: tab===t.id ? C.accentSubtle : "transparent",
+              background:"transparent",
               borderRadius:6,
-              color: tab===t.id ? C.accent : C.sub,
-              fontSize:9, fontWeight: tab===t.id ? 600 : 400,
-              cursor:"pointer", fontFamily:"inherit", minWidth:40, transition:"all 0.12s",
+              color: tab===t.id ? "#ffffff" : "rgba(255,255,255,0.55)",
+              fontSize:9, fontWeight: tab===t.id ? 700 : 400,
+              cursor:"pointer", fontFamily:"inherit", minWidth:40,
             }}>
-              <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} />
+              <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} color="currentColor" />
               {t.short}
             </button>
           ))}
