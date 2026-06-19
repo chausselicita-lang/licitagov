@@ -15,6 +15,9 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
     weekday:"long", day:"numeric", month:"long", year:"numeric",
   });
 
+  const initial = (userEmail?.[0] || "U").toUpperCase();
+  const shortName = userEmail?.split("@")[0] || "Usuário";
+
   return (
     <header className="no-print" style={{
       background: T.bg,
@@ -27,7 +30,7 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
       fontFamily:"'Inter',system-ui,sans-serif",
     }}>
       {/* Left */}
-      <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         {isMobile && (
           <button
             onClick={() => setSideOpen(s => !s)}
@@ -42,9 +45,7 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
           </span>
         ) : (
           <div>
-            <div style={{ fontSize:18, fontWeight:700, color:T.text }}>
-              {curTab?.label}
-            </div>
+            <div style={{ fontSize:18, fontWeight:700, color:T.text }}>{curTab?.label}</div>
             <div style={{ fontSize:11, color:T.sub, marginTop:1, textTransform:"capitalize" }}>{today}</div>
           </div>
         )}
@@ -55,45 +56,49 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
         {deferredPrompt && isMobile && (
           <button onClick={installPWA} style={{
             background:T.accent, border:"none", borderRadius:8,
-            padding:"6px 12px", color:"#fff", fontSize:11, fontWeight:600,
+            padding:"6px 10px", color:"#fff", fontSize:11, fontWeight:600,
             cursor:"pointer", fontFamily:"inherit",
             display:"flex", alignItems:"center", gap:5,
           }}>
-            <Icon name="install" size={12} color="#fff" /> Instalar
+            <Icon name="install" size={12} color="#fff" />
           </button>
         )}
 
-        {/* User chip */}
+        {/* Avatar */}
         <div style={{
-          display:"flex", alignItems:"center", gap:7,
-          background:T.subtle, border:`1px solid ${T.border}`,
-          borderRadius:8, padding:"6px 12px",
+          display:"flex", alignItems:"center", gap:8,
+          background: T.subtle, border:`1px solid ${T.border}`,
+          borderRadius:8, padding: isMobile ? "5px 8px" : "5px 12px",
         }}>
           <div style={{
-            width:24, height:24, background:"#eff6ff", borderRadius:"50%",
+            width:28, height:28, background:T.accent, borderRadius:"50%",
             display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:10, fontWeight:700, color:T.accent, flexShrink:0,
+            fontSize:12, fontWeight:700, color:"#fff", flexShrink:0,
           }}>
-            {(userEmail[0] || "U").toUpperCase()}
+            {initial}
           </div>
-          <span style={{ fontSize:12, color:T.sub }}>
-            {isMobile ? userEmail.split("@")[0] : userEmail}
-          </span>
+          {!isMobile && (
+            <span style={{ fontSize:13, fontWeight:500, color:T.text }}>
+              {shortName}
+            </span>
+          )}
         </div>
 
-        {/* Sign out */}
-        <button onClick={signOut} title="Sair do sistema"
-          onMouseEnter={e => { e.currentTarget.style.borderColor="#fca5a5"; e.currentTarget.style.color=T.red; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor=T.border; e.currentTarget.style.color=T.sub; }}
-          style={{
-            background:"none", border:`1px solid ${T.border}`,
-            borderRadius:8, padding:"6px 10px", color:T.sub,
-            cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-            fontSize:12, fontFamily:"inherit", transition:"all 0.12s",
-          }}>
-          <Icon name="logout" size={13} color="currentColor" />
-          {!isMobile && "Sair"}
-        </button>
+        {/* Sign out — desktop only */}
+        {!isMobile && (
+          <button onClick={signOut} title="Sair do sistema"
+            onMouseEnter={e => { e.currentTarget.style.borderColor="#fca5a5"; e.currentTarget.style.color=T.red; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=T.border; e.currentTarget.style.color=T.sub; }}
+            style={{
+              background:"none", border:`1px solid ${T.border}`,
+              borderRadius:8, padding:"6px 10px", color:T.sub,
+              cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+              fontSize:12, fontFamily:"inherit", transition:"all 0.12s",
+            }}>
+            <Icon name="logout" size={13} color="currentColor" />
+            Sair
+          </button>
+        )}
       </div>
     </header>
   );

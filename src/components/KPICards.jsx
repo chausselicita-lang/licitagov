@@ -18,9 +18,41 @@ const K = {
   redL:    "#fef2f2",
 };
 
-function KpiCard({ label, value, sub, icon, accent, accentLt }) {
+function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
   const c  = accent   || K.accent;
   const cl = accentLt || K.accentL;
+
+  if (wide) {
+    return (
+      <div style={{
+        background: K.card,
+        border:`1px solid ${K.border}`,
+        borderRadius:12, padding:"16px 20px",
+        boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
+        gridColumn:"span 2",
+        display:"flex", alignItems:"center", justifyContent:"space-between", gap:16,
+      }}>
+        <div>
+          <div style={{ fontSize:28, fontWeight:800, color:K.text, lineHeight:1.1 }}>{value}</div>
+          {sub && <div style={{ fontSize:12, color:K.sub, marginTop:4 }}>{sub}</div>}
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:14, fontWeight:600, color:c }}>{label}</div>
+            <div style={{ fontSize:12, color:K.sub }}>Próximos 30 dias</div>
+          </div>
+          <span style={{
+            width:40, height:40, borderRadius:10,
+            background: cl, color:c,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+          }}>
+            <Icon name={icon} size={18} color="currentColor" />
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       background: K.card,
@@ -54,52 +86,47 @@ export default function KPICards({ processos, atas, contratos, cotacoes }) {
   const atasVigentes   = atas.filter(a => (diasParaVencer(a.vigencia) ?? 1) > 0).length;
   const valorContratos = contratos.filter(c => c.status === "Vigente").reduce((acc, c) => acc + c.valor, 0);
 
-  const kpis = [
-    {
-      label:"Processos Ativos",
-      value: processos.filter(p => p.fase !== "Encerrado").length,
-      sub:`${processos.length} total`,
-      icon:"processos",
-      accent:  K.accent,
-      accentLt: K.accentL,
-    },
-    {
-      label:"Atas Vigentes",
-      value: atasVigentes,
-      sub:"Registro de Preços",
-      icon:"atas",
-      accent:  K.teal,
-      accentLt: K.tealL,
-    },
-    {
-      label:"Contratos Vigentes",
-      value: contratos.filter(c => c.status === "Vigente").length,
-      sub: fmtBRL(valorContratos),
-      icon:"contratos",
-      accent:  K.green,
-      accentLt: K.greenL,
-    },
-    {
-      label:"Cotações",
-      value: cotacoes.length,
-      sub:"Pesquisas de preço",
-      icon:"cotacoes",
-      accent:  K.gold,
-      accentLt: K.goldL,
-    },
-    {
-      label:"A Vencer (30d)",
-      value: vencendo30.length,
-      sub:"Contratos",
-      icon:"warning",
-      accent:  vencendo30.length > 0 ? K.red : K.green,
-      accentLt: vencendo30.length > 0 ? K.redL : K.greenL,
-    },
-  ];
+  const alertColor  = vencendo30.length > 0 ? K.red   : K.green;
+  const alertColorL = vencendo30.length > 0 ? K.redL  : K.greenL;
 
   return (
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))", gap:14 }}>
-      {kpis.map(k => <KpiCard key={k.label} {...k} />)}
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+      <KpiCard
+        label="Processos Ativos"
+        value={processos.filter(p => p.fase !== "Encerrado").length}
+        sub={`${processos.length} total`}
+        icon="processos"
+        accent={K.accent} accentLt={K.accentL}
+      />
+      <KpiCard
+        label="Atas Vigentes"
+        value={atasVigentes}
+        sub="Registro de Preços"
+        icon="atas"
+        accent={K.teal} accentLt={K.tealL}
+      />
+      <KpiCard
+        label="Contratos Vigentes"
+        value={contratos.filter(c => c.status === "Vigente").length}
+        sub={fmtBRL(valorContratos)}
+        icon="contratos"
+        accent={K.green} accentLt={K.greenL}
+      />
+      <KpiCard
+        label="Cotações"
+        value={cotacoes.length}
+        sub="Pesquisas de preço"
+        icon="cotacoes"
+        accent={K.gold} accentLt={K.goldL}
+      />
+      <KpiCard
+        label="A Vencer (30d)"
+        value={vencendo30.length}
+        sub="Contratos"
+        icon="warning"
+        accent={alertColor} accentLt={alertColorL}
+        wide
+      />
     </div>
   );
 }
