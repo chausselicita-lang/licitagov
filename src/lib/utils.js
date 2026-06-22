@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+
 export const fmtBRL = v =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
@@ -19,6 +21,16 @@ export const calcMediana = arr => {
 };
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
+
+export function useMobile(bp = 768) {
+  const [m, setM] = useState(typeof window !== "undefined" && window.innerWidth < bp);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < bp);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [bp]);
+  return m;
+}
 
 export const fmtFileSize = bytes => {
   if (bytes < 1024) return `${bytes} B`;

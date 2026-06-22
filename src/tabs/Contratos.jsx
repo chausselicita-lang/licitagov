@@ -1,16 +1,106 @@
 import { useState } from "react";
 import { C, shadow } from "../lib/theme.js";
-import { fmtBRL, fmtDate, diasParaVencer, uid } from "../lib/utils.js";
+import { fmtBRL, fmtDate, diasParaVencer, uid, useMobile } from "../lib/utils.js";
 import Badge from "../components/Badge.jsx";
 import Btn from "../components/Btn.jsx";
 import { Input, Select, SearchInput } from "../components/Fields.jsx";
 import { Modal, EmptyState } from "../components/UI.jsx";
 
-const STATUS_BORDER = {
-  "Vigente":  C => C.green,
-  "A vencer": C => C.amber,
-  "Vencido":  C => C.red,
-};
+function ContratoCard({ c }) {
+  const isMobile = useMobile();
+  const borderColor = c.status === "A vencer" ? C.amber : c.status === "Vencido" ? C.red : c.status === "Vigente" ? C.green : "transparent";
+  const diasInfo = c.diasRestantes !== null && c.status !== "Encerrado"
+    ? (c.diasRestantes < 0 ? `Venceu há ${Math.abs(c.diasRestantes)}d` : `${c.diasRestantes}d restantes`)
+    : null;
+  const diasColor = c.status === "A vencer" ? C.amber : c.status === "Vencido" ? C.red : C.green;
+
+  if (isMobile) {
+    return (
+      <div style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderLeft: `4px solid ${borderColor}`,
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: shadow.card,
+        display: "flex", flexDirection: "column", gap: 8,
+      }}>
+        {/* Linha 1: número + badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{c.numero}</span>
+          <Badge label={c.status} />
+          {c.processo && c.processo !== "—" && (
+            <span style={{ fontSize: 11, color: C.sub }}>Proc. {c.processo}</span>
+          )}
+        </div>
+
+        {/* Linha 2: valor */}
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.text, lineHeight: 1.1 }}>{fmtBRL(c.valor)}</div>
+          {diasInfo && (
+            <div style={{ fontSize: 11, color: diasColor, fontWeight: 600, marginTop: 3 }}>{diasInfo}</div>
+          )}
+        </div>
+
+        {/* Linha 3: objeto */}
+        <div style={{
+          fontSize: 14, fontWeight: 600, color: C.text, lineHeight: 1.5,
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>{c.objeto}</div>
+
+        {/* Linha 4: fornecedor */}
+        <div style={{ fontSize: 12, color: C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {c.fornecedor}
+        </div>
+
+        {/* Linha 5: CNPJ · datas */}
+        <div style={{ fontSize: 12, color: C.tertiary }}>
+          {c.cnpj ? `CNPJ ${c.cnpj} · ` : ""}{fmtDate(c.inicio)} → {fmtDate(c.fim)}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: C.card,
+      border: `1px solid ${C.border}`,
+      borderLeft: `4px solid ${borderColor}`,
+      borderRadius: 12,
+      padding: "16px 20px",
+      boxShadow: shadow.card,
+      transition: "box-shadow 0.14s",
+    }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = shadow.cardHover}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = shadow.card}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{c.numero}</span>
+            <Badge label={c.status} />
+            {c.processo && c.processo !== "—" && (
+              <span style={{ fontSize: 11, color: C.sub }}>Proc. {c.processo}</span>
+            )}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.objeto}</div>
+          <div style={{ fontSize: 12, color: C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {c.fornecedor}{c.cnpj ? ` · CNPJ ${c.cnpj}` : ""}
+          </div>
+          <div style={{ fontSize: 12, color: C.sub, marginTop: 3 }}>
+            {fmtDate(c.inicio)} → {fmtDate(c.fim)}
+            {diasInfo && (
+              <span style={{ marginLeft: 10, color: diasColor, fontWeight: 600 }}>{diasInfo}</span>
+            )}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{fmtBRL(c.valor)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Contratos({ contratos, setContratos, toast }) {
   const [modal,  setModal]  = useState(false);
@@ -55,48 +145,7 @@ export default function Contratos({ contratos, setContratos, toast }) {
         <EmptyState icon="contratos" title="Nenhum contrato encontrado" sub="Cadastre contratos para acompanhar a vigência" />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filtered.map(c => {
-            const borderColor = c.status === "A vencer" ? C.amber : c.status === "Vencido" ? C.red : c.status === "Vigente" ? C.green : "transparent";
-            return (
-              <div key={c.id} style={{
-                background: C.card,
-                border: `1px solid ${C.border}`,
-                borderLeft: `4px solid ${borderColor}`,
-                borderRadius: 12,
-                padding: "16px 20px",
-                boxShadow: shadow.card,
-                transition: "box-shadow 0.14s",
-              }}
-                onMouseEnter={e => e.currentTarget.style.boxShadow = shadow.cardHover}
-                onMouseLeave={e => e.currentTarget.style.boxShadow = shadow.card}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{c.numero}</span>
-                      <Badge label={c.status} />
-                      {c.processo && c.processo !== "—" && (
-                        <span style={{ fontSize: 11, color: C.sub }}>Proc. {c.processo}</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 5 }}>{c.objeto}</div>
-                    <div style={{ fontSize: 12, color: C.sub }}>{c.fornecedor} · CNPJ {c.cnpj}</div>
-                    <div style={{ fontSize: 12, color: C.sub, marginTop: 3 }}>
-                      {fmtDate(c.inicio)} → {fmtDate(c.fim)}
-                      {c.diasRestantes !== null && c.status !== "Encerrado" && (
-                        <span style={{ marginLeft: 10, color: c.status === "A vencer" ? C.amber : c.status === "Vencido" ? C.red : C.green, fontWeight: 600 }}>
-                          {c.diasRestantes < 0 ? `Venceu há ${Math.abs(c.diasRestantes)}d` : `${c.diasRestantes}d restantes`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{fmtBRL(c.valor)}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {filtered.map(c => <ContratoCard key={c.id} c={c} />)}
         </div>
       )}
 

@@ -1799,7 +1799,18 @@ const CD_STATUS = ["Em andamento","Concluída","Cancelada"];
 const CD_STATUS_COLOR = { "Em andamento": C.accent, "Concluída": C.green, "Cancelada": C.red };
 const CD_FORM_EMPTY = { numero_processo:"", objeto:"", contratada:"", cnpj:"", valor_total:"", data_ratificacao:"", vigencia:"", secretaria:"", link_drive:"", status:"Em andamento" };
 
+function useMobileCD() {
+  const [m, setM] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return m;
+}
+
 function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
+  const isMobile = useMobileCD();
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
@@ -1878,22 +1889,68 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
 
       {filtered.length === 0 ? (
         <EmptyState icon={tipo==="Dispensa"?"dispensa":"inexigib"} title={`Nenhuma ${tipo} encontrada`} sub={`Cadastre uma ${tipo} de contratação`} />
+      ) : isMobile ? (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {filtered.map(it => (
+            <div key={it.id} style={{
+              background:C.card, border:`1px solid ${C.border}`,
+              borderLeft:`4px solid ${CD_STATUS_COLOR[it.status]||C.border}`,
+              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
+              display:"flex", flexDirection:"column", gap:8,
+            }}>
+              {/* Linha 1: número + badge */}
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                <span style={{ fontSize:13, fontWeight:700, color, fontFamily:"Inter,system-ui,sans-serif" }}>{it.numero_processo}</span>
+                <Badge label={it.status} />
+              </div>
+              {/* Linha 2: valor */}
+              <div style={{ fontSize:22, fontWeight:700, color:C.text, lineHeight:1.1 }}>{fmtBRL(it.valor_total)}</div>
+              {/* Linha 3: objeto */}
+              <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.5, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{it.objeto}</div>
+              {/* Linha 4: contratada */}
+              <div style={{ fontSize:12, color:C.sub, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{it.contratada}</div>
+              {/* Linha 5: CNPJ · Vigência */}
+              <div style={{ fontSize:12, color:C.tertiary }}>
+                {it.cnpj ? `CNPJ ${it.cnpj}` : ""}
+                {it.cnpj && it.vigencia ? " · " : ""}
+                {it.vigencia ? `Vigência: ${fmtDate(it.vigencia)}` : ""}
+                {it.data_ratificacao ? ` · Rat.: ${fmtDate(it.data_ratificacao)}` : ""}
+              </div>
+              {/* Linha 6: botões */}
+              <div style={{ display:"flex", gap:8, marginTop:4 }}>
+                {it.link_drive && (
+                  <button onClick={()=>window.open(it.link_drive,"_blank","noopener")}
+                    style={{ flex:1, minHeight:36, background:`${color}12`, border:`1px solid ${color}44`, borderRadius:8, color, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                    Drive
+                  </button>
+                )}
+                <button onClick={()=>openEdit(it)}
+                  style={{ flex:1, minHeight:36, background:`${C.accent}12`, border:`1px solid ${C.accent}44`, borderRadius:8, color:C.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  Editar
+                </button>
+                <button onClick={()=>deletar(it.id)}
+                  style={{ flex:1, minHeight:36, background:`${C.red}12`, border:`1px solid ${C.red}44`, borderRadius:8, color:C.red, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  Excluir
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
           {filtered.map((it,i) => (
             <div key={it.id} style={{ padding:"13px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${CD_STATUS_COLOR[it.status]||C.border}`, transition:"background 0.12s" }}
               onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
-                <div style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
+                <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                     <span style={{ fontSize:14, fontWeight:700, color, fontFamily:"Inter,system-ui,sans-serif" }}>{it.numero_processo}</span>
                     <Badge label={it.status} />
                   </div>
-                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{it.objeto}</div>
-                  <div style={{ fontSize:12, color:C.sub }}>
-                    {it.contratada}{it.cnpj ? ` · CNPJ ${it.cnpj}` : ""}
-                    {it.secretaria ? ` · ${it.secretaria}` : ""}
+                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{it.objeto}</div>
+                  <div style={{ fontSize:12, color:C.sub, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {it.contratada}{it.cnpj ? ` · CNPJ ${it.cnpj}` : ""}{it.secretaria ? ` · ${it.secretaria}` : ""}
                   </div>
                   <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>
                     {it.data_ratificacao && <>Ratificação: {fmtDate(it.data_ratificacao)}</>}
