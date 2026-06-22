@@ -10,13 +10,21 @@ const T = {
   subtle: "#f8fafc",
 };
 
-export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOpen, deferredPrompt, installPWA }) {
+export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOpen, deferredPrompt, installPWA, role, prefeitura, nome, impersonating }) {
   const today = new Date().toLocaleDateString("pt-BR", {
     weekday:"long", day:"numeric", month:"long", year:"numeric",
   });
 
   const initial = (userEmail?.[0] || "U").toUpperCase();
-  const shortName = userEmail?.split("@")[0] || "Usuário";
+  const shortName = nome || userEmail?.split("@")[0] || "Usuário";
+
+  const roleBadge = impersonating
+    ? { label: `Visualizando: ${impersonating.nome}`, bg: "#7c3aed", fg: "#fff" }
+    : role === "super_admin"
+      ? { label: "SUPER ADMIN", bg: T.red, fg: "#fff" }
+      : role === "cliente" && prefeitura
+        ? { label: prefeitura, bg: "#eff6ff", fg: T.accent }
+        : null;
 
   return (
     <header className="no-print" style={{
@@ -64,6 +72,22 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
           </button>
         )}
 
+        {/* Role badge */}
+        {roleBadge && (
+          <span style={{
+            background: roleBadge.bg, color: roleBadge.fg,
+            borderRadius: 6, padding: "4px 10px",
+            fontSize: 11, fontWeight: 700,
+            letterSpacing: role === "super_admin" ? "0.06em" : 0,
+            textTransform: role === "super_admin" ? "uppercase" : "none",
+            maxWidth: isMobile ? 120 : "none",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            border: role === "cliente" ? `1px solid ${T.accent}33` : "none",
+          }}>
+            {roleBadge.label}
+          </span>
+        )}
+
         {/* Avatar */}
         <div style={{
           display:"flex", alignItems:"center", gap:8,
@@ -71,7 +95,9 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
           borderRadius:8, padding: isMobile ? "5px 8px" : "5px 12px",
         }}>
           <div style={{
-            width:28, height:28, background:T.accent, borderRadius:"50%",
+            width:28, height:28,
+            background: role === "super_admin" ? T.red : T.accent,
+            borderRadius:"50%",
             display:"flex", alignItems:"center", justifyContent:"center",
             fontSize:12, fontWeight:700, color:"#fff", flexShrink:0,
           }}>

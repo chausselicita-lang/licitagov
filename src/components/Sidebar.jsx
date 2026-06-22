@@ -10,7 +10,11 @@ const S = {
   primary: "#60a5fa",
 };
 
-export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt, installPWA }) {
+export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt, installPWA, prefeitura, municipio }) {
+  const prefLabel = prefeitura || "Prefeitura Municipal";
+  const subLabel  = municipio  || "Módulo Licitações";
+  const initials  = prefLabel.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "PM";
+
   return (
     <aside style={{
       position:"fixed", left:0, top:0, bottom:0, width:240,
@@ -96,18 +100,18 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer — prefeitura info */}
       <div style={{ padding:"12px 14px", borderTop:`1px solid ${S.border}`, flexShrink:0, background:"rgba(0,0,0,0.15)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{
             width:32, height:32, background:"rgba(255,255,255,0.1)", borderRadius:"50%",
             display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:12, fontWeight:700, color:"#ffffff", flexShrink:0,
+            fontSize:11, fontWeight:700, color:"#ffffff", flexShrink:0,
             border:`1px solid ${S.border}`,
-          }}>PM</div>
-          <div>
-            <div style={{ fontSize:12, fontWeight:500, color:S.text, lineHeight:1.3 }}>Prefeitura Municipal</div>
-            <div style={{ fontSize:11, color:S.muted }}>Módulo Licitações</div>
+          }}>{initials}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize:12, fontWeight:500, color:S.text, lineHeight:1.3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{prefLabel}</div>
+            <div style={{ fontSize:11, color:S.muted }}>{subLabel}</div>
           </div>
         </div>
       </div>

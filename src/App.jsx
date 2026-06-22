@@ -19,6 +19,8 @@ export class ErrorBoundary extends Component {
 }
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
+import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
+import AdminPanel from './pages/AdminPanel.jsx';
 import Sidebar from "./components/Sidebar.jsx";
 import Topbar from "./components/Topbar.jsx";
 import KPICards from "./components/KPICards.jsx";
@@ -3074,6 +3076,137 @@ const TABS = [
   { id:"claude",         icon:"claude",     label:"IA Claude",        short:"IA" },
 ];
 
+/* ── AUTHED APP — renderizado dentro do AuthProvider ────────── */
+function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCotacoes, setDispensas, setInexigibilidades, showToast, toast, isMobile, sideOpen, setSideOpen, tab, setTab, deferredPrompt, installPWA, session }) {
+  const { isSuperAdmin, profileLoading, role, prefeitura, municipio, nome } = useAuth();
+  const [impersonating, setImpersonating] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("licitagov_impersonate")); } catch { return null; }
+  });
+
+  if (profileLoading) {
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Inter,system-ui,sans-serif" }}>
+        <GlobalStyles />
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, color:C.sub }}>
+          <div style={{ width:28, height:28, border:`3px solid ${C.border}`, borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+          <span style={{ fontSize:13 }}>Verificando permissões...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSuperAdmin && !impersonating) {
+    return (
+      <AdminPanel
+        signOut={signOut}
+        session={session}
+        onImpersonate={(pref) => {
+          const d = { id: pref.id, nome: pref.prefeitura_nome };
+          sessionStorage.setItem("licitagov_impersonate", JSON.stringify(d));
+          setImpersonating(d);
+        }}
+      />
+    );
+  }
+
+  const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = data;
+  const curTab = TABS.find(t=>t.id===tab);
+  const userEmail = session?.user?.email || "Usuário";
+
+  const stopImpersonating = () => {
+    sessionStorage.removeItem("licitagov_impersonate");
+    setImpersonating(null);
+  };
+
+  return (
+    <div style={{ background:C.bg, fontFamily:"Inter,system-ui,sans-serif", color:C.text, height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <GlobalStyles />
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+      {/* Impersonation banner */}
+      {impersonating && (
+        <div style={{ background:"#7c3aed", color:"#fff", padding:"6px 20px", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <span>Visualizando como: <strong>{impersonating.nome}</strong></span>
+          <button onClick={stopImpersonating} style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"#fff", borderRadius:4, padding:"3px 12px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:600 }}>
+            ✕ Sair
+          </button>
+        </div>
+      )}
+
+      <div style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0 }}>
+        {/* Mobile overlay */}
+        {isMobile && sideOpen && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.50)", zIndex:25, backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)" }}
+            onClick={() => setSideOpen(false)} />
+        )}
+
+        {/* Sidebar */}
+        {(!isMobile || sideOpen) && (
+          <Sidebar
+            TABS={TABS}
+            tab={tab}
+            setTab={setTab}
+            setSideOpen={setSideOpen}
+            deferredPrompt={deferredPrompt}
+            installPWA={installPWA}
+            prefeitura={prefeitura}
+            municipio={municipio}
+          />
+        )}
+
+        {/* Main content */}
+        <div style={{ marginLeft: isMobile ? 0 : 240, flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+          <Topbar
+            isMobile={isMobile}
+            curTab={curTab}
+            userEmail={userEmail}
+            signOut={signOut}
+            setSideOpen={setSideOpen}
+            deferredPrompt={deferredPrompt}
+            installPWA={installPWA}
+            role={role}
+            prefeitura={prefeitura}
+            nome={nome}
+            impersonating={impersonating}
+          />
+
+          {isMobile && (
+            <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>
+              {curTab?.label}
+            </div>
+          )}
+
+          <div style={{ flex:1, overflowY:"auto", padding: isMobile ? "12px 16px" : "24px 28px", paddingBottom: isMobile ? 82 : 24 }}>
+            <div style={{ maxWidth:1200 }}>
+              {tab==="dashboard"  && <TabDashboard data={data} onViewProcessos={() => setTab("processos")} />}
+              {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
+              {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
+              {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
+              {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
+              {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
+              {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
+              {tab==="relatorios" && <TabRelatorios data={data} />}
+              {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile bottom nav */}
+        {isMobile && (
+          <div className="no-print" style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:20, background:"#1d4ed8", display:"flex", justifyContent:"space-around", alignItems:"center", padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))" }}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"5px 8px", border:"none", background:"transparent", borderRadius:6, color: tab===t.id ? "#ffffff" : "rgba(255,255,255,0.55)", fontSize:9, fontWeight: tab===t.id ? 700 : 400, cursor:"pointer", fontFamily:"inherit", minWidth:40 }}>
+                <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} color="currentColor" />
+                {t.short}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = loading
   const [supabaseReady, setSupabaseReady] = useState(isSupabaseReady());
@@ -3202,102 +3335,29 @@ export default function App() {
   }
 
   const data = { processos, atas, contratos, cotacoes, dispensas, inexigibilidades };
-  const curTab = TABS.find(t=>t.id===tab);
-  const userEmail = session?.user?.email || "Usuário";
 
   return (
-    <div style={{
-      background: C.bg, fontFamily:"Inter,system-ui,sans-serif", color:C.text,
-      height:"100vh", display:"flex", overflow:"hidden",
-    }}>
-      <GlobalStyles />
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
-
-      {/* Mobile overlay */}
-      {isMobile && sideOpen && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.50)", zIndex:25, backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)" }}
-          onClick={() => setSideOpen(false)} />
-      )}
-
-      {/* Sidebar */}
-      {(!isMobile || sideOpen) && (
-        <Sidebar
-          TABS={TABS}
-          tab={tab}
-          setTab={setTab}
-          setSideOpen={setSideOpen}
-          deferredPrompt={deferredPrompt}
-          installPWA={installPWA}
-        />
-      )}
-
-      {/* Main content */}
-      <div style={{
-        marginLeft: isMobile ? 0 : 240,
-        flex: 1,
-        display:"flex", flexDirection:"column",
-        overflow:"hidden",
-        minWidth:0,
-      }}>
-        <Topbar
-          isMobile={isMobile}
-          curTab={curTab}
-          userEmail={userEmail}
-          signOut={signOut}
-          setSideOpen={setSideOpen}
-          deferredPrompt={deferredPrompt}
-          installPWA={installPWA}
-        />
-
-        {isMobile && (
-          <div style={{ padding:"12px 16px 0", fontSize:16, fontWeight:700, fontFamily:"Inter,system-ui,sans-serif", color:C.text }}>
-            {curTab?.label}
-          </div>
-        )}
-
-        <div style={{
-          flex:1, overflowY:"auto",
-          padding: isMobile ? "12px 16px" : "24px 28px",
-          paddingBottom: isMobile ? 82 : 24,
-        }}>
-          <div style={{ maxWidth:1200 }}>
-            {tab==="dashboard"  && <TabDashboard data={data} onViewProcessos={() => setTab("processos")} />}
-            {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
-            {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
-            {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
-            {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
-            {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
-            {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
-            {tab==="relatorios" && <TabRelatorios data={data} />}
-            {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile bottom nav */}
-      {isMobile && (
-        <div className="no-print" style={{
-          position:"fixed", bottom:0, left:0, right:0, zIndex:20,
-          background:"#1d4ed8",
-          display:"flex", justifyContent:"space-around", alignItems:"center",
-          padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))",
-        }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"5px 8px", border:"none",
-              background:"transparent",
-              borderRadius:6,
-              color: tab===t.id ? "#ffffff" : "rgba(255,255,255,0.55)",
-              fontSize:9, fontWeight: tab===t.id ? 700 : 400,
-              cursor:"pointer", fontFamily:"inherit", minWidth:40,
-            }}>
-              <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} color="currentColor" />
-              {t.short}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <AuthProvider session={session}>
+      <AuthedApp
+        signOut={signOut}
+        data={data}
+        setProcessos={setProcessos}
+        setAtas={setAtas}
+        setContratos={setContratos}
+        setCotacoes={setCotacoes}
+        setDispensas={setDispensas}
+        setInexigibilidades={setInexigibilidades}
+        showToast={showToast}
+        toast={toast}
+        isMobile={isMobile}
+        sideOpen={sideOpen}
+        setSideOpen={setSideOpen}
+        tab={tab}
+        setTab={setTab}
+        deferredPrompt={deferredPrompt}
+        installPWA={installPWA}
+        session={session}
+      />
+    </AuthProvider>
   );
 }
