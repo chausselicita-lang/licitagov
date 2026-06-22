@@ -10,8 +10,8 @@ const out192 = join(root, 'public', 'icons', 'icon-192.png');
 const out512 = join(root, 'public', 'icons', 'icon-512.png');
 
 if (!existsSync(src)) {
-  console.error('Logo source not found:', src);
-  process.exit(1);
+  console.warn('Logo source not found — skipping icon generation:', src);
+  process.exit(0);
 }
 
 await sharp(src).resize(192, 192, { fit: 'cover' }).png().toFile(out192);

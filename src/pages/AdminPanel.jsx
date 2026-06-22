@@ -36,7 +36,11 @@ function Icon({ name, size = 16, color = "currentColor" }) {
     block: <><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></>,
     check: <><polyline points="20 6 9 17 4 12"/></>,
     file: <><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
-    close: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+    close:    <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+    external: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
+    orgaos:   <><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></>,
+    trash:    <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>,
+    edit:     <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -196,9 +200,10 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
   };
 
   const ADMIN_TABS = [
-    { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-    { id: "prefeituras", label: "Prefeituras", icon: "buildings" },
-    { id: "configuracoes", label: "Configurações", icon: "settings" },
+    { id: "dashboard",    label: "Dashboard",    icon: "dashboard" },
+    { id: "prefeituras",  label: "Prefeituras",  icon: "buildings" },
+    { id: "orgaos",       label: "Órgãos",       icon: "orgaos" },
+    { id: "configuracoes",label: "Configurações", icon: "settings" },
   ];
 
   return (
@@ -260,6 +265,13 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
             {!isMobile && <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{ADMIN_TABS.find(t => t.id === activeTab)?.label}</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => window.open("/portal", "_blank")}
+              onMouseEnter={e => { e.currentTarget.style.background = C.accentSubtle; e.currentTarget.style.borderColor = C.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.background = C.surface; e.currentTarget.style.borderColor = C.border; }}
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", color: C.accent, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, fontFamily: "inherit", transition: "all 0.12s" }}>
+              <Icon name="external" size={13} color={C.accent} />
+              {!isMobile && "Ver Portal"}
+            </button>
             <span style={{ background: C.red, color: "#fff", borderRadius: 6, padding: "4px 12px", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
               SUPER ADMIN
             </span>
@@ -296,6 +308,9 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
           )}
           {activeTab === "prefeituras" && (
             <TabPrefeituras prefeituras={prefeituras} loading={loading} onAdd={() => setShowAdd(true)} onImpersonate={onImpersonate} onToggleAtivo={toggleAtivo} />
+          )}
+          {activeTab === "orgaos" && (
+            <TabOrgaosAdmin showMsg={showMsg} />
           )}
           {activeTab === "configuracoes" && (
             <TabConfiguracoes />
@@ -429,6 +444,151 @@ function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+const ORGAO_EMPTY = { nome: "", responsavel: "", email: "", telefone: "" };
+
+function TabOrgaosAdmin({ showMsg }) {
+  const [orgaos, setOrgaos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(null); // null | "add" | {id,...}
+  const [form, setForm] = useState(ORGAO_EMPTY);
+  const [saving, setSaving] = useState(false);
+  const [busca, setBusca] = useState("");
+
+  const load = async () => {
+    const sb = getSupabase();
+    setLoading(true);
+    const { data } = await sb.from("orgaos").select("*").order("nome");
+    setOrgaos(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const openAdd = () => { setForm(ORGAO_EMPTY); setModal("add"); };
+  const openEdit = o => { setForm({ nome: o.nome || "", responsavel: o.responsavel || "", email: o.email || "", telefone: o.telefone || "" }); setModal(o); };
+  const closeModal = () => setModal(null);
+
+  const save = async () => {
+    if (!form.nome.trim()) { showMsg("Nome do órgão é obrigatório.", "error"); return; }
+    setSaving(true);
+    const sb = getSupabase();
+    let err;
+    if (modal === "add") {
+      ({ error: err } = await sb.from("orgaos").insert([{ nome: form.nome.trim(), responsavel: form.responsavel, email: form.email, telefone: form.telefone }]));
+    } else {
+      ({ error: err } = await sb.from("orgaos").update({ nome: form.nome.trim(), responsavel: form.responsavel, email: form.email, telefone: form.telefone }).eq("id", modal.id));
+    }
+    setSaving(false);
+    if (err) { showMsg("Erro: " + err.message, "error"); return; }
+    showMsg(modal === "add" ? "Órgão criado!" : "Órgão atualizado!");
+    closeModal();
+    load();
+  };
+
+  const del = async id => {
+    if (!window.confirm("Excluir este órgão?")) return;
+    const sb = getSupabase();
+    const { error } = await sb.from("orgaos").delete().eq("id", id);
+    if (error) { showMsg("Erro: " + error.message, "error"); return; }
+    showMsg("Órgão excluído.");
+    load();
+  };
+
+  const filtered = orgaos.filter(o => !busca || (o.nome || "").toLowerCase().includes(busca.toLowerCase()) || (o.responsavel || "").toLowerCase().includes(busca.toLowerCase()));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 900 }}>
+      {modal && (
+        <Modal title={modal === "add" ? "Novo Órgão" : "Editar Órgão"} onClose={closeModal}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Inp label="Nome do Órgão / Secretaria" value={form.nome} onChange={v => setForm(f => ({ ...f, nome: v }))} placeholder="Secretaria Municipal de..." required />
+            <Inp label="Responsável" value={form.responsavel} onChange={v => setForm(f => ({ ...f, responsavel: v }))} placeholder="Nome do secretário" />
+            <Inp label="E-mail" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} type="email" placeholder="secretaria@prefeitura.gov.br" />
+            <Inp label="Telefone" value={form.telefone} onChange={v => setForm(f => ({ ...f, telefone: v }))} placeholder="(00) 00000-0000" />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+              <button onClick={closeModal} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", color: C.sub }}>Cancelar</button>
+              <button onClick={save} disabled={saving}
+                style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 6, padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, fontFamily: "inherit" }}>
+                {saving ? "Salvando..." : modal === "add" ? "Criar Órgão" : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 2 }}>Órgãos e Secretarias</div>
+          <div style={{ fontSize: 13, color: C.sub }}>Unidades que aparecem no Portal de Transparência.</div>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar..."
+              style={{ padding: "8px 12px 8px 32px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: "inherit", outline: "none", background: C.surface, color: C.text, width: 200 }} />
+          </div>
+          <button onClick={openAdd}
+            style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="plus" size={13} color="#fff" />
+            Novo Órgão
+          </button>
+        </div>
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "48px", color: C.sub, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <div style={{ width: 22, height: 22, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            Carregando...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "56px 24px", color: C.sub }}>
+            <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.2 }}>🏛️</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>Nenhum órgão cadastrado</div>
+            <div style={{ fontSize: 13 }}>Clique em "Novo Órgão" para adicionar.</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  {["Órgão / Secretaria", "Responsável", "E-mail", "Telefone", "Ações"].map(h => (
+                    <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((o, i) => (
+                  <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                    <td style={{ padding: "12px 14px", fontWeight: 600, color: C.text }}>{o.nome || "—"}</td>
+                    <td style={{ padding: "12px 14px", color: C.sub }}>{o.responsavel || "—"}</td>
+                    <td style={{ padding: "12px 14px", color: C.sub, fontSize: 12 }}>{o.email || "—"}</td>
+                    <td style={{ padding: "12px 14px", color: C.sub, fontSize: 12 }}>{o.telefone || "—"}</td>
+                    <td style={{ padding: "12px 14px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => openEdit(o)}
+                          style={{ background: C.accentSubtle, border: "none", borderRadius: 6, padding: "5px 10px", color: C.accent, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+                          <Icon name="edit" size={12} color={C.accent} />
+                          Editar
+                        </button>
+                        <button onClick={() => del(o.id)}
+                          style={{ background: "#fef2f2", border: "none", borderRadius: 6, padding: "5px 10px", color: C.red, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+                          <Icon name="trash" size={12} color={C.red} />
+                          Excluir
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
