@@ -824,6 +824,7 @@ function TabAtas({ atas, setAtas, toast }) {
   const [confirmarExcluirId, setConfirmarExcluirId] = useState(null);
   const [form, setForm] = useState(ATA_FORM_EMPTY);
   const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
+  const isMobile = useMobileCD();
 
   const openNova = () => { setEditId(null); setForm(ATA_FORM_EMPTY); setModal(true); };
   const openEdit = (a) => {
@@ -1018,25 +1019,84 @@ function TabAtas({ atas, setAtas, toast }) {
         <Btn onClick={openNova} color={C.accent2}>+ Nova Ata de RP</Btn>
       </div>
       {atas.length===0 ? <EmptyState icon="atas" title="Nenhuma Ata cadastrada" sub="Registre uma Ata de Registro de Preços" /> : (
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ display:"flex", flexDirection:"column", gap: isMobile ? 10 : 0, background: isMobile ? "transparent" : C.card, border: isMobile ? "none" : `1px solid ${C.border}`, borderRadius: isMobile ? 0 : 8, overflow: isMobile ? "visible" : "hidden", boxShadow: isMobile ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }}>
           {atas.map((a,i)=>{
             const d = diasParaVencer(a.vigencia);
             const pct = a.valorTotal>0?((a.valorTotal-a.saldoDisponivel)/a.valorTotal*100).toFixed(0):"0";
+            const statusLabel = d>0?"Vigente":d===0?"Vence hoje":"Vencida";
+
+            if (isMobile) {
+              return (
+                <div key={a.id}
+                  style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, cursor:"pointer", boxShadow:"0 1px 3px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:8 }}
+                  onClick={()=>setAtaAtiva(a.id)}>
+                  {/* L1: número + badge */}
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.accent2 }}>{a.numero}</span>
+                    <Badge label={statusLabel} />
+                  </div>
+                  {/* L2: valor grande em verde */}
+                  <div>
+                    <div style={{ fontSize:22, fontWeight:700, color:C.green, lineHeight:1.1 }}>{fmtBRL(a.saldoDisponivel)}</div>
+                    <div style={{ display:"flex", gap:10, marginTop:3 }}>
+                      <span style={{ fontSize:11, color:C.sub }}>saldo disponível</span>
+                      <span style={{ fontSize:11, color:C.gold, fontWeight:600 }}>{pct}% utilizado</span>
+                    </div>
+                  </div>
+                  {/* L3: objeto */}
+                  <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.6, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+                    {a.objeto}
+                  </div>
+                  {/* L4: fornecedor */}
+                  <div style={{ fontSize:12, color:C.sub, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {a.fornecedor}
+                  </div>
+                  {/* L5: CNPJ · Vigência */}
+                  <div style={{ fontSize:12, color:C.tertiary }}>
+                    {a.cnpj ? `CNPJ ${a.cnpj} · ` : ""}Vigência: {fmtDate(a.vigencia)}
+                  </div>
+                  {/* L6: botões de ação */}
+                  <div style={{ display:"flex", gap:8, marginTop:2 }}>
+                    {a.link_drive && (
+                      <button onClick={e=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }}
+                        style={{ flex:1, minHeight:36, background:`${C.accent}12`, border:`1px solid ${C.accent}44`, borderRadius:8, color:C.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                        Drive
+                      </button>
+                    )}
+                    <button onClick={e=>{ e.stopPropagation(); openEdit(a); }}
+                      style={{ flex:1, minHeight:36, background:`${C.accent}12`, border:`1px solid ${C.accent}44`, borderRadius:8, color:C.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                      Editar
+                    </button>
+                    <button onClick={e=>{ e.stopPropagation(); deletarAta(a.id); }}
+                      style={{ flex:1, minHeight:36, background:`${C.red}12`, border:`1px solid ${C.red}44`, borderRadius:8, color:C.red, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                      Excluir
+                    </button>
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{ background:C.subtle, borderRadius:3, height:3, overflow:"hidden" }}>
+                    <div style={{ width:`${pct}%`, height:"100%", background:parseFloat(pct)>80?C.red:C.accent2 }} />
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={a.id} onClick={()=>setAtaAtiva(a.id)}
                 style={{ padding:"14px 18px", borderBottom:i<atas.length-1?`1px solid ${C.border}`:"none", cursor:"pointer", transition:"background 0.12s" }}
                 onMouseEnter={e=>e.currentTarget.style.background=C.overlay}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
-                  <div style={{ flex:1 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                       <span style={{ fontSize:14, fontWeight:700, color:C.accent2, fontFamily:"Inter,system-ui,sans-serif" }}>{a.numero}</span>
-                      <Badge label={d>0?"Vigente":d===0?"Vence hoje":"Vencida"} />
+                      <Badge label={statusLabel} />
                     </div>
-                    <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3 }}>{a.objeto}</div>
-                    <div style={{ fontSize:12, color:C.sub }}>{a.fornecedor} · CNPJ {a.cnpj} · Vigência: {fmtDate(a.vigencia)}</div>
+                    <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.objeto}</div>
+                    <div style={{ fontSize:12, color:C.sub, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {a.fornecedor}{a.cnpj ? ` · CNPJ ${a.cnpj}` : ""} · Vigência: {fmtDate(a.vigencia)}
+                    </div>
                   </div>
-                  <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:8, flexShrink:0 }}>
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontSize:15, fontWeight:700, color:C.green }}>{fmtBRL(a.saldoDisponivel)}</div>
                       <div style={{ fontSize:11, color:C.sub }}>saldo disponível</div>
@@ -1044,10 +1104,10 @@ function TabAtas({ atas, setAtas, toast }) {
                     </div>
                     {a.link_drive && (
                       <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
-                        onClick={(e)=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
+                        onClick={e=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
                     )}
-                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={()=>openEdit(a)} />
-                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={()=>deletarAta(a.id)} />
+                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={e=>{ e.stopPropagation(); openEdit(a); }} />
+                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={e=>{ e.stopPropagation(); deletarAta(a.id); }} />
                   </div>
                 </div>
                 <div style={{ marginTop:10, background:C.subtle, borderRadius:3, height:3, overflow:"hidden" }}>
