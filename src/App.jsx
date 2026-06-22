@@ -646,7 +646,7 @@ function LoginScreen({ onLogin }) {
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
 function TabDashboard({ data, onViewProcessos }) {
-  const { processos, atas, contratos, cotacoes } = data;
+  const { processos, atas, contratos, cotacoes, inexigibilidades } = data;
   const vencendo = contratos.filter(c => {
     const d = diasParaVencer(c.fim);
     return d !== null && d >= 0 && d <= 30 && c.status !== "Encerrado";
@@ -659,7 +659,7 @@ function TabDashboard({ data, onViewProcessos }) {
         <p style={{ fontSize:13, color:C.sub }}>Acompanhe processos, contratos e indicadores de compras públicas em tempo real.</p>
       </div>
 
-      <KPICards processos={processos} atas={atas} contratos={contratos} cotacoes={cotacoes} />
+      <KPICards processos={processos} atas={atas} contratos={contratos} inexigibilidades={inexigibilidades} />
 
       <ProcessosTable processos={processos} onViewAll={onViewProcessos} />
 

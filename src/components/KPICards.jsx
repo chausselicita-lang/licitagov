@@ -16,6 +16,8 @@ const K = {
   goldL:   "#fffbeb",
   red:     "#b91c1c",
   redL:    "#fef2f2",
+  purple:  "#8b5cf6",
+  purpleL: "#ede9fe",
 };
 
 function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
@@ -78,7 +80,7 @@ function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
   );
 }
 
-export default function KPICards({ processos, atas, contratos, cotacoes }) {
+export default function KPICards({ processos, atas, contratos, inexigibilidades }) {
   const vencendo30 = contratos.filter(c => {
     const d = diasParaVencer(c.fim);
     return d !== null && d >= 0 && d <= 30 && c.status !== "Encerrado";
@@ -113,11 +115,11 @@ export default function KPICards({ processos, atas, contratos, cotacoes }) {
         accent={K.green} accentLt={K.greenL}
       />
       <KpiCard
-        label="Cotações"
-        value={cotacoes.length}
-        sub="Pesquisas de preço"
-        icon="cotacoes"
-        accent={K.gold} accentLt={K.goldL}
+        label="Inexigibilidade"
+        value={(inexigibilidades || []).length}
+        sub="Art. 74 — Processos"
+        icon="inexigib"
+        accent={K.purple} accentLt={K.purpleL}
       />
       <KpiCard
         label="A Vencer (30d)"
