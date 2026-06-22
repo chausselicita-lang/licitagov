@@ -3201,7 +3201,7 @@ export default function App() {
     );
   }
 
-  const data = { processos, atas, contratos, cotacoes, inexigibilidades };
+  const data = { processos, atas, contratos, cotacoes, dispensas, inexigibilidades };
   const curTab = TABS.find(t=>t.id===tab);
   const userEmail = session?.user?.email || "Usuário";
 
