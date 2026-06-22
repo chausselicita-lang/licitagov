@@ -2212,6 +2212,37 @@ const gerarRelatorioInexigibilidades = (inexigibilidades) => {
   return html;
 };
 
+const gerarRelatorioDispensas = (dispensas) => {
+  const total = dispensas.reduce((s,d)=>s+(d.valor_total||0),0);
+  let html = `<div class="hdr"><h1>Relatório — Dispensas de Licitação</h1><div class="sub">Gerado em ${hojeStr()} &nbsp;·&nbsp; ${dispensas.length} registro(s) &nbsp;·&nbsp; Valor total: ${fmtBRL(total)}</div></div>`;
+  if (!dispensas.length) { html += '<p style="color:#888">Nenhuma dispensa cadastrada.</p>'; }
+  const statusStyle = s => s==="Concluída"?"background:#dcfce7;color:#166534":s==="Cancelada"?"background:#fee2e2;color:#991b1b":"background:#fffbeb;color:#92400e";
+  const borderColor = s => s==="Concluída"?"#166534":s==="Cancelada"?"#991b1b":"#d97706";
+  dispensas.forEach(it => {
+    html += `<div class="card" style="border-left:4px solid ${borderColor(it.status)}">
+      <div class="card-top">
+        <div>
+          <div class="card-num" style="color:#d97706">${esc(it.numero_processo||"—")}</div>
+          <div class="card-obj">${esc(it.objeto)}</div>
+          ${it.secretaria?`<div style="font-size:12px;color:#888;margin-top:2px">${esc(it.secretaria)}</div>`:""}
+        </div>
+        <span class="badge" style="${statusStyle(it.status)}">${esc(it.status||"Em andamento")}</span>
+      </div>
+      <div class="g2">
+        <div><div class="lbl">Contratada</div><div class="val">${esc(it.contratada||"—")}</div></div>
+        <div><div class="lbl">CNPJ</div><div class="val">${esc(it.cnpj)||"—"}</div></div>
+      </div>
+      <div class="g3">
+        <div><div class="lbl">Valor Total</div><div class="val big">${fmtBRL(it.valor_total)}</div></div>
+        <div><div class="lbl">Data de Ratificação</div><div class="val">${fmtDate(it.data_ratificacao)}</div></div>
+        <div><div class="lbl">Vigência</div><div class="val">${fmtDate(it.vigencia)||"—"}</div></div>
+      </div>
+    </div>`;
+  });
+  html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 (Art. 75) · ${hojeStr()}</div>`;
+  return html;
+};
+
 const gerarRelatorioProcessos = (processos) => {
   const faseColor = { "Em andamento":"#4f46e5","Publicado":"#0891b2","Homologado":"#166534","Planejamento":"#92400e","Revogado":"#991b1b","Suspenso":"#b45309","Encerrado":"#374151" };
   const valorTotal = processos.reduce((s,p)=>s+(p.valor||0),0);
@@ -2400,12 +2431,13 @@ function RelProcessos({ processos, onClose }) {
 }
 
 function TabRelatorios({ data }) {
-  const { processos, atas, inexigibilidades } = data;
+  const { processos, atas, dispensas, inexigibilidades } = data;
 
   const cards = [
-    { icon:"atas",       color:C.accent2,  title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Fornecedor, valores, saldo e itens`, total:fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)), label:"Valor total", gerar:()=>openPrintWindow("Relatório — Atas de RP", gerarRelatorioAtas(atas)) },
-    { icon:"inexigib",   color:C.purple,   title:"Inexigibilidade",             desc:`${inexigibilidades.length} registro(s) · Contratada, objeto e valor`, total:fmtBRL(inexigibilidades.reduce((s,i)=>s+(i.valor_total||0),0)), label:"Valor total", gerar:()=>openPrintWindow("Relatório — Inexigibilidade", gerarRelatorioInexigibilidades(inexigibilidades)) },
-    { icon:"processos",  color:C.accent,   title:"Processos Licitatórios",     desc:`${processos.length} processo(s) · Modalidade, fase e valor`, total:processos.filter(p=>p.fase==="Em andamento").length+" em andamento", label:"Situação", gerar:()=>openPrintWindow("Relatório — Processos", gerarRelatorioProcessos(processos)) },
+    { icon:"atas",      color:C.accent2,  title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Fornecedor, valores, saldo e itens`,              total:fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)),                          label:"Valor total", gerar:()=>openPrintWindow("Relatório — Atas de RP",      gerarRelatorioAtas(atas)) },
+    { icon:"dispensa",  color:"#f59e0b",  title:"Dispensas de Licitação",     desc:`${dispensas.length} registro(s) · Contratada, objeto e valor`,            total:fmtBRL(dispensas.reduce((s,d)=>s+(d.valor_total||0),0)),               label:"Valor total", gerar:()=>openPrintWindow("Relatório — Dispensas",        gerarRelatorioDispensas(dispensas)) },
+    { icon:"inexigib",  color:C.purple,   title:"Inexigibilidade",             desc:`${inexigibilidades.length} registro(s) · Contratada, objeto e valor`,    total:fmtBRL(inexigibilidades.reduce((s,i)=>s+(i.valor_total||0),0)),       label:"Valor total", gerar:()=>openPrintWindow("Relatório — Inexigibilidade", gerarRelatorioInexigibilidades(inexigibilidades)) },
+    { icon:"processos", color:C.accent,   title:"Processos Licitatórios",     desc:`${processos.length} processo(s) · Modalidade, fase e valor`,              total:processos.filter(p=>p.fase==="Em andamento").length+" em andamento",   label:"Situação",    gerar:()=>openPrintWindow("Relatório — Processos",        gerarRelatorioProcessos(processos)) },
   ];
 
   return (
