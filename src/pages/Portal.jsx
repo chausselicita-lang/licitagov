@@ -14,14 +14,15 @@ const C = {
 const fmtBRL = v => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
-const STATUS_PUBLICOS = ["Publicado", "Homologado"];
+const FASES_PUBLICAS = ["Publicado", "Homologado"];
 
 const MODALIDADES = ["Todas", "Pregão Eletrônico", "Pregão Presencial", "Concorrência", "Tomada de Preços", "Convite", "Leilão", "Concurso", "Dispensa", "Inexigibilidade"];
 
 function BadgePub({ label }) {
   const map = {
-    Publicado: { bg: "#eff6ff", fg: "#1d4ed8" },
-    Homologado: { bg: "#f0fdf4", fg: "#15803d" },
+    Publicado:    { bg: "#eff6ff", fg: "#1d4ed8" },
+    Homologado:   { bg: "#f0fdf4", fg: "#15803d" },
+    Planejamento: { bg: "#fffbeb", fg: "#b45309" },
   };
   const c = map[label] || { bg: "#f3f4f6", fg: "#6b7280" };
   return (
@@ -47,11 +48,10 @@ function ModalProcesso({ p, onClose }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Row label="Objeto" value={p.objeto} />
           <Row label="Modalidade" value={p.modalidade} />
-          <Row label="Status" value={<BadgePub label={p.status} />} />
-          <Row label="Valor Estimado" value={p.valor_estimado ? fmtBRL(p.valor_estimado) : "—"} />
-          <Row label="Data de Abertura" value={fmtDate(p.data_abertura)} />
-          <Row label="Vencedor / Adjudicatário" value={p.adjudicatario || "—"} />
-          <Row label="Valor Adjudicado" value={p.valor_adjudicado ? fmtBRL(p.valor_adjudicado) : "—"} />
+          <Row label="Fase / Status" value={<BadgePub label={p.fase} />} />
+          <Row label="Valor Estimado" value={p.valor ? fmtBRL(p.valor) : "—"} />
+          <Row label="Data de Abertura" value={fmtDate(p.abertura)} />
+          <Row label="Órgão Responsável" value={p.orgao || "—"} />
         </div>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
@@ -85,8 +85,8 @@ export default function Portal() {
     const sb = getSupabase();
     if (!sb) { setLoading(false); return; }
     sb.from("processos")
-      .select("id,numero,objeto,modalidade,status,valor_estimado,data_abertura,adjudicatario,valor_adjudicado")
-      .in("status", STATUS_PUBLICOS)
+      .select("id,numero,objeto,modalidade,fase,valor,abertura,orgao")
+      .in("fase", FASES_PUBLICAS)
       .order("created_at", { ascending: false })
       .then(({ data }) => { setProcessos(data || []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -98,6 +98,8 @@ export default function Portal() {
     const matchMod = modalidade === "Todas" || p.modalidade === modalidade;
     return matchBusca && matchMod;
   });
+
+  const fmtVal = v => v ? fmtBRL(v) : "—";
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Inter',system-ui,sans-serif", display: "flex", flexDirection: "column" }}>
@@ -169,10 +171,10 @@ export default function Portal() {
                 onMouseLeave={e => e.currentTarget.style.boxShadow = "none"}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{p.numero || "—"}</span>
-                  <BadgePub label={p.status} />
+                  <BadgePub label={p.fase} />
                 </div>
                 <div style={{ fontSize: 13, color: C.text, fontWeight: 500, marginBottom: 4, lineHeight: 1.4 }}>{p.objeto || "—"}</div>
-                <div style={{ fontSize: 12, color: C.sub }}>{p.modalidade || "—"} · {p.valor_estimado ? fmtBRL(p.valor_estimado) : "—"}</div>
+                <div style={{ fontSize: 12, color: C.sub }}>{p.modalidade || "—"} · {fmtVal(p.valor)}</div>
               </div>
             ))}
           </div>
@@ -182,7 +184,7 @@ export default function Portal() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  {["Número", "Objeto", "Modalidade", "Valor Estimado", "Data Abertura", "Status"].map(h => (
+                  {["Número", "Objeto", "Modalidade", "Valor", "Abertura", "Fase"].map(h => (
                     <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${C.border}` }}>{h}</th>
                   ))}
                 </tr>
@@ -198,9 +200,9 @@ export default function Portal() {
                       <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.objeto || "—"}</div>
                     </td>
                     <td style={{ padding: "13px 14px", color: C.sub, whiteSpace: "nowrap" }}>{p.modalidade || "—"}</td>
-                    <td style={{ padding: "13px 14px", color: C.text, whiteSpace: "nowrap" }}>{p.valor_estimado ? fmtBRL(p.valor_estimado) : "—"}</td>
-                    <td style={{ padding: "13px 14px", color: C.sub, whiteSpace: "nowrap" }}>{fmtDate(p.data_abertura)}</td>
-                    <td style={{ padding: "13px 14px" }}><BadgePub label={p.status} /></td>
+                    <td style={{ padding: "13px 14px", color: C.text, whiteSpace: "nowrap" }}>{fmtVal(p.valor)}</td>
+                    <td style={{ padding: "13px 14px", color: C.sub, whiteSpace: "nowrap" }}>{fmtDate(p.abertura)}</td>
+                    <td style={{ padding: "13px 14px" }}><BadgePub label={p.fase} /></td>
                   </tr>
                 ))}
               </tbody>

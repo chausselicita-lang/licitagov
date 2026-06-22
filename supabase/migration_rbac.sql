@@ -1,6 +1,6 @@
 -- ============================================================
--- LicitaGov — RBAC Migration
--- Execute no Supabase SQL Editor: xqlrfsrjvqmucchzpapk
+-- LicitaGov — RBAC Migration (corrigido)
+-- Projeto: xqlrfsrjvqmucchzpapk
 -- ============================================================
 
 -- 1. Tabela de perfis de usuário
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Inserir super admin (roda somente se o user existir)
+-- 2. Inserir super admin
 INSERT INTO user_profiles (id, email, role, nome, prefeitura_nome)
 SELECT id, email, 'super_admin', 'Clériston', 'GovCore'
 FROM auth.users
@@ -40,21 +40,14 @@ CREATE POLICY "super admin ve todos" ON user_profiles
     )
   );
 
--- 4. Portal de Transparência — acesso anônimo a processos publicados
--- Se RLS ainda não está habilitada em processos:
-ALTER TABLE processos ENABLE ROW LEVEL SECURITY;
-
--- Política para usuários autenticados — acesso total
-DROP POLICY IF EXISTS "autenticado acesso total processos" ON processos;
-CREATE POLICY "autenticado acesso total processos" ON processos
-  FOR ALL USING (auth.role() = 'authenticated');
-
--- Política para portal público — somente processos publicados/homologados
+-- 4. Portal de Transparência — processos usa coluna "fase", não "status"
+-- A tabela processos já tem RLS habilitado e policy "allow_auth".
+-- Adicionamos apenas a policy de leitura anônima para o portal público.
 DROP POLICY IF EXISTS "portal publico processos" ON processos;
 CREATE POLICY "portal publico processos" ON processos
   FOR SELECT USING (
     auth.role() = 'anon'
-    AND status IN ('Publicado', 'Homologado')
+    AND fase IN ('Publicado', 'Homologado')
   );
 
 -- 5. Recarregar schema PostgREST
