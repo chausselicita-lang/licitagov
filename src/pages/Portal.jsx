@@ -1,5 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { getSupabase } from "../lib/supabase.js";
+import { createClient } from "@supabase/supabase-js";
+
+// Cliente isolado — sem persistSession para garantir role anon no portal público
+const portalClient = createClient(
+  "https://xqlrfsrjvqmucchzpapk.supabase.co",
+  "sb_publishable_4t3DTecH3GAtG6t-Q2UZ3w_Mwuyemgc",
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
 
 const C = {
   bg:"#f0f2f5", surface:"#fff", border:"#e4e8ef", borderStrong:"#cbd5e1",
@@ -447,22 +454,23 @@ export default function Portal() {
   const [tab,setTab]       = useState("dashboard");
   const [data,setData]     = useState(SEED);
   const [loading,setLoad]  = useState(true);
+  const [erro,setErro]     = useState(null);
   const [isMobile]         = useState(()=>window.innerWidth<768);
 
   useEffect(()=>{
-    const sb=getSupabase();
-    if(!sb){setLoad(false);return;}
     Promise.all([
-      sb.from("processos").select("*").order("created_at",{ascending:false}),
-      sb.from("dispensas").select("*").order("created_at",{ascending:false}),
-      sb.from("inexigibilidades").select("*").order("created_at",{ascending:false}),
-      sb.from("atas").select("*").order("created_at",{ascending:false}),
-      sb.from("contratos").select("*").order("created_at",{ascending:false}),
-      sb.from("orgaos").select("*").order("nome",{ascending:true}),
+      portalClient.from("processos").select("*").order("created_at",{ascending:false}),
+      portalClient.from("dispensas").select("*").order("created_at",{ascending:false}),
+      portalClient.from("inexigibilidades").select("*").order("created_at",{ascending:false}),
+      portalClient.from("atas").select("*").order("created_at",{ascending:false}),
+      portalClient.from("contratos").select("*").order("created_at",{ascending:false}),
+      portalClient.from("orgaos").select("*").order("nome",{ascending:true}),
     ]).then(([p,d,i,a,c,o])=>{
+      const firstErr = [p,d,i,a,c,o].find(r=>r.error)?.error;
+      if (firstErr) { setErro(firstErr.message); setLoad(false); return; }
       setData({processos:p.data||[],dispensas:d.data||[],inexigibilidades:i.data||[],atas:a.data||[],contratos:c.data||[],orgaos:o.data||[]});
       setLoad(false);
-    }).catch(()=>setLoad(false));
+    }).catch(e=>{ setErro(e?.message||"Erro ao carregar dados"); setLoad(false); });
   },[]);
 
   const curTab=PORTAL_TABS.find(t=>t.id===tab);
@@ -521,6 +529,13 @@ export default function Portal() {
           <div style={{textAlign:"center",padding:"80px 0",display:"flex",flexDirection:"column",alignItems:"center",gap:14,color:C.sub}}>
             <div style={{width:32,height:32,border:`3px solid ${C.border}`,borderTopColor:C.accent,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>
             <span style={{fontSize:13}}>Carregando dados...</span>
+          </div>
+        ):erro?(
+          <div style={{textAlign:"center",padding:"80px 24px",display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+            <div style={{fontSize:32,opacity:0.3}}>⚠️</div>
+            <div style={{fontSize:15,fontWeight:700,color:C.red}}>Erro ao carregar dados</div>
+            <div style={{fontSize:13,color:C.sub,maxWidth:480}}>{erro}</div>
+            <button onClick={()=>window.location.reload()} style={{marginTop:8,background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"9px 24px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Tentar novamente</button>
           </div>
         ):(
           <>
