@@ -458,7 +458,8 @@ export default function Portal() {
   const [isMobile]         = useState(()=>window.innerWidth<768);
 
   useEffect(()=>{
-    Promise.all([
+    const safe = r => (r.status==="fulfilled" && !r.value?.error) ? (r.value.data||[]) : [];
+    Promise.allSettled([
       portalClient.from("processos").select("*").order("created_at",{ascending:false}),
       portalClient.from("dispensas").select("*").order("created_at",{ascending:false}),
       portalClient.from("inexigibilidades").select("*").order("created_at",{ascending:false}),
@@ -466,11 +467,9 @@ export default function Portal() {
       portalClient.from("contratos").select("*").order("created_at",{ascending:false}),
       portalClient.from("orgaos").select("*").order("nome",{ascending:true}),
     ]).then(([p,d,i,a,c,o])=>{
-      const firstErr = [p,d,i,a,c,o].find(r=>r.error)?.error;
-      if (firstErr) { setErro(firstErr.message); setLoad(false); return; }
-      setData({processos:p.data||[],dispensas:d.data||[],inexigibilidades:i.data||[],atas:a.data||[],contratos:c.data||[],orgaos:o.data||[]});
+      setData({processos:safe(p),dispensas:safe(d),inexigibilidades:safe(i),atas:safe(a),contratos:safe(c),orgaos:safe(o)});
       setLoad(false);
-    }).catch(e=>{ setErro(e?.message||"Erro ao carregar dados"); setLoad(false); });
+    });
   },[]);
 
   const curTab=PORTAL_TABS.find(t=>t.id===tab);
