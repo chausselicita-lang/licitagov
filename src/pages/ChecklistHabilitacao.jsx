@@ -288,35 +288,61 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
     }
     onUpdate({ analisando: true });
     try {
-      const content = [
-        ...validFiles.map(a => ({
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: a.base64 },
-        })),
-        {
-          type: 'text',
-          text: [
-            'Analise os PDFs e identifique quais itens do checklist de habilitação estão presentes.',
-            'Retorne APENAS um objeto JSON válido onde cada chave é o id do item e o valor é "sim", "nao" ou "na".',
-            '',
-            `Ids disponíveis: ${ALL_IDS.join(', ')}`,
-            '',
-            'Regras:',
-            '- "sim" = documento presente e aparentemente válido.',
-            '- "nao" = documento ausente ou claramente inválido.',
-            '- "na" = item consultado online (ceis_cnep, improbidade, inidoneos), não exigido pelo edital, ou não aplicável.',
-            '',
-            'Inclua a chave "_obs" com uma observação geral de 1 a 2 frases sobre os documentos analisados.',
-            'Retorne APENAS o JSON, sem texto extra, sem markdown, sem ```.',
-          ].join('\n'),
-        },
-      ];
+      const promptText = [
+        'Analise os PDFs e identifique quais itens do checklist de habilitação estão presentes.',
+        'Retorne APENAS um objeto JSON válido onde cada chave é o id do item e o valor é "sim", "nao" ou "na".',
+        '',
+        `Ids disponíveis: ${ALL_IDS.join(', ')}`,
+        '',
+        'Regras:',
+        '- "sim" = documento presente e aparentemente válido.',
+        '- "nao" = documento ausente ou claramente inválido.',
+        '- "na" = item consultado online (ceis_cnep, improbidade, inidoneos), não exigido pelo edital, ou não aplicável.',
+        '',
+        'Inclua a chave "_obs" com uma observação geral de 1 a 2 frases sobre os documentos analisados.',
+        'Retorne APENAS o JSON, sem texto extra, sem markdown, sem ```.',
+      ].join('\n');
+
+      // Payload > 3 MB raw → Vercel rejeita o base64; usa Supabase Storage + URL
+      const totalRaw = validFiles.reduce((s, f) => s + f.size, 0);
+      const useStorage = totalRaw > 3 * 1024 * 1024;
+
+      let content;
+      if (useStorage) {
+        const sb = getSupabase();
+        if (!sb) throw new Error('Configure o Supabase para analisar arquivos grandes');
+        await sb.storage.createBucket('checklist-pdfs', { public: true }).catch(() => {});
+        const urls = [];
+        for (const arq of validFiles) {
+          const binary = atob(arq.base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          const path = `tmp/${crypto.randomUUID()}/${arq.name}`;
+          const { error: upErr } = await sb.storage
+            .from('checklist-pdfs')
+            .upload(path, blob, { contentType: 'application/pdf' });
+          if (upErr) throw new Error(`Erro ao enviar "${arq.name}": ${upErr.message}`);
+          const { data: urlData } = sb.storage.from('checklist-pdfs').getPublicUrl(path);
+          urls.push(urlData.publicUrl);
+        }
+        content = [
+          ...urls.map(url => ({ type: 'document', source: { type: 'url', url } })),
+          { type: 'text', text: promptText },
+        ];
+      } else {
+        content = [
+          ...validFiles.map(a => ({
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: a.base64 },
+          })),
+          { type: 'text', text: promptText },
+        ];
+      }
 
       const res = await fetch('/api/claude', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 2048,
@@ -325,7 +351,12 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Arquivo muito grande. Tente PDFs menores que 4MB cada.');
+      }
       if (!res.ok) throw new Error(data?.error?.message || `Erro na API: ${res.status}`);
       if (data.error) throw new Error(data.error.message || 'Erro desconhecido');
 
