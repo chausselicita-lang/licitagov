@@ -21,7 +21,6 @@ import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/sup
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
-import ChecklistHabilitacao from './pages/ChecklistHabilitacao.jsx';
 import Sidebar from "./components/Sidebar.jsx";
 import Topbar from "./components/Topbar.jsx";
 import KPICards from "./components/KPICards.jsx";
@@ -131,7 +130,6 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     lock:       <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
     mail:       <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>,
     externallink:<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
-    habilitacao:<><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 12 11 14 15 10"/></>,
     dispensa:    <><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></>,
     inexigib:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
   };
@@ -3074,7 +3072,6 @@ const TABS = [
   { id:"dispensas",      icon:"dispensa",   label:"Dispensas",        short:"Disp." },
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
-  { id:"habilitacao",    icon:"habilitacao", label:"Habilitação",      short:"Hab." },
   { id:"relatorios",     icon:"relatorios",  label:"Relatórios",       short:"Relat." },
   { id:"claude",         icon:"claude",      label:"IA Claude",        short:"IA" },
 ];
@@ -3188,7 +3185,6 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
-              {tab==="habilitacao" && <ChecklistHabilitacao toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
               {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
             </div>
