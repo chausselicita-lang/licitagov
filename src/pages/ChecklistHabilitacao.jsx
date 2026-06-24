@@ -281,10 +281,15 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
   const analisar = async () => {
     if (!empresa.arquivos.length) { showToast('Adicione ao menos um PDF', 'warn'); return; }
     if (overLimit) { showToast('Total excede 20 MB — remova alguns arquivos', 'warn'); return; }
+    const validFiles = empresa.arquivos.filter(a => a.base64);
+    if (!validFiles.length) {
+      showToast('Faça o upload dos PDFs novamente — os dados de arquivo não persistem entre sessões', 'warn');
+      return;
+    }
     onUpdate({ analisando: true });
     try {
       const content = [
-        ...empresa.arquivos.map(a => ({
+        ...validFiles.map(a => ({
           type: 'document',
           source: { type: 'base64', media_type: 'application/pdf', data: a.base64 },
         })),
@@ -311,7 +316,6 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'anthropic-beta': 'pdfs-2024-09-25',
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
