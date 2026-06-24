@@ -1890,6 +1890,11 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
       (it.objeto||"").toLowerCase().includes(s) ||
       (it.contratada||"").toLowerCase().includes(s)
     );
+  }).sort((a, b) => {
+    if (!a.data_ratificacao && !b.data_ratificacao) return 0;
+    if (!a.data_ratificacao) return 1;
+    if (!b.data_ratificacao) return -1;
+    return b.data_ratificacao.localeCompare(a.data_ratificacao);
   });
 
   const openNovo = () => { setEditId(null); setForm(CD_FORM_EMPTY); setModal(true); };
