@@ -309,22 +309,32 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
 
       let content;
       if (useStorage) {
+        // Upload direto browser→Supabase via URL assinada (sem passar pelo proxy Vercel)
         const sb = getSupabase();
         if (!sb) throw new Error('Configure o Supabase para analisar arquivos grandes');
-        await sb.storage.createBucket('checklist-pdfs', { public: true }).catch(() => {});
         const urls = [];
         for (const arq of validFiles) {
+          // 1. Pede URL assinada ao servidor (service role fica server-side)
+          const signRes = await fetch('/api/storage-sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: arq.name }),
+          });
+          if (!signRes.ok) throw new Error('Erro ao preparar upload do arquivo');
+          const { token, path, publicUrl } = await signRes.json();
+
+          // 2. Converte base64 → File e envia direto ao Supabase (sem limite Vercel)
           const binary = atob(arq.base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: 'application/pdf' });
-          const path = `tmp/${crypto.randomUUID()}/${arq.name}`;
+          const file = new File([bytes], arq.name, { type: 'application/pdf' });
+
           const { error: upErr } = await sb.storage
             .from('checklist-pdfs')
-            .upload(path, blob, { contentType: 'application/pdf' });
+            .uploadToSignedUrl(path, token, file);
           if (upErr) throw new Error(`Erro ao enviar "${arq.name}": ${upErr.message}`);
-          const { data: urlData } = sb.storage.from('checklist-pdfs').getPublicUrl(path);
-          urls.push(urlData.publicUrl);
+
+          urls.push(publicUrl);
         }
         content = [
           ...urls.map(url => ({ type: 'document', source: { type: 'url', url } })),
