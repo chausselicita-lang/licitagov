@@ -1106,10 +1106,10 @@ function TabAtas({ atas, setAtas, toast }) {
                     </div>
                     {a.link_drive && (
                       <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
-                        onClick={e=>{ e.stopPropagation(); window.open(a.link_drive,"_blank","noopener"); }} />
+                        onClick={()=>window.open(a.link_drive,"_blank","noopener")} />
                     )}
-                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={e=>{ e.stopPropagation(); openEdit(a); }} />
-                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={e=>{ e.stopPropagation(); deletarAta(a.id); }} />
+                    <IconBtn name="edit" color={C.accent} title="Editar ata" onClick={()=>openEdit(a)} />
+                    <IconBtn name="trash" color={C.red} title="Excluir ata" onClick={()=>deletarAta(a.id)} />
                   </div>
                 </div>
                 <div style={{ marginTop:10, background:C.subtle, borderRadius:3, height:3, overflow:"hidden" }}>
