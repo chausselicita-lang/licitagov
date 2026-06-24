@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { getSupabase } from '../lib/supabase.js';
 import Icon from '../components/Icon.jsx';
 
@@ -122,6 +122,30 @@ function emptyEmpresa(n) {
     sb_id: null,
     _n: n,
   };
+}
+
+/* ── PERSISTÊNCIA localStorage ───────────────────────────────── */
+const STORAGE_KEY = 'licitagov_checklist_v1';
+
+function loadPersistedState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function persistState(processo, empresas) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      processo,
+      empresas: empresas.map(e => ({
+        ...e,
+        arquivos: e.arquivos.map(a => ({ name: a.name, size: a.size })), // omite base64
+        analisando: false,
+        gerandoParecer: false,
+      })),
+    }));
+  } catch {}
 }
 
 function readFileAsBase64(file) {
@@ -715,12 +739,14 @@ const SUB_TABS = [
 ];
 
 export default function ChecklistHabilitacao({ toast: extToast }) {
-  const [processo, setProcesso] = useState({ numero: '', objeto: '' });
-  const [empresas, setEmpresas] = useState(() => [emptyEmpresa(1)]);
+  const [processo, setProcesso] = useState(() => loadPersistedState()?.processo || { numero: '', objeto: '' });
+  const [empresas, setEmpresas] = useState(() => loadPersistedState()?.empresas || [emptyEmpresa(1)]);
   const [empIdx, setEmpIdx] = useState(0);
   const [subTab, setSubTab] = useState('checklist');
   const [saving, setSaving] = useState(false);
   const [localToast, setLocalToast] = useState(null);
+
+  useEffect(() => { persistState(processo, empresas); }, [processo, empresas]);
 
   const showToast = (msg, type = 'ok') => {
     if (extToast) { extToast(msg, type); return; }
