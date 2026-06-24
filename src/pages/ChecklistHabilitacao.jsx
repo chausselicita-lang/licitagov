@@ -252,7 +252,7 @@ function Field({ label, value, onChange, placeholder }) {
 /* ── SECTION: DOCUMENTOS ─────────────────────────────────────── */
 function SectionDocumentos({ empresa, onUpdate, showToast }) {
   const fileRef = useRef();
-  const MAX = 20 * 1024 * 1024;
+  const MAX = 24 * 1024 * 1024;
   const total = empresa.arquivos.reduce((a, f) => a + f.size, 0);
   const overLimit = total > MAX;
 
@@ -280,7 +280,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
 
   const analisar = async () => {
     if (!empresa.arquivos.length) { showToast('Adicione ao menos um PDF', 'warn'); return; }
-    if (overLimit) { showToast('Total excede 20 MB — remova alguns arquivos antes de analisar', 'warn'); return; }
+    if (overLimit) { showToast('Total excede 24 MB — remova alguns arquivos antes de analisar', 'warn'); return; }
     const validFiles = empresa.arquivos.filter(a => a.base64);
     if (!validFiles.length) {
       showToast('Faça o upload dos PDFs novamente — os dados de arquivo não persistem entre sessões', 'warn');
@@ -374,7 +374,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
           Clique para adicionar PDFs
         </div>
         <div style={{ fontSize: 12, color: C.sub, marginTop: 5 }}>
-          Documentos de habilitação da empresa — máx. 20 MB total
+          Documentos de habilitação da empresa — máx. 24 MB total
         </div>
       </div>
 
