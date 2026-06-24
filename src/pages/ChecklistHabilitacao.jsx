@@ -228,7 +228,7 @@ function Field({ label, value, onChange, placeholder }) {
 /* ── SECTION: DOCUMENTOS ─────────────────────────────────────── */
 function SectionDocumentos({ empresa, onUpdate, showToast }) {
   const fileRef = useRef();
-  const MAX = 20 * 1024 * 1024;
+  const MAX = 45 * 1024 * 1024;
   const total = empresa.arquivos.reduce((a, f) => a + f.size, 0);
   const overLimit = total > MAX;
 
@@ -346,7 +346,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
           Clique para adicionar PDFs
         </div>
         <div style={{ fontSize: 12, color: C.sub, marginTop: 5 }}>
-          Documentos de habilitação da empresa — máx. 20 MB total
+          Documentos de habilitação da empresa — máx. 45 MB total
         </div>
       </div>
 
