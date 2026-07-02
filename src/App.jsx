@@ -2502,6 +2502,7 @@ const EXTRACTION_PROMPTS = {
   dispensa: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de DISPENSA DE LICITAÇÃO (arts. 74-76 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"dispensa","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":0,"data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_processo (número do processo ou da dispensa), objeto (descrição do objeto da contratação), contratada (razão social da empresa contratada), cnpj (CNPJ da empresa), valor_total (SOMENTE dígitos inteiros — veja regra acima), data_ratificacao (data da ratificação ou despacho em YYYY-MM-DD), vigencia (data de término da vigência em YYYY-MM-DD), secretaria (secretaria ou órgão solicitante/contratante). Liste em campos_nao_encontrados os que não constam no documento. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
   inexigibilidade: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este documento de INEXIGIBILIDADE DE LICITAÇÃO (art. 74 e 79 da Lei 14.133/2021) e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"inexigibilidade","dados":{"numero_processo":"","objeto":"","contratada":"","cnpj":"","valor_total":0,"data_ratificacao":"","vigencia":"","secretaria":"","status":"Em andamento"},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_processo, objeto, contratada (razão social), cnpj, valor_total (SOMENTE dígitos inteiros — veja regra acima), data_ratificacao (YYYY-MM-DD), vigencia (YYYY-MM-DD), secretaria. Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
   ata: `Você é especialista em licitações públicas Lei 14.133/2021. Analise esta ATA DE REGISTRO DE PREÇOS (arts. 82-86 da Lei 14.133/2021) e extraia todos os dados. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"ata","dados":{"numero_ata":"","objeto":"","fornecedor":"","cnpj":"","valor_total":0,"data_assinatura":"","data_vigencia":"","orgao_gerenciador":"","itens":[]},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_ata, objeto, fornecedor (razão social), cnpj, valor_total (SOMENTE dígitos inteiros — veja regra acima), data_assinatura (YYYY-MM-DD), data_vigencia (YYYY-MM-DD), orgao_gerenciador, itens (array com: descricao, unidade, quantidade, valor_unitario — valor_unitario também SOMENTE dígitos, ex: "R$ 5,80" → 5.80). Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
+  contrato: `Você é especialista em licitações públicas Lei 14.133/2021. Analise este CONTRATO ADMINISTRATIVO e extraia todos os dados disponíveis. Retorne APENAS JSON válido sem markdown, sem bloco de código, sem texto extra:\n{"tipo":"contrato","dados":{"numero_contrato":"","objeto":"","fornecedor":"","cnpj":"","valor_total":0,"dotacao_orcamentaria":"","data_assinatura":"","data_inicio_vigencia":"","data_fim_vigencia":"","secretaria":"","fiscal_contrato":""},"confianca":"alta","campos_nao_encontrados":[]}\n${VALOR_INSTRUCAO}\nExtraia: numero_contrato (número do contrato), objeto (descrição do objeto contratado), fornecedor (razão social da contratada), cnpj (CNPJ da contratada), valor_total (SOMENTE dígitos inteiros — veja regra acima), dotacao_orcamentaria, data_assinatura (YYYY-MM-DD), data_inicio_vigencia (YYYY-MM-DD), data_fim_vigencia (YYYY-MM-DD), secretaria (secretaria ou órgão contratante), fiscal_contrato (nome do fiscal). Liste em campos_nao_encontrados os que não constam. Confiança: alta se maioria encontrada, media se metade, baixa se poucos.`,
 };
 
 function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, setInexigibilidades, toast }) {
@@ -2517,6 +2518,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
   const fileRefDispensa = useRef(null);
   const fileRefInexigib = useRef(null);
   const fileRefAta = useRef(null);
+  const fileRefContrato = useRef(null);
 
   useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:"smooth" }); },[msgs, extractionCard]);
 
@@ -2999,6 +3001,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
           <input type="file" ref={fileRefDispensa} onChange={handleExtractFile("dispensa")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
           <input type="file" ref={fileRefInexigib} onChange={handleExtractFile("inexigibilidade")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
           <input type="file" ref={fileRefAta} onChange={handleExtractFile("ata")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
+          <input type="file" ref={fileRefContrato} onChange={handleExtractFile("contrato")} accept="application/pdf,image/png,image/jpeg,image/jpg" style={{ display:"none" }} />
           <Btn onClick={()=>fileRefDispensa.current?.click()} disabled={busy} color="#f59e0b" size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
             <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Dispensa
           </Btn>
@@ -3007,6 +3010,9 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
           </Btn>
           <Btn onClick={()=>fileRefAta.current?.click()} disabled={busy} color={C.green} size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
             <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Ata de RP
+          </Btn>
+          <Btn onClick={()=>fileRefContrato.current?.click()} disabled={busy} color={C.accent} size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Contrato
           </Btn>
         </div>
         <div style={{ fontSize:11, color:C.tertiary }}>Clique no botão, selecione o documento e a IA extrai e preenche automaticamente.</div>
