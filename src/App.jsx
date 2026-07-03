@@ -2109,14 +2109,8 @@ const BASE_CSS = `
   @media print{body{padding:16px 20px}}
 `;
 
-const openPrintWindow = (titulo, corpo) => {
-  const win = window.open('','_blank');
-  if (!win) { alert('Permita pop-ups para gerar o relatório.'); return; }
-  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${titulo}</title><style>${BASE_CSS}</style></head><body>${corpo}</body></html>`);
-  win.document.close();
-  win.focus();
-  setTimeout(() => win.print(), 500);
-};
+const buildRelatorioDoc = (titulo, corpo) =>
+  `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${titulo}</title><style>${BASE_CSS}</style></head><body>${corpo}</body></html>`;
 
 const gerarRelatorioAtas = (atas) => {
   const total = atas.reduce((s,a)=>s+a.valorTotal,0);
@@ -2446,17 +2440,35 @@ function RelProcessos({ processos, onClose }) {
 
 function TabRelatorios({ data }) {
   const { processos, atas, dispensas, inexigibilidades } = data;
+  const [relatorio, setRelatorio] = useState(null); // { titulo, corpo }
+  const iframeRef = useRef(null);
+  useOverlayBack(!!relatorio, () => setRelatorio(null));
 
   const cards = [
-    { icon:"atas",      color:C.accent2,  title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Fornecedor, valores, saldo e itens`,              total:fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)),                          label:"Valor total", gerar:()=>openPrintWindow("Relatório — Atas de RP",      gerarRelatorioAtas(atas)) },
-    { icon:"dispensa",  color:"#f59e0b",  title:"Dispensas de Licitação",     desc:`${dispensas.length} registro(s) · Contratada, objeto e valor`,            total:fmtBRL(dispensas.reduce((s,d)=>s+(d.valor_total||0),0)),               label:"Valor total", gerar:()=>openPrintWindow("Relatório — Dispensas",        gerarRelatorioDispensas(dispensas)) },
-    { icon:"inexigib",  color:C.purple,   title:"Inexigibilidade",             desc:`${inexigibilidades.length} registro(s) · Contratada, objeto e valor`,    total:fmtBRL(inexigibilidades.reduce((s,i)=>s+(i.valor_total||0),0)),       label:"Valor total", gerar:()=>openPrintWindow("Relatório — Inexigibilidade", gerarRelatorioInexigibilidades(inexigibilidades)) },
-    { icon:"processos", color:C.accent,   title:"Processos Licitatórios",     desc:`${processos.length} processo(s) · Modalidade, fase e valor`,              total:processos.filter(p=>p.fase==="Em andamento").length+" em andamento",   label:"Situação",    gerar:()=>openPrintWindow("Relatório — Processos",        gerarRelatorioProcessos(processos)) },
+    { icon:"atas",      color:C.accent2,  title:"Atas de Registro de Preços", desc:`${atas.length} ata(s) · Fornecedor, valores, saldo e itens`,              total:fmtBRL(atas.reduce((s,a)=>s+a.valorTotal,0)),                          label:"Valor total", gerar:()=>setRelatorio({ titulo:"Relatório — Atas de RP",      corpo:gerarRelatorioAtas(atas) }) },
+    { icon:"dispensa",  color:"#f59e0b",  title:"Dispensas de Licitação",     desc:`${dispensas.length} registro(s) · Contratada, objeto e valor`,            total:fmtBRL(dispensas.reduce((s,d)=>s+(d.valor_total||0),0)),               label:"Valor total", gerar:()=>setRelatorio({ titulo:"Relatório — Dispensas",        corpo:gerarRelatorioDispensas(dispensas) }) },
+    { icon:"inexigib",  color:C.purple,   title:"Inexigibilidade",             desc:`${inexigibilidades.length} registro(s) · Contratada, objeto e valor`,    total:fmtBRL(inexigibilidades.reduce((s,i)=>s+(i.valor_total||0),0)),       label:"Valor total", gerar:()=>setRelatorio({ titulo:"Relatório — Inexigibilidade", corpo:gerarRelatorioInexigibilidades(inexigibilidades) }) },
+    { icon:"processos", color:C.accent,   title:"Processos Licitatórios",     desc:`${processos.length} processo(s) · Modalidade, fase e valor`,              total:processos.filter(p=>p.fase==="Em andamento").length+" em andamento",   label:"Situação",    gerar:()=>setRelatorio({ titulo:"Relatório — Processos",        corpo:gerarRelatorioProcessos(processos) }) },
   ];
+
+  if (relatorio) {
+    return (
+      <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, display:"flex", flexDirection:"column" }}>
+        <div style={{ background:C.accent, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0, gap:10 }}>
+          <button onClick={()=>setRelatorio(null)} style={{ background:"none", border:"1px solid rgba(255,255,255,0.4)", borderRadius:6, padding:"7px 14px", color:"#fff", cursor:"pointer", fontSize:13, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="back" size={13} color="#fff" /> Voltar
+          </button>
+          <span style={{ color:"#fff", fontWeight:700, fontSize:14, flex:1, textAlign:"center" }}>{relatorio.titulo}</span>
+          <Btn onClick={()=>iframeRef.current?.contentWindow?.print()} color="#fff" size="sm" style={{ color:C.accent, background:"#fff", border:"none" }}>🖨 Imprimir</Btn>
+        </div>
+        <iframe ref={iframeRef} title={relatorio.titulo} srcDoc={buildRelatorioDoc(relatorio.titulo, relatorio.corpo)} style={{ flex:1, border:"none", width:"100%" }} />
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Selecione o relatório. Será aberto em nova janela pronto para imprimir.</div>
+      <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Selecione o relatório para visualizar e imprimir.</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:16 }}>
         {cards.map(r=>(
           <div key={r.title} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:22, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column", gap:10 }}>
