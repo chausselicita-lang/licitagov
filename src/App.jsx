@@ -322,7 +322,7 @@ function KpiCard({ label, value, sub, color=C.accent }) {
       onMouseLeave={e => e.currentTarget.style.borderColor=C.border}
     >
       <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
-      <div style={{ fontSize:24, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif", lineHeight:1.1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
+      <div style={{ fontSize:18, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif", lineHeight:1.2, wordBreak:"break-word" }}>{value}</div>
       {sub && <div style={{ fontSize:12, color:C.sub, marginTop:5 }}>{sub}</div>}
     </div>
   );
