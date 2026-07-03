@@ -18,6 +18,7 @@ export class ErrorBoundary extends Component {
   }
 }
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
+import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
@@ -251,6 +252,7 @@ function Select({ label, value, onChange, options, style:sx={} }) {
 }
 
 function Modal({ title, onClose, children, wide=false }) {
+  useOverlayBack(true, onClose);
   return (
     <div style={{
       position:"fixed", inset:0,
@@ -826,6 +828,7 @@ function TabAtas({ atas, setAtas, toast }) {
   const [confirmarExcluirId, setConfirmarExcluirId] = useState(null);
   const [form, setForm] = useState(ATA_FORM_EMPTY);
   const [formItem, setFormItem] = useState({ descricao:"", unidade:"", qtdRegistrada:"", qtdUtilizada:"", valorUnit:"" });
+  useOverlayBack(!!ataAtiva, () => setAtaAtiva(null));
   const isMobile = useMobileCD();
 
   const openNova = () => { setEditId(null); setForm(ATA_FORM_EMPTY); setModal(true); };
@@ -1330,6 +1333,10 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const [mostrarTextoIA, setMostrarTextoIA] = useState(false);
   // Estado INDEPENDENTE para visualizar uma fonte — não interfere em nenhum outro estado
   const [fonteAberta, setFonteAberta] = useState(null);
+
+  useOverlayBack(!!cotAtiva, () => setCotAtiva(null));
+  useOverlayBack(!!resultadoIA, () => setResultadoIA(null));
+  useOverlayBack(!!fonteAberta, () => setFonteAberta(null));
 
   const addFornecedor = () => setFornecedores(p=>[...p,{ id:uid(), razao:"", cnpj:"" }]);
   const remFornecedor = id => setFornecedores(p=>p.filter(f=>f.id!==id));
@@ -3232,6 +3239,7 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(false);
   const [toast, setToast_] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  useOverlayBack(isMobile && sideOpen, () => setSideOpen(false));
   // Detect recovery link immediately from URL hash — before any async Supabase operations
   const [recoveryMode, setRecoveryMode] = useState(
     () => window.location.hash.includes('type=recovery')

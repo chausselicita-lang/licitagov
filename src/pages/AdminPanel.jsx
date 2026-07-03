@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getSupabase } from "../lib/supabase.js";
+import { useOverlayBack } from "../lib/useOverlayBack.js";
 
 const C = {
   bg: "#f0f2f5",
@@ -73,6 +74,7 @@ function KPICard({ label, value, color = C.accent, icon }) {
 }
 
 function Modal({ title, onClose, children }) {
+  useOverlayBack(true, onClose);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(3px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
