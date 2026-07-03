@@ -29,26 +29,26 @@ function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
       <div style={{
         background: K.card,
         border:`1px solid ${K.border}`,
-        borderRadius:10, padding:"11px 14px",
+        borderRadius:8, padding:"8px 12px",
         boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
         gridColumn:"span 2",
-        display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
+        display:"flex", alignItems:"center", justifyContent:"space-between", gap:10,
       }}>
         <div>
-          <div style={{ fontSize:19, fontWeight:800, color:K.text, lineHeight:1.1 }}>{value}</div>
-          {sub && <div style={{ fontSize:11, color:K.sub, marginTop:3 }}>{sub}</div>}
+          <div style={{ fontSize:16, fontWeight:800, color:K.text, lineHeight:1.1 }}>{value}</div>
+          {sub && <div style={{ fontSize:10, color:K.sub, marginTop:2 }}>{sub}</div>}
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
           <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:c }}>{label}</div>
-            <div style={{ fontSize:11, color:K.sub }}>Próximos 30 dias</div>
+            <div style={{ fontSize:11, fontWeight:600, color:c }}>{label}</div>
+            <div style={{ fontSize:10, color:K.sub }}>Próximos 30 dias</div>
           </div>
           <span style={{
-            width:32, height:32, borderRadius:8,
+            width:26, height:26, borderRadius:7,
             background: cl, color:c,
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon name={icon} size={15} color="currentColor" />
+            <Icon name={icon} size={13} color="currentColor" />
           </span>
         </div>
       </div>
@@ -59,23 +59,23 @@ function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
     <div style={{
       background: K.card,
       border:`1px solid ${K.border}`,
-      borderRadius:10, padding:"11px 14px",
+      borderRadius:8, padding:"8px 12px",
       boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
     }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-        <span style={{ fontSize:12, color:K.sub, fontWeight:600 }}>{label}</span>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+        <span style={{ fontSize:11, color:K.sub, fontWeight:600 }}>{label}</span>
         <span style={{
-          width:28, height:28, borderRadius:8,
+          width:22, height:22, borderRadius:6,
           background: cl, color:c,
           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
         }}>
-          <Icon name={icon} size={13} color="currentColor" />
+          <Icon name={icon} size={11} color="currentColor" />
         </span>
       </div>
-      <div style={{ fontSize:19, fontWeight:800, color:K.text, lineHeight:1.2, wordBreak:"break-word" }}>
+      <div style={{ fontSize:16, fontWeight:800, color:K.text, lineHeight:1.2, wordBreak:"break-word" }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize:11, color:K.sub, marginTop:4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:10, color:K.sub, marginTop:3 }}>{sub}</div>}
     </div>
   );
 }
@@ -92,7 +92,7 @@ export default function KPICards({ processos, atas, contratos, inexigibilidades 
   const alertColorL = vencendo30.length > 0 ? K.redL  : K.greenL;
 
   return (
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
       <KpiCard
         label="Processos Ativos"
         value={processos.filter(p => p.fase !== "Encerrado").length}
