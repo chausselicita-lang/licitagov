@@ -4,13 +4,13 @@ import Icon from '../components/Icon.jsx';
 
 /* ── DESIGN TOKENS ────────────────────────────────────────────── */
 const C = {
-  bg: '#f0f2f5', surface: '#ffffff', border: '#e4e8ef',
-  borderStrong: '#cbd5e1', accent: '#1d4ed8',
-  accentSubtle: '#eff6ff', accentBorder: '#bfdbfe',
-  red: '#b91c1c', redSubtle: '#fef2f2',
-  green: '#15803d', greenSubtle: '#f0fdf4',
-  amber: '#b45309', amberSubtle: '#fffbeb',
-  text: '#111827', sub: '#6b7280', tertiary: '#9ca3af',
+  bg: '#121212', surface: '#1a1a1a', border: '#333333',
+  borderStrong: '#4d4d4d', accent: '#FF7A00',
+  accentSubtle: '#2a1c0f', accentBorder: '#FF7A0055',
+  red: '#f04545', redSubtle: '#2a1414',
+  green: '#3ecf6e', greenSubtle: '#12261a',
+  amber: '#FF7A00', amberSubtle: '#2a1c0f',
+  text: '#E0E0E0', sub: '#C0C0C0', tertiary: '#9a9a9a',
 };
 
 /* ── CHECKLIST DEFINITION ─────────────────────────────────────── */
@@ -162,11 +162,11 @@ const fmtBytes = b =>
 
 /* ── SMALL UI ─────────────────────────────────────────────────── */
 function Toast({ msg, type }) {
-  const bg = type === 'error' ? '#b91c1c' : type === 'warn' ? '#b45309' : '#15803d';
+  const bg = type === 'error' ? '#f04545' : type === 'warn' ? '#FF7A00' : '#3ecf6e';
   return (
     <div style={{
       position: 'fixed', top: 20, right: 20, zIndex: 9999,
-      background: bg, color: '#fff', borderRadius: 8,
+      background: bg, color: '#121212', borderRadius: 8,
       padding: '11px 18px', fontSize: 13, fontWeight: 500,
       boxShadow: `0 4px 16px ${bg}44`, maxWidth: 340,
       fontFamily: 'Inter,system-ui,sans-serif',
@@ -188,9 +188,9 @@ function Spinner({ size = 16 }) {
 
 function VeredictoTag({ v, size = 'md' }) {
   const cfg = {
-    HABILITADA:  { bg: '#f0fdf4', fg: '#15803d', dot: '#15803d' },
-    INABILITADA: { bg: '#fef2f2', fg: '#b91c1c', dot: '#b91c1c' },
-    PENDENTE:    { bg: '#fffbeb', fg: '#b45309', dot: '#d97706' },
+    HABILITADA:  { bg: '#12261a', fg: '#3ecf6e', dot: '#3ecf6e' },
+    INABILITADA: { bg: '#2a1414', fg: '#f04545', dot: '#f04545' },
+    PENDENTE:    { bg: '#2a1c0f', fg: '#FF9633', dot: '#FF7A00' },
   };
   const { bg, fg, dot } = cfg[v] || cfg.PENDENTE;
   return (
@@ -211,7 +211,7 @@ function ProgressBar({ filled, total }) {
   const color = pct === 100 ? C.green : C.accent;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ flex: 1, height: 6, background: '#e4e8ef', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 6, background: '#333333', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{
           width: `${pct}%`, height: '100%', background: color,
           borderRadius: 3, transition: 'width 0.3s ease',
@@ -236,7 +236,7 @@ function Field({ label, value, onChange, placeholder }) {
         value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          background: '#f8fafc', border: `1px solid ${C.border}`, borderRadius: 6,
+          background: '#232323', border: `1px solid ${C.border}`, borderRadius: 6,
           padding: '8px 10px', fontSize: 13, color: C.text,
           outline: 'none', fontFamily: 'inherit',
           transition: 'border-color 0.14s, box-shadow 0.14s',
@@ -403,7 +403,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
           background: C.accentSubtle, cursor: 'pointer',
           transition: 'border-color 0.15s, background 0.15s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = '#dbeafe'; }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = '#2a1c0f'; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = C.accentBorder; e.currentTarget.style.background = C.accentSubtle; }}
       >
         <input
@@ -452,7 +452,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
 
           {overLimit && (
             <div style={{
-              background: '#fef2f2', border: '1px solid #fecaca',
+              background: '#2a1414', border: '1px solid #4a2020',
               borderRadius: 8, padding: '8px 12px', fontSize: 12, color: C.red,
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
@@ -475,7 +475,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: empresa.analisando ? '#9ca3af' : C.accent,
-            color: '#fff', border: 'none', borderRadius: 8,
+            color: '#121212', border: 'none', borderRadius: 8,
             padding: '10px 22px', fontSize: 13, fontWeight: 600,
             cursor: empresa.analisando || !empresa.arquivos.length || overLimit ? 'not-allowed' : 'pointer',
             opacity: !empresa.arquivos.length ? 0.5 : 1,
@@ -484,7 +484,7 @@ function SectionDocumentos({ empresa, onUpdate, showToast }) {
         >
           {empresa.analisando
             ? <><Spinner /> Analisando...</>
-            : <><Icon name="sparkle" size={14} color="#fff" /> Analisar com IA</>
+            : <><Icon name="sparkle" size={14} color="#121212" /> Analisar com IA</>
           }
         </button>
       </div>
@@ -532,7 +532,7 @@ function SectionChecklist({ empresa, onUpdate }) {
           borderRadius: 10, overflow: 'hidden',
         }}>
           <div style={{
-            padding: '8px 16px', background: '#f8fafc',
+            padding: '8px 16px', background: '#232323',
             borderBottom: `1px solid ${C.border}`,
             fontSize: 11, fontWeight: 700, color: C.sub,
             textTransform: 'uppercase', letterSpacing: '0.07em',
@@ -543,7 +543,7 @@ function SectionChecklist({ empresa, onUpdate }) {
           {cat.items.map((item, idx) => {
             const val = ck[item.id];
             const elim = ELIMINATORIOS.has(item.id);
-            const rowBg = val === 'nao' && elim ? '#fef2f2' : 'transparent';
+            const rowBg = val === 'nao' && elim ? '#2a1414' : 'transparent';
 
             return (
               <div key={item.id} style={{
@@ -670,7 +670,7 @@ function SectionParecer({ empresa, processo, onUpdate, showToast }) {
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: empresa.gerandoParecer ? '#9ca3af' : C.accent,
-            color: '#fff', border: 'none', borderRadius: 8,
+            color: '#121212', border: 'none', borderRadius: 8,
             padding: '10px 20px', fontSize: 13, fontWeight: 600,
             cursor: empresa.gerandoParecer ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit', transition: 'background 0.15s',
@@ -678,7 +678,7 @@ function SectionParecer({ empresa, processo, onUpdate, showToast }) {
         >
           {empresa.gerandoParecer
             ? <><Spinner /> Gerando parecer...</>
-            : <><Icon name="sparkle" size={14} color="#fff" /> Gerar Parecer Jurídico</>
+            : <><Icon name="sparkle" size={14} color="#121212" /> Gerar Parecer Jurídico</>
           }
         </button>
 
@@ -893,7 +893,7 @@ export default function ChecklistHabilitacao({ toast: extToast }) {
           <div>
             <h2 style={{
               fontSize: 26, fontWeight: 700, color: C.text,
-              borderLeft: '4px solid #1d4ed8', paddingLeft: 14,
+              borderLeft: '4px solid #FF7A00', paddingLeft: 14,
               lineHeight: 1.2, margin: 0,
             }}>
               Checklist de Habilitação
@@ -920,14 +920,14 @@ export default function ChecklistHabilitacao({ toast: extToast }) {
             <button onClick={salvar} disabled={saving} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: saving ? '#9ca3af' : C.accent,
-              color: '#fff', border: 'none', borderRadius: 8,
+              color: '#121212', border: 'none', borderRadius: 8,
               padding: '8px 18px', fontSize: 12, fontWeight: 600,
               cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
               transition: 'background 0.15s',
             }}>
               {saving
                 ? <><Spinner size={12} /> Salvando...</>
-                : <><Icon name="check" size={13} color="#fff" /> Salvar</>
+                : <><Icon name="check" size={13} color="#121212" /> Salvar</>
               }
             </button>
           </div>
@@ -960,7 +960,7 @@ export default function ChecklistHabilitacao({ toast: extToast }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
         {empresas.map((e, idx) => {
           const v = calcVeredicto(e.checklist);
-          const dotColor = v === 'HABILITADA' ? C.green : v === 'INABILITADA' ? C.red : '#d97706';
+          const dotColor = v === 'HABILITADA' ? C.green : v === 'INABILITADA' ? C.red : '#FF7A00';
           const active = idx === empIdx;
           return (
             <div key={e.id}

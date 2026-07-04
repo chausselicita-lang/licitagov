@@ -7,10 +7,10 @@ export class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ minHeight:'100vh', background:'#f0f2f5', color:'#111827', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Inter',system-ui,sans-serif", gap:12 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#b91c1c' }}>Erro na aplicação</div>
-          <div style={{ fontSize:13, color:'#6b7280', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
-          <button onClick={()=>window.location.reload()} style={{ marginTop:8, padding:'8px 20px', background:'#1d4ed8', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:13, fontFamily:"'Inter',system-ui,sans-serif" }}>Recarregar</button>
+        <div style={{ minHeight:'100vh', background:'#121212', color:'#E0E0E0', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Inter',system-ui,sans-serif", gap:12 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:'#f04545' }}>Erro na aplicação</div>
+          <div style={{ fontSize:13, color:'#C0C0C0', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
+          <button onClick={()=>window.location.reload()} style={{ marginTop:8, padding:'8px 20px', background:'#FF7A00', color:'#121212', border:'none', borderRadius:8, cursor:'pointer', fontSize:13, fontFamily:"'Inter',system-ui,sans-serif", fontWeight:600 }}>Recarregar</button>
         </div>
       );
     }
@@ -36,27 +36,27 @@ import StatusBadge from "./components/StatusBadge.jsx";
 ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg:           "#f0f2f5",
-  surface:      "#ffffff",
-  card:         "#ffffff",
-  overlay:      "#f8fafc",
-  subtle:       "#f1f5f9",
-  border:       "#e4e8ef",
-  borderStrong: "#cbd5e1",
-  accent:       "#1d4ed8",
-  accentHover:  "#1e3a8a",
-  accentSubtle: "#eff6ff",
-  accentBorder: "#bfdbfe",
-  accent2:      "#0891b2",
-  gold:         "#d97706",
-  red:          "#b91c1c",
-  green:        "#15803d",
-  amber:        "#b45309",
-  purple:       "#7c3aed",
-  text:         "#111827",
-  sub:          "#6b7280",
-  subL:         "#6b7280",
-  tertiary:     "#9ca3af",
+  bg:           "#121212",
+  surface:      "#1a1a1a",
+  card:         "#1a1a1a",
+  overlay:      "#1f1f1f",
+  subtle:       "#232323",
+  border:       "#333333",
+  borderStrong: "#4d4d4d",
+  accent:       "#FF7A00",
+  accentHover:  "#e56e00",
+  accentSubtle: "#2a1c0f",
+  accentBorder: "#FF7A0055",
+  accent2:      "#FFA347",
+  gold:         "#FF7A00",
+  red:          "#f04545",
+  green:        "#3ecf6e",
+  amber:        "#FF7A00",
+  purple:       "#C0C0C0",
+  text:         "#E0E0E0",
+  sub:          "#C0C0C0",
+  subL:         "#B0B0B0",
+  tertiary:     "#9a9a9a",
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
@@ -168,25 +168,25 @@ const SEED = {
 
 function Badge({ label, color }) {
   const map = {
-    "Vigente":      { bg:"#f0fdf4", fg:"#15803d" },
-    "A vencer":     { bg:"#fffbeb", fg:"#b45309" },
-    "Encerrado":    { bg:"#f3f4f6", fg:"#6b7280" },
-    "Vencido":      { bg:"#fef2f2", fg:"#b91c1c" },
-    "Homologado":   { bg:"#f0fdf4", fg:"#15803d" },
-    "Em andamento": { bg:"#eff6ff", fg:"#1d4ed8" },
-    "Publicado":    { bg:"#eff6ff", fg:"#1d4ed8" },
-    "Planejamento": { bg:"#fffbeb", fg:"#b45309" },
-    "Revogado":     { bg:"#fef2f2", fg:"#b91c1c" },
-    "Suspenso":     { bg:"#fffbeb", fg:"#b45309" },
-    "Finalizada":   { bg:"#f0fdf4", fg:"#15803d" },
-    "Em coleta":    { bg:"#eff6ff", fg:"#1d4ed8" },
-    "Rascunho":     { bg:"#f3f4f6", fg:"#6b7280" },
-    "Concluída":    { bg:"#f0fdf4", fg:"#15803d" },
-    "Cancelada":    { bg:"#fef2f2", fg:"#b91c1c" },
+    "Vigente":      { bg:"#12261a", fg:"#3ecf6e" },
+    "A vencer":     { bg:"#2a1c0f", fg:"#FF9633" },
+    "Encerrado":    { bg:"#2a2a2a", fg:"#C0C0C0" },
+    "Vencido":      { bg:"#2a1414", fg:"#f04545" },
+    "Homologado":   { bg:"#12261a", fg:"#3ecf6e" },
+    "Em andamento": { bg:"#2a1c0f", fg:"#FF9633" },
+    "Publicado":    { bg:"#2a1c0f", fg:"#FF9633" },
+    "Planejamento": { bg:"#2a1c0f", fg:"#FF9633" },
+    "Revogado":     { bg:"#2a1414", fg:"#f04545" },
+    "Suspenso":     { bg:"#2a2a2a", fg:"#C0C0C0" },
+    "Finalizada":   { bg:"#12261a", fg:"#3ecf6e" },
+    "Em coleta":    { bg:"#2a1c0f", fg:"#FF9633" },
+    "Rascunho":     { bg:"#2a2a2a", fg:"#C0C0C0" },
+    "Concluída":    { bg:"#12261a", fg:"#3ecf6e" },
+    "Cancelada":    { bg:"#2a1414", fg:"#f04545" },
   };
   const preset = map[label];
-  const bg = preset ? preset.bg : "#f3f4f6";
-  const fg = color || (preset ? preset.fg : "#6b7280");
+  const bg = preset ? preset.bg : "#2a2a2a";
+  const fg = color || (preset ? preset.fg : "#C0C0C0");
   return (
     <span style={{
       display:"inline-flex", alignItems:"center", gap:5,
@@ -289,7 +289,7 @@ function Toast({ msg, type }) {
   return (
     <div style={{
       position:"fixed", top:20, right:20, zIndex:500,
-      background:c, color:"#fff", borderRadius:8,
+      background:c, color:"#121212", borderRadius:8,
       padding:"11px 18px", fontSize:13, fontWeight:500,
       boxShadow:`0 4px 16px ${c}44`, maxWidth:320,
       animation:"slideIn 0.22s ease",
@@ -335,13 +335,13 @@ function GlobalStyles() {
   return (
     <style>{`
       *{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#111827;}
+      body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#121212;color:#E0E0E0;}
       ::-webkit-scrollbar{width:5px;height:5px;}
       ::-webkit-scrollbar-track{background:transparent;}
-      ::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-      ::-webkit-scrollbar-thumb:hover{background:#cbd5e1;}
+      ::-webkit-scrollbar-thumb{background:#4d4d4d;border-radius:3px;}
+      ::-webkit-scrollbar-thumb:hover{background:#666666;}
       button,input,select,textarea{font-family:inherit;}
-      input::placeholder,textarea::placeholder{color:#9ca3af;}
+      input::placeholder,textarea::placeholder{color:#9a9a9a;}
       @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
       @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
       @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
@@ -396,7 +396,7 @@ function SetupScreen({ onReady }) {
             onKeyDown={e=>e.key==="Enter"&&salvar()} />
           {err && <div style={{ fontSize:12, color:C.red }}>{err}</div>}
           <button onClick={salvar} disabled={loading}
-            style={{ marginTop:8, background:C.accent, color:"#fff", border:"none", borderRadius:6, padding:"11px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s" }}>
+            style={{ marginTop:8, background:C.accent, color:"#121212", border:"none", borderRadius:6, padding:"11px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s" }}>
             {loading ? "Verificando..." : "Conectar e Entrar"}
           </button>
         </div>
@@ -477,9 +477,9 @@ function SetPasswordScreen({ onDone }) {
             </div>
             {err && <div style={{ fontSize:12, color:C.red, background:"rgba(220,38,38,0.06)", padding:"8px 12px", borderRadius:6, border:"1px solid rgba(220,38,38,0.15)" }}>{err}</div>}
             <button onClick={salvar} disabled={loading}
-              style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+              style={{ background:C.accent, color:"#121212", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               {loading ? (
-                <><div style={{ width:16, height:16, border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"#fff", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Salvando...</>
+                <><div style={{ width:16, height:16, border:"2px solid rgba(0,0,0,0.25)", borderTopColor:"#121212", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Salvando...</>
               ) : "Salvar senha"}
             </button>
           </div>
@@ -536,9 +536,9 @@ function LoginScreen({ onLogin }) {
 
       {/* Painel esquerdo — identidade */}
       {!isMobile && (
-        <div style={{ width:"45%", background:"linear-gradient(150deg, #1a56db 0%, #1344b8 60%, #0f3799 100%)", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"60px 48px", color:"#fff", position:"relative", overflow:"hidden" }}>
-          <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
-          <div style={{ position:"absolute", bottom:-80, left:-40, width:220, height:220, borderRadius:"50%", background:"rgba(255,255,255,0.07)" }} />
+        <div style={{ width:"45%", background:"linear-gradient(150deg, #0d0d0d 0%, #1a1a1a 55%, #4d2c0f 100%)", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"60px 48px", color:"#E0E0E0", position:"relative", overflow:"hidden" }}>
+          <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,122,0,0.08)" }} />
+          <div style={{ position:"absolute", bottom:-80, left:-40, width:220, height:220, borderRadius:"50%", background:"rgba(255,122,0,0.10)" }} />
           <div style={{ position:"relative", textAlign:"center", maxWidth:320 }}>
             <img src="/govcore-logo.png" alt="GovCore" style={{ maxWidth:300, width:"90%", marginBottom:36, filter:"drop-shadow(0 6px 32px rgba(0,0,0,0.45))" }} />
             <div style={{ fontSize:20, fontWeight:700, marginBottom:12, lineHeight:1.3 }}>
@@ -588,7 +588,7 @@ function LoginScreen({ onLogin }) {
                 </div>
                 {err && <div style={{ fontSize:12, color:C.red, background:"rgba(220,38,38,0.06)", padding:"8px 12px", borderRadius:6 }}>{err}</div>}
                 <button onClick={enviarReset} disabled={loading}
-                  style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s" }}>
+                  style={{ background:C.accent, color:"#121212", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s" }}>
                   {loading ? "Enviando..." : "Enviar link de recuperação"}
                 </button>
                 <button onClick={()=>{ setResetMode(false); setErr(""); }} style={{ color:C.sub, background:"none", border:"none", cursor:"pointer", fontSize:13, textAlign:"center" }}>
@@ -629,9 +629,9 @@ function LoginScreen({ onLogin }) {
                 </div>
                 {err && <div style={{ fontSize:12, color:C.red, background:"rgba(220,38,38,0.06)", padding:"8px 12px", borderRadius:6, border:"1px solid rgba(220,38,38,0.15)" }}>{err}</div>}
                 <button onClick={entrar} disabled={loading}
-                  style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s", marginTop:4, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+                  style={{ background:C.accent, color:"#121212", border:"none", borderRadius:8, padding:"13px", fontSize:14, fontWeight:600, cursor:loading?"not-allowed":"pointer", opacity:loading?0.7:1, transition:"all 0.14s", marginTop:4, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
                   {loading ? (
-                    <><div style={{ width:16, height:16, border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"#fff", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Entrando...</>
+                    <><div style={{ width:16, height:16, border:"2px solid rgba(0,0,0,0.25)", borderTopColor:"#121212", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Entrando...</>
                   ) : "Entrar"}
                 </button>
                 <div style={{ textAlign:"center" }}>
@@ -670,12 +670,12 @@ function TabDashboard({ data, onViewProcessos }) {
       <ProcessosTable processos={processos} onViewAll={onViewProcessos} />
 
       {vencendo.length > 0 && (
-        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:12, padding:18 }}>
+        <div style={{ background:"#2a1414", border:"1px solid #4a2020", borderRadius:12, padding:18 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:C.red, marginBottom:12 }}>
             <Icon name="warning" size={14} color={C.red} /> Contratos a vencer em 30 dias
           </div>
           {vencendo.map(c => (
-            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #fecaca", flexWrap:"wrap", gap:8 }}>
+            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #4a2020", flexWrap:"wrap", gap:8 }}>
               <div>
                 <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.numero} — {c.objeto}</div>
                 <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor}</div>
@@ -2084,12 +2084,12 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
    Identidade visual Shawex: Preto · Prata · Laranja Abóbora
 ══════════════════════════════════════════════════════════════ */
 const SX = {
-  preto:      "#0a0a0a",
-  pretoSoft:  "#161616",
-  prata:      "#c9cdd3",
-  prataEsc:   "#8b909a",
-  laranja:    "#ff6a00",
-  laranjaEsc: "#cc5500",
+  preto:      "#121212",
+  pretoSoft:  "#1a1a1a",
+  prata:      "#E0E0E0",
+  prataEsc:   "#C0C0C0",
+  laranja:    "#FF7A00",
+  laranjaEsc: "#e56e00",
 };
 
 const DISPENSA_CONFIG_EMPTY = {
@@ -2909,11 +2909,11 @@ function TabRelatorios({ data }) {
     return (
       <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, display:"flex", flexDirection:"column" }}>
         <div style={{ background:C.accent, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0, gap:10 }}>
-          <button onClick={()=>setRelatorio(null)} style={{ background:"none", border:"1px solid rgba(255,255,255,0.4)", borderRadius:6, padding:"7px 14px", color:"#fff", cursor:"pointer", fontSize:13, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
-            <Icon name="back" size={13} color="#fff" /> Voltar
+          <button onClick={()=>setRelatorio(null)} style={{ background:"none", border:"1px solid rgba(0,0,0,0.35)", borderRadius:6, padding:"7px 14px", color:"#121212", cursor:"pointer", fontSize:13, fontFamily:"inherit", fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="back" size={13} color="#121212" /> Voltar
           </button>
-          <span style={{ color:"#fff", fontWeight:700, fontSize:14, flex:1, textAlign:"center" }}>{relatorio.titulo}</span>
-          <Btn onClick={()=>iframeRef.current?.contentWindow?.print()} color="#fff" size="sm" style={{ color:C.accent, background:"#fff", border:"none" }}>🖨 Imprimir</Btn>
+          <span style={{ color:"#121212", fontWeight:700, fontSize:14, flex:1, textAlign:"center" }}>{relatorio.titulo}</span>
+          <Btn onClick={()=>iframeRef.current?.contentWindow?.print()} color="#121212" size="sm" style={{ color:"#fff", background:"#121212", border:"none" }}>🖨 Imprimir</Btn>
         </div>
         <iframe ref={iframeRef} title={relatorio.titulo} srcDoc={buildRelatorioDoc(relatorio.titulo, relatorio.corpo)} style={{ flex:1, border:"none", width:"100%" }} />
       </div>
@@ -3321,7 +3321,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
     const { tipo, campos_nao_encontrados=[], confianca } = extractionCard;
     const confiancaColor = confianca==="alta" ? C.green : confianca==="media" ? C.gold : C.red;
     const tipoLabel = { contrato:"Contrato", ata:"Ata de Registro de Preços", processo:"Processo Licitatório", dispensa:"Dispensa de Licitação", inexigibilidade:"Inexigibilidade" }[tipo] || tipo;
-    const tipoColor = { dispensa:"#f59e0b", inexigibilidade:"#8b5cf6", ata:C.green, contrato:C.accent, processo:C.accent2 }[tipo] || C.accent;
+    const tipoColor = { dispensa:"#f59e0b", inexigibilidade:"#C0C0C0", ata:C.green, contrato:C.accent, processo:C.accent2 }[tipo] || C.accent;
 
     const FIELDS = {
       contrato: [
@@ -3481,7 +3481,7 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
           <Btn onClick={()=>fileRefDispensa.current?.click()} disabled={busy} color="#f59e0b" size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
             <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Dispensa
           </Btn>
-          <Btn onClick={()=>fileRefInexigib.current?.click()} disabled={busy} color="#8b5cf6" size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
+          <Btn onClick={()=>fileRefInexigib.current?.click()} disabled={busy} color="#C0C0C0" size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
             <Icon name="file" size={12} color="#fff" /> 📄 Extrato de Inexigibilidade
           </Btn>
           <Btn onClick={()=>fileRefAta.current?.click()} disabled={busy} color={C.green} size="sm" style={{ display:"flex", alignItems:"center", gap:5 }}>
@@ -3616,9 +3616,9 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
 
       {/* Impersonation banner */}
       {impersonating && (
-        <div style={{ background:"#7c3aed", color:"#fff", padding:"6px 20px", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+        <div style={{ background:"#3a3a3a", color:"#E0E0E0", padding:"6px 20px", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
           <span>Visualizando como: <strong>{impersonating.nome}</strong></span>
-          <button onClick={stopImpersonating} style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"#fff", borderRadius:4, padding:"3px 12px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:600 }}>
+          <button onClick={stopImpersonating} style={{ background:"rgba(255,255,255,0.12)", border:"none", color:"#E0E0E0", borderRadius:4, padding:"3px 12px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:600 }}>
             ✕ Sair
           </button>
         </div>
@@ -3675,7 +3675,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
               {tab==="agentedispensas" && <TabAgenteDispensas toast={showToast} />}
-              {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
+              {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
               {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
@@ -3685,9 +3685,9 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
 
         {/* Mobile bottom nav */}
         {isMobile && (
-          <div className="no-print" style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:20, background:"#1d4ed8", display:"flex", justifyContent:"space-around", alignItems:"center", padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))" }}>
+          <div className="no-print" style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:20, background:"#1a1a1a", borderTop:"1px solid #333333", display:"flex", justifyContent:"space-around", alignItems:"center", padding:"5px 0", paddingBottom:"max(5px, env(safe-area-inset-bottom))" }}>
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"5px 8px", border:"none", background:"transparent", borderRadius:6, color: tab===t.id ? "#ffffff" : "rgba(255,255,255,0.55)", fontSize:9, fontWeight: tab===t.id ? 700 : 400, cursor:"pointer", fontFamily:"inherit", minWidth:40 }}>
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"5px 8px", border:"none", background:"transparent", borderRadius:6, color: tab===t.id ? "#FF7A00" : "#9a9a9a", fontSize:9, fontWeight: tab===t.id ? 700 : 400, cursor:"pointer", fontFamily:"inherit", minWidth:40 }}>
                 <Icon name={t.icon} size={18} strokeWidth={tab===t.id ? 2 : 1.6} color="currentColor" />
                 {t.short}
               </button>

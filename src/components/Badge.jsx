@@ -1,26 +1,26 @@
 const BADGE_MAP = {
-  "Vigente":      { bg:"#D1FAE5", text:"#065F46", border:"#A7F3D0" },
-  "A vencer":     { bg:"#FEF3C7", text:"#92400E", border:"#FDE68A" },
-  "Encerrado":    { bg:"#F1F5F9", text:"#475569", border:"#E2E8F0" },
-  "Vencido":      { bg:"#FEE2E2", text:"#991B1B", border:"#FECACA" },
-  "Homologado":   { bg:"#D1FAE5", text:"#065F46", border:"#A7F3D0" },
-  "Em andamento": { bg:"#DBEAFE", text:"#1E40AF", border:"#BFDBFE" },
-  "Publicado":    { bg:"#CFFAFE", text:"#164E63", border:"#A5F3FC" },
-  "Planejamento": { bg:"#FEF3C7", text:"#92400E", border:"#FDE68A" },
-  "Revogado":     { bg:"#FEE2E2", text:"#991B1B", border:"#FECACA" },
-  "Suspenso":     { bg:"#EDE9FE", text:"#5B21B6", border:"#DDD6FE" },
-  "Finalizada":   { bg:"#D1FAE5", text:"#065F46", border:"#A7F3D0" },
-  "Em coleta":    { bg:"#DBEAFE", text:"#1E40AF", border:"#BFDBFE" },
-  "Rascunho":     { bg:"#F1F5F9", text:"#64748B", border:"#E2E8F0" },
-  "Vence hoje":   { bg:"#FEF3C7", text:"#92400E", border:"#FDE68A" },
-  "Vencida":      { bg:"#FEE2E2", text:"#991B1B", border:"#FECACA" },
-  "Bloqueado":    { bg:"#FEE2E2", text:"#991B1B", border:"#FECACA" },
-  "Gerado":       { bg:"#DBEAFE", text:"#1E40AF", border:"#BFDBFE" },
-  "Concluído":    { bg:"#D1FAE5", text:"#065F46", border:"#A7F3D0" },
-  "Validado":     { bg:"#CFFAFE", text:"#164E63", border:"#A5F3FC" },
+  "Vigente":      { bg:"#12261a", text:"#3ecf6e", border:"#1f4a30" },
+  "A vencer":     { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Encerrado":    { bg:"#2a2a2a", text:"#C0C0C0", border:"#3d3d3d" },
+  "Vencido":      { bg:"#2a1414", text:"#f04545", border:"#4a2020" },
+  "Homologado":   { bg:"#12261a", text:"#3ecf6e", border:"#1f4a30" },
+  "Em andamento": { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Publicado":    { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Planejamento": { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Revogado":     { bg:"#2a1414", text:"#f04545", border:"#4a2020" },
+  "Suspenso":     { bg:"#2a2a2a", text:"#C0C0C0", border:"#3d3d3d" },
+  "Finalizada":   { bg:"#12261a", text:"#3ecf6e", border:"#1f4a30" },
+  "Em coleta":    { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Rascunho":     { bg:"#2a2a2a", text:"#C0C0C0", border:"#3d3d3d" },
+  "Vence hoje":   { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Vencida":      { bg:"#2a1414", text:"#f04545", border:"#4a2020" },
+  "Bloqueado":    { bg:"#2a1414", text:"#f04545", border:"#4a2020" },
+  "Gerado":       { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
+  "Concluído":    { bg:"#12261a", text:"#3ecf6e", border:"#1f4a30" },
+  "Validado":     { bg:"#2a1c0f", text:"#FF9633", border:"#4d2c0f" },
 };
 
-const FALLBACK = { bg:"#F1F5F9", text:"#475569", border:"#E2E8F0" };
+const FALLBACK = { bg:"#2a2a2a", text:"#C0C0C0", border:"#3d3d3d" };
 
 export default function Badge({ label }) {
   const s = BADGE_MAP[label] || FALLBACK;

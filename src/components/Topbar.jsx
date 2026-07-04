@@ -1,13 +1,13 @@
 import Icon from "./Icon.jsx";
 
 const T = {
-  bg:     "#ffffff",
-  border: "#e4e8ef",
-  text:   "#111827",
-  sub:    "#6b7280",
-  accent: "#1d4ed8",
-  red:    "#b91c1c",
-  subtle: "#f8fafc",
+  bg:     "#1a1a1a",
+  border: "#333333",
+  text:   "#E0E0E0",
+  sub:    "#C0C0C0",
+  accent: "#FF7A00",
+  red:    "#f04545",
+  subtle: "#232323",
 };
 
 export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOpen, deferredPrompt, installPWA, role, prefeitura, nome, impersonating }) {
@@ -19,11 +19,11 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
   const shortName = nome || userEmail?.split("@")[0] || "Usuário";
 
   const roleBadge = impersonating
-    ? { label: `Visualizando: ${impersonating.nome}`, bg: "#7c3aed", fg: "#fff" }
+    ? { label: `Visualizando: ${impersonating.nome}`, bg: "#3a3a3a", fg: "#E0E0E0" }
     : role === "super_admin"
-      ? { label: "SUPER ADMIN", bg: T.red, fg: "#fff" }
+      ? { label: "SUPER ADMIN", bg: T.red, fg: "#121212" }
       : role === "cliente" && prefeitura
-        ? { label: prefeitura, bg: "#eff6ff", fg: T.accent }
+        ? { label: prefeitura, bg: "#2a1c0f", fg: T.accent }
         : null;
 
   return (
@@ -64,11 +64,11 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
         {deferredPrompt && isMobile && (
           <button onClick={installPWA} style={{
             background:T.accent, border:"none", borderRadius:8,
-            padding:"6px 10px", color:"#fff", fontSize:11, fontWeight:600,
+            padding:"6px 10px", color:"#121212", fontSize:11, fontWeight:600,
             cursor:"pointer", fontFamily:"inherit",
             display:"flex", alignItems:"center", gap:5,
           }}>
-            <Icon name="install" size={12} color="#fff" />
+            <Icon name="install" size={12} color="#121212" />
           </button>
         )}
 
@@ -99,7 +99,7 @@ export default function Topbar({ isMobile, curTab, userEmail, signOut, setSideOp
             background: role === "super_admin" ? T.red : T.accent,
             borderRadius:"50%",
             display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:12, fontWeight:700, color:"#fff", flexShrink:0,
+            fontSize:12, fontWeight:700, color:"#121212", flexShrink:0,
           }}>
             {initial}
           </div>

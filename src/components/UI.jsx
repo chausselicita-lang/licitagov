@@ -6,7 +6,7 @@ export function Modal({ title, onClose, children, wide = false }) {
     <div
       style={{
         position: "fixed", inset: 0,
-        background: "rgba(15,23,42,0.40)",
+        background: "rgba(0,0,0,0.55)",
         backdropFilter: "blur(4px)",
         WebkitBackdropFilter: "blur(4px)",
         zIndex: 200,
@@ -48,7 +48,7 @@ export function Toast({ msg, type }) {
   return (
     <div style={{
       position: "fixed", top: 20, right: 20, zIndex: 500,
-      background: c, color: "#fff", borderRadius: 10,
+      background: c, color: "#121212", borderRadius: 10,
       padding: "11px 18px", fontSize: 13, fontWeight: 500,
       boxShadow: `0 4px 20px ${c}55`, maxWidth: 320,
       animation: "slideIn 0.22s ease",

@@ -10,34 +10,34 @@ const portalClient = createClient(
 );
 
 const C = {
-  bg:"#f0f2f5", surface:"#fff", border:"#e4e8ef", borderStrong:"#cbd5e1",
-  accent:"#1d4ed8", accentSubtle:"#eff6ff",
-  text:"#111827", sub:"#6b7280",
-  red:"#b91c1c", green:"#15803d", gold:"#d97706", purple:"#7c3aed",
+  bg:"#121212", surface:"#1a1a1a", border:"#333333", borderStrong:"#4d4d4d",
+  accent:"#FF7A00", accentSubtle:"#2a1c0f",
+  text:"#E0E0E0", sub:"#C0C0C0",
+  red:"#f04545", green:"#3ecf6e", gold:"#FF7A00", purple:"#C0C0C0",
 };
 const fmtBRL  = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
 const fmtDate = d => d ? new Date(d+"T00:00:00").toLocaleDateString("pt-BR") : "—";
 const hoje    = () => new Date().toISOString().slice(0,10);
 
 const BADGE_MAP = {
-  "Publicado":    {bg:"#eff6ff",fg:"#1d4ed8"},
-  "Homologado":   {bg:"#f0fdf4",fg:"#15803d"},
-  "Planejamento": {bg:"#fffbeb",fg:"#b45309"},
-  "Revogado":     {bg:"#fef2f2",fg:"#b91c1c"},
-  "Suspenso":     {bg:"#fffbeb",fg:"#b45309"},
-  "Vigente":      {bg:"#f0fdf4",fg:"#15803d"},
-  "A vencer":     {bg:"#fffbeb",fg:"#b45309"},
-  "Encerrado":    {bg:"#f3f4f6",fg:"#6b7280"},
-  "Vencido":      {bg:"#fef2f2",fg:"#b91c1c"},
-  "Em andamento": {bg:"#eff6ff",fg:"#1d4ed8"},
-  "Concluída":    {bg:"#f0fdf4",fg:"#15803d"},
-  "Cancelada":    {bg:"#fef2f2",fg:"#b91c1c"},
-  "Finalizada":   {bg:"#f0fdf4",fg:"#15803d"},
-  "Em coleta":    {bg:"#eff6ff",fg:"#1d4ed8"},
+  "Publicado":    {bg:"#2a1c0f",fg:"#FF9633"},
+  "Homologado":   {bg:"#12261a",fg:"#3ecf6e"},
+  "Planejamento": {bg:"#2a1c0f",fg:"#FF9633"},
+  "Revogado":     {bg:"#2a1414",fg:"#f04545"},
+  "Suspenso":     {bg:"#2a2a2a",fg:"#C0C0C0"},
+  "Vigente":      {bg:"#12261a",fg:"#3ecf6e"},
+  "A vencer":     {bg:"#2a1c0f",fg:"#FF9633"},
+  "Encerrado":    {bg:"#2a2a2a",fg:"#C0C0C0"},
+  "Vencido":      {bg:"#2a1414",fg:"#f04545"},
+  "Em andamento": {bg:"#2a1c0f",fg:"#FF9633"},
+  "Concluída":    {bg:"#12261a",fg:"#3ecf6e"},
+  "Cancelada":    {bg:"#2a1414",fg:"#f04545"},
+  "Finalizada":   {bg:"#12261a",fg:"#3ecf6e"},
+  "Em coleta":    {bg:"#2a1c0f",fg:"#FF9633"},
 };
 
 function Badge({ label }) {
-  const s = BADGE_MAP[label] || {bg:"#f3f4f6",fg:"#6b7280"};
+  const s = BADGE_MAP[label] || {bg:"#2a2a2a",fg:"#C0C0C0"};
   return (
     <span style={{background:s.bg,color:s.fg,borderRadius:999,padding:"3px 10px",fontSize:11,fontWeight:600,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:4}}>
       <span style={{width:5,height:5,borderRadius:"50%",background:"currentColor"}}/>
@@ -61,7 +61,7 @@ function Modal({ title, subtitle, onClose, children }) {
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:13}}>{children}</div>
         <div style={{marginTop:22,textAlign:"center"}}>
-          <button onClick={onClose} style={{background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"9px 28px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Fechar</button>
+          <button onClick={onClose} style={{background:C.accent,color:"#121212",border:"none",borderRadius:8,padding:"9px 28px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Fechar</button>
         </div>
       </div>
     </div>
@@ -112,16 +112,16 @@ function Tabela({ cols, rows, onRow }) {
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
-            <tr style={{background:"#f8fafc"}}>
+            <tr style={{background:"#1f1f1f"}}>
               {cols.map(c=><th key={c.label} style={{padding:"11px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.sub,textTransform:"uppercase",letterSpacing:"0.06em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{c.label}</th>)}
             </tr>
           </thead>
           <tbody>
             {rows.map((r,i)=>(
               <tr key={r.id||i} onClick={()=>onRow&&onRow(r)}
-                style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"#fff":"#fafbfc",cursor:onRow?"pointer":"default",transition:"background 0.1s"}}
+                style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"#1a1a1a":"#1f1f1f",cursor:onRow?"pointer":"default",transition:"background 0.1s"}}
                 onMouseEnter={e=>{if(onRow)e.currentTarget.style.background=C.accentSubtle}}
-                onMouseLeave={e=>{e.currentTarget.style.background=i%2===0?"#fff":"#fafbfc"}}>
+                onMouseLeave={e=>{e.currentTarget.style.background=i%2===0?"#1a1a1a":"#1f1f1f"}}>
                 {cols.map(c=><td key={c.label} style={{padding:"12px 14px",...(c.style||{})}}>{c.render(r)}</td>)}
               </tr>
             ))}
@@ -165,7 +165,7 @@ function TabDashboard({ data }) {
     {label:"Dispensas (Art. 75)",    value:dispensas.length,       color:"#f59e0b", icon:"⚡"},
     {label:"Inexigibilidades",       value:inexigibilidades.length, color:C.purple,  icon:"🛡️"},
     {label:"Atas de RP Vigentes",    value:atasVig,                color:C.green,   icon:"📑"},
-    {label:"Contratos Vigentes",     value:contVig,                color:"#0891b2", icon:"📃"},
+    {label:"Contratos Vigentes",     value:contVig,                color:"#FFA347", icon:"📃"},
     {label:"Valor Total Empenhado",  value:fmtBRL(total),          color:C.red,     icon:"💰", wide:true},
   ];
 
@@ -416,13 +416,13 @@ function TabOrgaos({ orgaos, processos, isMobile }) {
         :<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead>
-                <tr style={{background:"#f8fafc"}}>
+                <tr style={{background:"#1f1f1f"}}>
                   {["Órgão / Secretaria","Responsável","Processos Vinculados"].map(h=><th key={h} style={{padding:"11px 16px",textAlign:"left",fontSize:11,fontWeight:700,color:C.sub,textTransform:"uppercase",letterSpacing:"0.06em",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((o,i)=>(
-                  <tr key={o.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"#fff":"#fafbfc"}}>
+                  <tr key={o.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"#1a1a1a":"#1f1f1f"}}>
                     <td style={{padding:"13px 16px",fontWeight:600,color:C.text}}>{o.nome||"—"}</td>
                     <td style={{padding:"13px 16px",color:C.sub}}>{o.responsavel||"—"}</td>
                     <td style={{padding:"13px 16px"}}>
@@ -478,14 +478,14 @@ export default function Portal() {
 
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",background:C.bg,fontFamily:"'Inter',system-ui,sans-serif",color:C.text}}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:#f1f5f9} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:#1a1a1a} ::-webkit-scrollbar-thumb{background:#4d4d4d;border-radius:3px}`}</style>
 
       {/* HEADER */}
       <header style={{background:C.surface,borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
         <div style={{padding:isMobile?"0 14px":"0 32px",height:56,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <div style={{width:32,height:32,background:C.accent,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#121212" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
             </div>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:C.text,letterSpacing:-0.3}}>Gov<span style={{color:C.accent}}>Core</span></div>
@@ -536,7 +536,7 @@ export default function Portal() {
             <div style={{fontSize:32,opacity:0.3}}>⚠️</div>
             <div style={{fontSize:15,fontWeight:700,color:C.red}}>Erro ao carregar dados</div>
             <div style={{fontSize:13,color:C.sub,maxWidth:480}}>{erro}</div>
-            <button onClick={()=>window.location.reload()} style={{marginTop:8,background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"9px 24px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Tentar novamente</button>
+            <button onClick={()=>window.location.reload()} style={{marginTop:8,background:C.accent,color:"#121212",border:"none",borderRadius:8,padding:"9px 24px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Tentar novamente</button>
           </div>
         ):(
           <>

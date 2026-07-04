@@ -1,13 +1,13 @@
 import Icon from "./Icon.jsx";
 
 const S = {
-  bg:      "#1e3a5f",
-  text:    "#e2e8f0",
-  muted:   "#94a3b8",
-  hover:   "#243b5e",
-  active:  "#2d4f80",
-  border:  "rgba(255,255,255,0.08)",
-  primary: "#60a5fa",
+  bg:      "#161616",
+  text:    "#E0E0E0",
+  muted:   "#9a9a9a",
+  hover:   "#232323",
+  active:  "#2a2a2a",
+  border:  "rgba(255,122,0,0.15)",
+  primary: "#FF7A00",
 };
 
 export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt, installPWA, prefeitura, municipio }) {
@@ -30,13 +30,13 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
         display:"flex", alignItems:"center", gap:10, flexShrink:0,
       }}>
         <div style={{
-          width:32, height:32, background:"#1d4ed8", borderRadius:8,
+          width:32, height:32, background:"#FF7A00", borderRadius:8,
           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
         }}>
-          <Icon name="dashboard" size={15} color="#fff" />
+          <Icon name="dashboard" size={15} color="#121212" />
         </div>
         <div>
-          <div style={{ fontSize:16, fontWeight:700, color:"#ffffff", letterSpacing:-0.3 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:"#E0E0E0", letterSpacing:-0.3 }}>
             GovCore
           </div>
           <div style={{ fontSize:10, color:S.muted, marginTop:1 }}>Lei 14.133 / 2021</div>
@@ -77,7 +77,7 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
               <span style={{ flex:1 }}>{t.label}</span>
               {t.id === "claude" && (
                 <span style={{
-                  background:"rgba(96,165,250,0.15)", color:S.primary,
+                  background:"rgba(255,122,0,0.15)", color:S.primary,
                   borderRadius:4, padding:"1px 6px", fontSize:9, fontWeight:700,
                 }}>AI</span>
               )}
@@ -90,12 +90,12 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
       {deferredPrompt && (
         <div style={{ padding:"10px 12px", borderTop:`1px solid ${S.border}` }}>
           <button onClick={installPWA} style={{
-            width:"100%", background:"#1d4ed8", border:"none", borderRadius:8,
-            padding:"9px 12px", color:"#fff", fontSize:12, fontWeight:600,
+            width:"100%", background:"#FF7A00", border:"none", borderRadius:8,
+            padding:"9px 12px", color:"#121212", fontSize:12, fontWeight:600,
             cursor:"pointer", fontFamily:"inherit",
             display:"flex", alignItems:"center", justifyContent:"center", gap:6,
           }}>
-            <Icon name="install" size={13} color="#fff" /> Instalar App
+            <Icon name="install" size={13} color="#121212" /> Instalar App
           </button>
         </div>
       )}
@@ -106,7 +106,7 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
           <div style={{
             width:32, height:32, background:"rgba(255,255,255,0.1)", borderRadius:"50%",
             display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:11, fontWeight:700, color:"#ffffff", flexShrink:0,
+            fontSize:11, fontWeight:700, color:"#E0E0E0", flexShrink:0,
             border:`1px solid ${S.border}`,
           }}>{initials}</div>
           <div style={{ minWidth: 0 }}>

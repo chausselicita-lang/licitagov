@@ -20,7 +20,7 @@ export default function Btn({
       onMouseLeave={() => setHov(false)}
       style={{
         background: variant === "solid" ? solidBg : outlineBg,
-        color:      variant === "solid" ? "#ffffff" : color,
+        color:      variant === "solid" ? "#121212" : color,
         border:     variant === "solid" ? "none" : `1px solid ${hov ? C.borderStrong : C.border}`,
         borderRadius: 8,
         padding: pad,

@@ -2,22 +2,22 @@ import Icon from "./Icon.jsx";
 import { fmtBRL, diasParaVencer } from "../lib/utils.js";
 
 const K = {
-  card:    "#ffffff",
-  border:  "#e4e8ef",
-  text:    "#111827",
-  sub:     "#6b7280",
-  accent:  "#1d4ed8",
-  accentL: "#eff6ff",
-  teal:    "#0891b2",
-  tealL:   "#ecfeff",
-  green:   "#15803d",
-  greenL:  "#f0fdf4",
-  gold:    "#b45309",
-  goldL:   "#fffbeb",
-  red:     "#b91c1c",
-  redL:    "#fef2f2",
-  purple:  "#8b5cf6",
-  purpleL: "#ede9fe",
+  card:    "#1a1a1a",
+  border:  "#333333",
+  text:    "#E0E0E0",
+  sub:     "#C0C0C0",
+  accent:  "#FF7A00",
+  accentL: "#2a1c0f",
+  teal:    "#FFA347",
+  tealL:   "#2a1c0f",
+  green:   "#3ecf6e",
+  greenL:  "#12261a",
+  gold:    "#FF7A00",
+  goldL:   "#2a1c0f",
+  red:     "#f04545",
+  redL:    "#2a1414",
+  purple:  "#C0C0C0",
+  purpleL: "#2a2a2a",
 };
 
 function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
