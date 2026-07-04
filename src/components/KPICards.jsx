@@ -2,8 +2,8 @@ import Icon from "./Icon.jsx";
 import { fmtBRL, diasParaVencer } from "../lib/utils.js";
 
 const K = {
-  card:    "#1a1a1a",
-  border:  "#333333",
+  card:    "#121212",
+  border:  "#2a2a2a",
   text:    "#E0E0E0",
   sub:     "#C0C0C0",
   accent:  "#FF7A00",
@@ -35,7 +35,7 @@ function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
         display:"flex", alignItems:"center", justifyContent:"space-between", gap:10,
       }}>
         <div>
-          <div style={{ fontSize:16, fontWeight:800, color:K.text, lineHeight:1.1 }}>{value}</div>
+          <div style={{ fontSize:16, fontWeight:800, color:c, lineHeight:1.1 }}>{value}</div>
           {sub && <div style={{ fontSize:10, color:K.sub, marginTop:2 }}>{sub}</div>}
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
@@ -72,7 +72,7 @@ function KpiCard({ label, value, sub, icon, accent, accentLt, wide }) {
           <Icon name={icon} size={11} color="currentColor" />
         </span>
       </div>
-      <div style={{ fontSize:16, fontWeight:800, color:K.text, lineHeight:1.2, wordBreak:"break-word" }}>
+      <div style={{ fontSize:16, fontWeight:800, color:c, lineHeight:1.2, wordBreak:"break-word" }}>
         {value}
       </div>
       {sub && <div style={{ fontSize:10, color:K.sub, marginTop:3 }}>{sub}</div>}

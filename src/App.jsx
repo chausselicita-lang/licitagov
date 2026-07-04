@@ -7,9 +7,9 @@ export class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ minHeight:'100vh', background:'#121212', color:'#E0E0E0', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Inter',system-ui,sans-serif", gap:12 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:'#f04545' }}>Erro na aplicação</div>
-          <div style={{ fontSize:13, color:'#C0C0C0', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
+        <div style={{ minHeight:'100vh', background:'#f5f5f5', color:'#111827', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Inter',system-ui,sans-serif", gap:12 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:'#b91c1c' }}>Erro na aplicação</div>
+          <div style={{ fontSize:13, color:'#6b7280', maxWidth:600, textAlign:'center' }}>{this.state.error.message}</div>
           <button onClick={()=>window.location.reload()} style={{ marginTop:8, padding:'8px 20px', background:'#FF7A00', color:'#121212', border:'none', borderRadius:8, cursor:'pointer', fontSize:13, fontFamily:"'Inter',system-ui,sans-serif", fontWeight:600 }}>Recarregar</button>
         </div>
       );
@@ -36,27 +36,27 @@ import StatusBadge from "./components/StatusBadge.jsx";
 ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg:           "#121212",
-  surface:      "#1a1a1a",
-  card:         "#1a1a1a",
-  overlay:      "#1f1f1f",
-  subtle:       "#232323",
-  border:       "#333333",
-  borderStrong: "#4d4d4d",
+  bg:           "#f5f5f5",
+  surface:      "#ffffff",
+  card:         "#ffffff",
+  overlay:      "#f8fafc",
+  subtle:       "#f1f5f9",
+  border:       "#e4e8ef",
+  borderStrong: "#cbd5e1",
   accent:       "#FF7A00",
   accentHover:  "#e56e00",
-  accentSubtle: "#2a1c0f",
+  accentSubtle: "#fff1e6",
   accentBorder: "#FF7A0055",
-  accent2:      "#FFA347",
-  gold:         "#FF7A00",
-  red:          "#f04545",
-  green:        "#3ecf6e",
-  amber:        "#FF7A00",
-  purple:       "#C0C0C0",
-  text:         "#E0E0E0",
-  sub:          "#C0C0C0",
-  subL:         "#B0B0B0",
-  tertiary:     "#9a9a9a",
+  accent2:      "#FF9633",
+  gold:         "#b45309",
+  red:          "#b91c1c",
+  green:        "#15803d",
+  amber:        "#b45309",
+  purple:       "#6b7280",
+  text:         "#111827",
+  sub:          "#6b7280",
+  subL:         "#6b7280",
+  tertiary:     "#9ca3af",
 };
 
 const fmtBRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
@@ -168,25 +168,25 @@ const SEED = {
 
 function Badge({ label, color }) {
   const map = {
-    "Vigente":      { bg:"#12261a", fg:"#3ecf6e" },
-    "A vencer":     { bg:"#2a1c0f", fg:"#FF9633" },
-    "Encerrado":    { bg:"#2a2a2a", fg:"#C0C0C0" },
-    "Vencido":      { bg:"#2a1414", fg:"#f04545" },
-    "Homologado":   { bg:"#12261a", fg:"#3ecf6e" },
-    "Em andamento": { bg:"#2a1c0f", fg:"#FF9633" },
-    "Publicado":    { bg:"#2a1c0f", fg:"#FF9633" },
-    "Planejamento": { bg:"#2a1c0f", fg:"#FF9633" },
-    "Revogado":     { bg:"#2a1414", fg:"#f04545" },
-    "Suspenso":     { bg:"#2a2a2a", fg:"#C0C0C0" },
-    "Finalizada":   { bg:"#12261a", fg:"#3ecf6e" },
-    "Em coleta":    { bg:"#2a1c0f", fg:"#FF9633" },
-    "Rascunho":     { bg:"#2a2a2a", fg:"#C0C0C0" },
-    "Concluída":    { bg:"#12261a", fg:"#3ecf6e" },
-    "Cancelada":    { bg:"#2a1414", fg:"#f04545" },
+    "Vigente":      { bg:"#f0fdf4", fg:"#15803d" },
+    "A vencer":     { bg:"#fff1e6", fg:"#c25a00" },
+    "Encerrado":    { bg:"#f3f4f6", fg:"#6b7280" },
+    "Vencido":      { bg:"#fef2f2", fg:"#b91c1c" },
+    "Homologado":   { bg:"#f0fdf4", fg:"#15803d" },
+    "Em andamento": { bg:"#fff1e6", fg:"#c25a00" },
+    "Publicado":    { bg:"#fff1e6", fg:"#c25a00" },
+    "Planejamento": { bg:"#fff1e6", fg:"#c25a00" },
+    "Revogado":     { bg:"#fef2f2", fg:"#b91c1c" },
+    "Suspenso":     { bg:"#f3f4f6", fg:"#6b7280" },
+    "Finalizada":   { bg:"#f0fdf4", fg:"#15803d" },
+    "Em coleta":    { bg:"#fff1e6", fg:"#c25a00" },
+    "Rascunho":     { bg:"#f3f4f6", fg:"#6b7280" },
+    "Concluída":    { bg:"#f0fdf4", fg:"#15803d" },
+    "Cancelada":    { bg:"#fef2f2", fg:"#b91c1c" },
   };
   const preset = map[label];
-  const bg = preset ? preset.bg : "#2a2a2a";
-  const fg = color || (preset ? preset.fg : "#C0C0C0");
+  const bg = preset ? preset.bg : "#f3f4f6";
+  const fg = color || (preset ? preset.fg : "#6b7280");
   return (
     <span style={{
       display:"inline-flex", alignItems:"center", gap:5,
@@ -289,7 +289,7 @@ function Toast({ msg, type }) {
   return (
     <div style={{
       position:"fixed", top:20, right:20, zIndex:500,
-      background:c, color:"#121212", borderRadius:8,
+      background:c, color:"#fff", borderRadius:8,
       padding:"11px 18px", fontSize:13, fontWeight:500,
       boxShadow:`0 4px 16px ${c}44`, maxWidth:320,
       animation:"slideIn 0.22s ease",
@@ -313,19 +313,19 @@ function KpiCard({ label, value, sub, color=C.accent }) {
   return (
     <div
       style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
+        background: "#121212",
+        border: `1px solid #2a2a2a`,
         borderRadius: 12,
         padding: "16px",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
         transition:"border-color 0.14s",
       }}
-      onMouseEnter={e => e.currentTarget.style.borderColor=`${color}44`}
-      onMouseLeave={e => e.currentTarget.style.borderColor=C.border}
+      onMouseEnter={e => e.currentTarget.style.borderColor=`${color}66`}
+      onMouseLeave={e => e.currentTarget.style.borderColor="#2a2a2a"}
     >
-      <div style={{ fontSize:11, color:C.sub, fontWeight:500, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
-      <div style={{ fontSize:18, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif", lineHeight:1.2, wordBreak:"break-word" }}>{value}</div>
-      {sub && <div style={{ fontSize:12, color:C.sub, marginTop:5 }}>{sub}</div>}
+      <div style={{ fontSize:11, color:"#c0c0c0", fontWeight:500, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
+      <div style={{ fontSize:18, fontWeight:700, color, fontFamily:"Inter,system-ui,sans-serif", lineHeight:1.2, wordBreak:"break-word" }}>{value}</div>
+      {sub && <div style={{ fontSize:12, color:"#9a9a9a", marginTop:5 }}>{sub}</div>}
     </div>
   );
 }
@@ -335,13 +335,13 @@ function GlobalStyles() {
   return (
     <style>{`
       *{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#121212;color:#E0E0E0;}
+      body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#111827;}
       ::-webkit-scrollbar{width:5px;height:5px;}
       ::-webkit-scrollbar-track{background:transparent;}
-      ::-webkit-scrollbar-thumb{background:#4d4d4d;border-radius:3px;}
-      ::-webkit-scrollbar-thumb:hover{background:#666666;}
+      ::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
+      ::-webkit-scrollbar-thumb:hover{background:#cbd5e1;}
       button,input,select,textarea{font-family:inherit;}
-      input::placeholder,textarea::placeholder{color:#9a9a9a;}
+      input::placeholder,textarea::placeholder{color:#9ca3af;}
       @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
       @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
       @keyframes dots{0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'}}
@@ -670,12 +670,12 @@ function TabDashboard({ data, onViewProcessos }) {
       <ProcessosTable processos={processos} onViewAll={onViewProcessos} />
 
       {vencendo.length > 0 && (
-        <div style={{ background:"#2a1414", border:"1px solid #4a2020", borderRadius:12, padding:18 }}>
+        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:12, padding:18 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:C.red, marginBottom:12 }}>
             <Icon name="warning" size={14} color={C.red} /> Contratos a vencer em 30 dias
           </div>
           {vencendo.map(c => (
-            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #4a2020", flexWrap:"wrap", gap:8 }}>
+            <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid #fecaca", flexWrap:"wrap", gap:8 }}>
               <div>
                 <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.numero} — {c.objeto}</div>
                 <div style={{ fontSize:12, color:C.sub }}>{c.fornecedor}</div>
@@ -1969,9 +1969,9 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {filtered.map(it => (
             <div key={it.id} style={{
-              background:C.card, border:`1px solid ${C.border}`,
-              borderLeft:`4px solid ${CD_STATUS_COLOR[it.status]||C.border}`,
-              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
+              background:"#121212", border:"1px solid #2a2a2a",
+              borderLeft:`4px solid ${CD_STATUS_COLOR[it.status]||color}`,
+              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.25)",
               display:"flex", flexDirection:"column", gap:8,
             }}>
               {/* Linha 1: número + badge */}
@@ -1980,13 +1980,13 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
                 <Badge label={it.status} />
               </div>
               {/* Linha 2: valor */}
-              <div style={{ fontSize:22, fontWeight:700, color:C.text, lineHeight:1.1 }}>{fmtBRL(it.valor_total)}</div>
+              <div style={{ fontSize:22, fontWeight:700, color, lineHeight:1.1 }}>{fmtBRL(it.valor_total)}</div>
               {/* Linha 3: objeto */}
-              <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.5, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{it.objeto}</div>
+              <div style={{ fontSize:14, fontWeight:600, color:"#e0e0e0", lineHeight:1.5, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{it.objeto}</div>
               {/* Linha 4: contratada */}
-              <div style={{ fontSize:12, color:C.sub, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{it.contratada}</div>
+              <div style={{ fontSize:12, color:"#a0a0a0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{it.contratada}</div>
               {/* Linha 5: CNPJ · Vigência */}
-              <div style={{ fontSize:12, color:C.tertiary }}>
+              <div style={{ fontSize:12, color:"#8a8a8a" }}>
                 {it.cnpj ? `CNPJ ${it.cnpj}` : ""}
                 {it.cnpj && it.vigencia ? " · " : ""}
                 {it.vigencia ? `Vigência: ${fmtDate(it.vigencia)}` : ""}

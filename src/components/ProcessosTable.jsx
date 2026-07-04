@@ -2,13 +2,13 @@ import StatusBadge from "./StatusBadge.jsx";
 import { fmtBRL } from "../lib/utils.js";
 
 const P = {
-  card:    "#1a1a1a",
-  border:  "#333333",
-  subtle:  "#232323",
-  text:    "#E0E0E0",
-  sub:     "#C0C0C0",
+  card:    "#ffffff",
+  border:  "#e4e8ef",
+  subtle:  "#f8fafc",
+  text:    "#111827",
+  sub:     "#6b7280",
   accent:  "#FF7A00",
-  hover:   "#232323",
+  hover:   "#f8fafc",
 };
 
 export default function ProcessosTable({ processos, onViewAll }) {

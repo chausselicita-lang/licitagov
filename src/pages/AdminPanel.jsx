@@ -3,17 +3,17 @@ import { getSupabase } from "../lib/supabase.js";
 import { useOverlayBack } from "../lib/useOverlayBack.js";
 
 const C = {
-  bg: "#121212",
-  surface: "#1a1a1a",
-  border: "#333333",
-  borderStrong: "#4d4d4d",
+  bg: "#f5f5f5",
+  surface: "#ffffff",
+  border: "#e4e8ef",
+  borderStrong: "#cbd5e1",
   accent: "#FF7A00",
-  accentSubtle: "#2a1c0f",
-  text: "#E0E0E0",
-  sub: "#C0C0C0",
-  red: "#f04545",
-  green: "#3ecf6e",
-  gold: "#FF7A00",
+  accentSubtle: "#fff1e6",
+  text: "#111827",
+  sub: "#6b7280",
+  red: "#b91c1c",
+  green: "#15803d",
+  gold: "#b45309",
   sidebar: "#161616",
   sideText: "#E0E0E0",
   sideMuted: "#9a9a9a",
@@ -53,7 +53,7 @@ function Icon({ name, size = 16, color = "currentColor" }) {
 function Toast({ msg, type }) {
   const bg = type === "error" ? C.red : type === "warn" ? C.gold : C.green;
   return (
-    <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: bg, color: "#121212", borderRadius: 8, padding: "11px 18px", fontSize: 13, fontWeight: 500, boxShadow: `0 4px 16px ${bg}44`, maxWidth: 340, animation: "slideIn 0.22s ease" }}>
+    <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: bg, color: "#fff", borderRadius: 8, padding: "11px 18px", fontSize: 13, fontWeight: 500, boxShadow: `0 4px 16px ${bg}44`, maxWidth: 340, animation: "slideIn 0.22s ease" }}>
       {msg}
     </div>
   );
@@ -406,7 +406,7 @@ function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: "#1f1f1f" }}>
+              <tr style={{ background: "#f8fafc" }}>
                 {["Prefeitura", "Município", "Responsável", "Email", "Status", "Criada em", "Ações"].map(h => (
                   <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
@@ -414,13 +414,13 @@ function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo
             </thead>
             <tbody>
               {prefeituras.map((p, i) => (
-                <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#1a1a1a" : "#1f1f1f" }}>
+                <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                   <td style={{ padding: "12px 14px", fontWeight: 600, color: C.text }}>{p.prefeitura_nome || "—"}</td>
                   <td style={{ padding: "12px 14px", color: C.sub }}>{p.prefeitura_municipio || "—"}</td>
                   <td style={{ padding: "12px 14px", color: C.text }}>{p.nome || "—"}</td>
                   <td style={{ padding: "12px 14px", color: C.sub, fontSize: 12 }}>{p.email}</td>
                   <td style={{ padding: "12px 14px" }}>
-                    <span style={{ background: p.ativo !== false ? "#12261a" : "#2a1414", color: p.ativo !== false ? C.green : C.red, borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ background: p.ativo !== false ? "#f0fdf4" : "#fef2f2", color: p.ativo !== false ? C.green : C.red, borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
                       <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />
                       {p.ativo !== false ? "Ativa" : "Bloqueada"}
                     </span>
@@ -429,12 +429,12 @@ function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo
                   <td style={{ padding: "12px 14px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => onImpersonate(p)} title="Acessar como esta prefeitura"
-                        style={{ background: "#2a1c0f", border: "none", borderRadius: 6, padding: "5px 10px", color: C.accent, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+                        style={{ background: "#fff1e6", border: "none", borderRadius: 6, padding: "5px 10px", color: C.accent, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
                         <Icon name="eye" size={12} color={C.accent} />
                         Acessar como
                       </button>
                       <button onClick={() => onToggleAtivo(p.id, p.ativo !== false)} title={p.ativo !== false ? "Bloquear" : "Reativar"}
-                        style={{ background: p.ativo !== false ? "#2a1414" : "#12261a", border: "none", borderRadius: 6, padding: "5px 10px", color: p.ativo !== false ? C.red : C.green, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+                        style={{ background: p.ativo !== false ? "#fef2f2" : "#f0fdf4", border: "none", borderRadius: 6, padding: "5px 10px", color: p.ativo !== false ? C.red : C.green, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
                         <Icon name={p.ativo !== false ? "block" : "check"} size={12} color="currentColor" />
                         {p.ativo !== false ? "Bloquear" : "Reativar"}
                       </button>
@@ -557,7 +557,7 @@ function TabOrgaosAdmin({ showMsg }) {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ background: "#1f1f1f" }}>
+                <tr style={{ background: "#f8fafc" }}>
                   {["Órgão / Secretaria", "Responsável", "E-mail", "Telefone", "Ações"].map(h => (
                     <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{h}</th>
                   ))}
@@ -565,7 +565,7 @@ function TabOrgaosAdmin({ showMsg }) {
               </thead>
               <tbody>
                 {filtered.map((o, i) => (
-                  <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#1a1a1a" : "#1f1f1f" }}>
+                  <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
                     <td style={{ padding: "12px 14px", fontWeight: 600, color: C.text }}>{o.nome || "—"}</td>
                     <td style={{ padding: "12px 14px", color: C.sub }}>{o.responsavel || "—"}</td>
                     <td style={{ padding: "12px 14px", color: C.sub, fontSize: 12 }}>{o.email || "—"}</td>
@@ -578,7 +578,7 @@ function TabOrgaosAdmin({ showMsg }) {
                           Editar
                         </button>
                         <button onClick={() => del(o.id)}
-                          style={{ background: "#2a1414", border: "none", borderRadius: 6, padding: "5px 10px", color: C.red, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+                          style={{ background: "#fef2f2", border: "none", borderRadius: 6, padding: "5px 10px", color: C.red, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
                           <Icon name="trash" size={12} color={C.red} />
                           Excluir
                         </button>
