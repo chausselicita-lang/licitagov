@@ -3744,6 +3744,14 @@ export default function App() {
   const [appData, setAppData] = useState(SEED);
   const [dataLoading, setDataLoading] = useState(true);
   const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = appData;
+  // O Supabase gera um objeto `session` novo (mesma referência não é preservada)
+  // toda vez que renova o token em segundo plano (TOKEN_REFRESHED), o que acontece
+  // sozinho sempre que a aba volta a ficar visível. Sem este guard, o efeito abaixo
+  // reexecutava a cada volta de foco, forçando dataLoading=true de novo — isso
+  // desmontava o AuthedApp inteiro (tela cheia "Carregando dados...") e fechava/zerava
+  // qualquer modal ou formulário aberto (ex.: Configurações Institucionais do Agente
+  // de Dispensas). Mesma classe de bug já corrigida em AuthContext.jsx (profileLoading).
+  const loadedDataUserIdRef = useRef(null);
 
   const setProcessos        = useCallback(fn=>setAppData(prev=>({ ...prev, processos:       typeof fn==="function"?fn(prev.processos):fn })), []);
   const setAtas             = useCallback(fn=>setAppData(prev=>({ ...prev, atas:            typeof fn==="function"?fn(prev.atas):fn })), []);
@@ -3758,10 +3766,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) { setDataLoading(false); return; }
+    const userId = session?.user?.id || null;
+    if (!userId) { setDataLoading(false); loadedDataUserIdRef.current = null; return; }
+    if (loadedDataUserIdRef.current === userId) return; // refresh de token em segundo plano — dados já carregados
     setDataLoading(true);
     loadAllData()
-      .then(data => { setAppData(data); setDataLoading(false); })
+      .then(data => { setAppData(data); setDataLoading(false); loadedDataUserIdRef.current = userId; })
       .catch(err => {
         console.error('[LicitaGov] Erro ao carregar dados:', err);
         showToast('Erro ao carregar dados do servidor: ' + (err.message || 'verifique a conexão'), 'error');
