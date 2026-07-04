@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.0",
+    "docx": "^9.1.0",
+    "pdfmake": "^0.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

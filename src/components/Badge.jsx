@@ -14,6 +14,10 @@ const BADGE_MAP = {
   "Rascunho":     { bg:"#F1F5F9", text:"#64748B", border:"#E2E8F0" },
   "Vence hoje":   { bg:"#FEF3C7", text:"#92400E", border:"#FDE68A" },
   "Vencida":      { bg:"#FEE2E2", text:"#991B1B", border:"#FECACA" },
+  "Bloqueado":    { bg:"#FEE2E2", text:"#991B1B", border:"#FECACA" },
+  "Gerado":       { bg:"#DBEAFE", text:"#1E40AF", border:"#BFDBFE" },
+  "Concluído":    { bg:"#D1FAE5", text:"#065F46", border:"#A7F3D0" },
+  "Validado":     { bg:"#CFFAFE", text:"#164E63", border:"#A5F3FC" },
 };
 
 const FALLBACK = { bg:"#F1F5F9", text:"#475569", border:"#E2E8F0" };

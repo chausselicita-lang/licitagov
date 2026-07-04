@@ -20,6 +20,8 @@ export class ErrorBoundary extends Component {
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
+import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
+import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 import Sidebar from "./components/Sidebar.jsx";
@@ -2078,6 +2080,458 @@ function TabContratacaoDireta({ tipo, color, items, setItems, toast }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   AGENTE DE DISPENSAS — geração automatizada do processo (Lei 14.133/2021)
+   Identidade visual Shawex: Preto · Prata · Laranja Abóbora
+══════════════════════════════════════════════════════════════ */
+const SX = {
+  preto:      "#0a0a0a",
+  pretoSoft:  "#161616",
+  prata:      "#c9cdd3",
+  prataEsc:   "#8b909a",
+  laranja:    "#ff6a00",
+  laranjaEsc: "#cc5500",
+};
+
+const DISPENSA_CONFIG_EMPTY = {
+  id:null, municipio:"", uf:"", cnpjMunicipio:"", endereco:"", cep:"", emailLicitacao:"",
+  prefeitoNome:"", prefeitoCpf:"", agenteContratacaoNome:"", agenteContratacaoMatricula:"",
+  procuradorNome:"", procuradorOab:"", secretarioFinancasNome:"", portariaAgente:"", decretoMunicipal:"",
+};
+
+const DISPENSA_FORM_EMPTY = {
+  id:null,
+  objeto:"", tipoObjeto:"compras_servicos", valorEstimado:"", prazoExecucao:"", unidadeGestora:"",
+  numeroProcesso:"", numeroDispensa:"",
+  secretariaDemandante:"", justificativa:"",
+  dataAbertura:"", dataSessao:"",
+  empresaRazaoSocial:"", empresaCnpj:"", empresaEndereco:"",
+  empresaRepresentante:"", empresaRepresentanteCpf:"", empresaRepresentanteRg:"",
+  dotacaoOrcamentaria:"", fiscalContrato:"", fiscalContratoCpf:"",
+  numeroContrato:"", vigenciaContrato:"12 (doze) meses",
+  itens:[],
+};
+
+function TextArea({ label, value, onChange, rows=3, placeholder="" }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+      {label && <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>{label}</label>}
+      <textarea value={value} onChange={e=>onChange(e.target.value)} rows={rows} placeholder={placeholder}
+        style={{
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+          padding:"8px 11px", color:C.text, fontSize:13, fontFamily:"inherit",
+          outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical",
+        }}
+        onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+        onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+      />
+    </div>
+  );
+}
+
+function TabAgenteDispensas({ toast }) {
+  const isMobile = useMobileCD();
+  const [processos, setProcessos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [modal, setModal] = useState(false);
+  const [configModal, setConfigModal] = useState(false);
+  const [config, setConfig] = useState(DISPENSA_CONFIG_EMPTY);
+  const [form, setForm] = useState(DISPENSA_FORM_EMPTY);
+  const [gerando, setGerando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [salvandoRascunho, setSalvandoRascunho] = useState(false);
+
+  const ff = k => v => setForm(p => ({ ...p, [k]: v }));
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await sbListDispensaProcessos();
+    if (error) toast("Erro ao carregar processos: " + error.message, "error");
+    setProcessos(data);
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  useEffect(() => {
+    sbGetDispensaConfig().then(({ data, error }) => {
+      if (error) { toast("Erro ao carregar configuração institucional: " + error.message, "error"); return; }
+      if (data) setConfig(data);
+    });
+  }, [toast]);
+
+  const valorNum = parseBRL(form.valorEstimado);
+  const validacao = validarLimiteLegal({ tipoObjeto: form.tipoObjeto, valorEstimado: valorNum });
+
+  const openNovo = () => { setForm(DISPENSA_FORM_EMPTY); setResultado(null); setModal(true); };
+  const openEdit = (p) => {
+    setForm({
+      ...DISPENSA_FORM_EMPTY,
+      ...p.dadosComplementares,
+      id: p.id,
+      objeto: p.objeto, tipoObjeto: p.tipoObjeto, valorEstimado: String(p.valorEstimado || ""),
+      prazoExecucao: p.prazoExecucao, unidadeGestora: p.unidadeGestora,
+      numeroProcesso: p.numeroProcesso, numeroDispensa: p.numeroDispensa,
+      itens: (p.dadosComplementares && p.dadosComplementares.itens) || [],
+    });
+    setResultado(p.docxUrl || p.pdfUrl ? { docxUrl:p.docxUrl, pdfUrl:p.pdfUrl } : null);
+    setModal(true);
+  };
+
+  const deletar = async (id) => {
+    if (!window.confirm("Excluir este processo de dispensa? Os arquivos gerados permanecerão no histórico do Storage.")) return;
+    const { error } = await sbDeleteDispensaProcesso(id);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setProcessos(prev => prev.filter(p => p.id !== id));
+    toast("Processo excluído");
+  };
+
+  const montarInput = () => ({
+    id: form.id,
+    objeto: form.objeto,
+    tipoObjeto: form.tipoObjeto,
+    valorEstimado: valorNum,
+    prazoExecucao: form.prazoExecucao,
+    unidadeGestora: form.unidadeGestora,
+    numeroProcesso: form.numeroProcesso,
+    numeroDispensa: form.numeroDispensa,
+    dadosComplementares: {
+      secretariaDemandante: form.secretariaDemandante,
+      justificativa: form.justificativa,
+      dataAbertura: form.dataAbertura,
+      dataSessao: form.dataSessao,
+      empresaRazaoSocial: form.empresaRazaoSocial,
+      empresaCnpj: form.empresaCnpj,
+      empresaEndereco: form.empresaEndereco,
+      empresaRepresentante: form.empresaRepresentante,
+      empresaRepresentanteCpf: form.empresaRepresentanteCpf,
+      empresaRepresentanteRg: form.empresaRepresentanteRg,
+      dotacaoOrcamentaria: form.dotacaoOrcamentaria,
+      fiscalContrato: form.fiscalContrato,
+      fiscalContratoCpf: form.fiscalContratoCpf,
+      numeroContrato: form.numeroContrato,
+      vigenciaContrato: form.vigenciaContrato,
+      itens: form.itens,
+    },
+  });
+
+  const salvarRascunho = async () => {
+    if (!form.objeto) { toast("Informe o objeto da contratação", "error"); return; }
+    setSalvandoRascunho(true);
+    const { data, error } = await sbSaveRascunho(montarInput());
+    setSalvandoRascunho(false);
+    if (error) { toast("Erro ao salvar rascunho: " + error.message, "error"); return; }
+    setForm(f => ({ ...f, id: data.id }));
+    setProcessos(prev => [data, ...prev.filter(p => p.id !== data.id)]);
+    toast("Rascunho salvo");
+  };
+
+  const gerar = async () => {
+    if (!form.objeto || !valorNum) { toast("Informe objeto e valor estimado", "error"); return; }
+    if (!config.municipio) { toast("Configure os dados institucionais (Prefeitura, Prefeito, Agente de Contratação) antes de gerar", "error"); setConfigModal(true); return; }
+    setGerando(true);
+    try {
+      const { processo, docxUrl, pdfUrl } = await gerarProcessoDispensa({ processoId: form.id, input: montarInput(), config });
+      setForm(f => ({ ...f, id: processo.id }));
+      setResultado({ docxUrl, pdfUrl });
+      setProcessos(prev => [processo, ...prev.filter(p => p.id !== processo.id)]);
+      toast("Processo gerado com sucesso!");
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const salvarConfig = async () => {
+    const { data, error } = await sbSaveDispensaConfig(config);
+    if (error) { toast("Erro ao salvar configuração: " + error.message, "error"); return; }
+    setConfig(data);
+    toast("Configuração institucional salva");
+    setConfigModal(false);
+  };
+
+  const addItem = () => setForm(f => ({ ...f, itens: [...f.itens, { descricao:"", unidade:"", quantidade:"", valorUnitario:"" }] }));
+  const updItem = (i, k, v) => setForm(f => {
+    const itens = [...f.itens];
+    itens[i] = { ...itens[i], [k]: v };
+    if (k === "quantidade" || k === "valorUnitario") {
+      itens[i].total = (parseBRL(itens[i].quantidade) || 0) * (parseBRL(itens[i].valorUnitario) || 0);
+    }
+    return { ...f, itens };
+  });
+  const rmItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_, idx) => idx !== i) }));
+
+  const filtered = processos.filter(p => {
+    const s = search.toLowerCase();
+    return (p.objeto||"").toLowerCase().includes(s) || (p.numeroProcesso||"").toLowerCase().includes(s) || (p.numeroDispensa||"").toLowerCase().includes(s);
+  });
+
+  const valorTotal = filtered.reduce((s,p)=>s+(p.valorEstimado||0),0);
+
+  return (
+    <div>
+      <div style={{
+        background: `linear-gradient(135deg, ${SX.preto} 0%, ${SX.pretoSoft} 100%)`,
+        border: `1px solid ${SX.laranja}33`, borderRadius: 12, padding: "18px 20px",
+        marginBottom: 16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
+      }}>
+        <div>
+          <div style={{ fontSize:16, fontWeight:700, color:"#fff", fontFamily:"Inter,system-ui,sans-serif", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="sparkle" size={18} color={SX.laranja} />
+            Agente de Dispensas
+          </div>
+          <div style={{ fontSize:12, color:SX.prata, marginTop:3 }}>Geração automatizada do processo de Dispensa de Licitação — Lei nº 14.133/2021, art. 75, II</div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="outline" color={SX.prata} onClick={()=>setConfigModal(true)} style={{ borderColor:`${SX.prata}55`, color:SX.prata }}>
+            <Icon name="settings" size={14} /> Configurações
+          </Btn>
+          <Btn color={SX.laranja} onClick={openNovo}>
+            <Icon name="plus" size={14} /> Novo Processo
+          </Btn>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por objeto, processo ou dispensa..."
+          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+          onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+      </div>
+
+      {filtered.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:10, marginBottom:16 }}>
+          <KpiCard label="Processos" value={filtered.length} color={SX.laranja} />
+          <KpiCard label="Valor Total Estimado" value={fmtBRL(valorTotal)} color={SX.laranja} />
+          <KpiCard label="Gerados" value={filtered.filter(p=>p.status==="Gerado"||p.status==="Concluído").length} color={C.green} />
+          <KpiCard label="Bloqueados (limite legal)" value={filtered.filter(p=>p.status==="Bloqueado").length} color={C.red} />
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando processos...</div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon="dispensa" title="Nenhum processo de dispensa" sub='Clique em "Novo Processo" para gerar sua primeira dispensa de licitação' />
+      ) : isMobile ? (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {filtered.map(p => (
+            <div key={p.id} style={{
+              background:C.card, border:`1px solid ${C.border}`,
+              borderLeft:`4px solid ${p.excedeLimite ? C.red : SX.laranja}`,
+              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
+              display:"flex", flexDirection:"column", gap:8,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                <span style={{ fontSize:13, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>
+                  Dispensa {p.numeroDispensa || "—"}
+                </span>
+                <Badge label={p.status} color={p.status==="Bloqueado"?C.red:(p.status==="Gerado"||p.status==="Concluído")?C.green:undefined} />
+              </div>
+              <div style={{ fontSize:22, fontWeight:700, color:C.text, lineHeight:1.1 }}>{fmtBRL(p.valorEstimado)}</div>
+              <div style={{ fontSize:14, fontWeight:600, color:C.text, lineHeight:1.5, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{p.objeto}</div>
+              <div style={{ fontSize:12, color:C.sub }}>{p.unidadeGestora}</div>
+              <div style={{ fontSize:12, color:C.tertiary }}>Processo {p.numeroProcesso || "—"}{p.prazoExecucao ? ` · Prazo: ${p.prazoExecucao}` : ""}</div>
+              <div style={{ display:"flex", gap:8, marginTop:4, flexWrap:"wrap" }}>
+                {p.docxUrl && (
+                  <button onClick={()=>window.open(p.docxUrl,"_blank","noopener")}
+                    style={{ flex:1, minHeight:36, background:`${SX.laranja}14`, border:`1px solid ${SX.laranja}55`, borderRadius:8, color:SX.laranjaEsc, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                    DOCX
+                  </button>
+                )}
+                {p.pdfUrl && (
+                  <button onClick={()=>window.open(p.pdfUrl,"_blank","noopener")}
+                    style={{ flex:1, minHeight:36, background:`${SX.preto}0d`, border:`1px solid ${SX.preto}44`, borderRadius:8, color:SX.preto, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                    PDF
+                  </button>
+                )}
+                <button onClick={()=>openEdit(p)}
+                  style={{ flex:1, minHeight:36, background:`${C.accent}12`, border:`1px solid ${C.accent}44`, borderRadius:8, color:C.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  Editar
+                </button>
+                <button onClick={()=>deletar(p.id)}
+                  style={{ flex:1, minHeight:36, background:`${C.red}12`, border:`1px solid ${C.red}44`, borderRadius:8, color:C.red, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  Excluir
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          {filtered.map((p,i) => (
+            <div key={p.id} style={{ padding:"13px 18px", borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${p.excedeLimite ? C.red : SX.laranja}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>Dispensa {p.numeroDispensa || "—"}</span>
+                    <Badge label={p.status} color={p.status==="Bloqueado"?C.red:(p.status==="Gerado"||p.status==="Concluído")?C.green:undefined} />
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.objeto}</div>
+                  <div style={{ fontSize:12, color:C.sub }}>{p.unidadeGestora} · Processo {p.numeroProcesso || "—"}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ textAlign:"right", marginRight:4 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmtBRL(p.valorEstimado)}</div>
+                  </div>
+                  {p.docxUrl && <IconBtn name="file" color={SX.laranjaEsc} title="Baixar .docx" onClick={()=>window.open(p.docxUrl,"_blank","noopener")} />}
+                  {p.pdfUrl && <IconBtn name="file" color={SX.preto} title="Baixar .pdf" onClick={()=>window.open(p.pdfUrl,"_blank","noopener")} />}
+                  <IconBtn name="edit" color={C.accent} title="Editar" onClick={()=>openEdit(p)} />
+                  <IconBtn name="trash" color={C.red} title="Excluir" onClick={()=>deletar(p.id)} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modal && (
+        <Modal title={form.id ? "Editar Processo de Dispensa" : "Novo Processo de Dispensa"} onClose={()=>setModal(false)} wide>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+            <div style={{ fontSize:11, fontWeight:700, color:SX.laranjaEsc, textTransform:"uppercase", letterSpacing:"0.05em" }}>1. Dados da Contratação</div>
+            <TextArea label="Objeto da Contratação" value={form.objeto} onChange={ff("objeto")} rows={2} placeholder="Descreva o objeto a ser contratado" />
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Select label="Tipo do Objeto" value={form.tipoObjeto} onChange={ff("tipoObjeto")} options={TIPOS_OBJETO} />
+              <Input label="Valor Estimado (R$)" value={form.valorEstimado} onChange={ff("valorEstimado")} placeholder="0,00" required />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Prazo de Execução" value={form.prazoExecucao} onChange={ff("prazoExecucao")} placeholder="Ex.: 12 meses" />
+              <Input label="Unidade Gestora" value={form.unidadeGestora} onChange={ff("unidadeGestora")} placeholder="Ex.: Secretaria Municipal de Obras" />
+            </div>
+
+            <div style={{
+              background: validacao.excede ? "#fef2f2" : "#f0fdf4",
+              border: `1px solid ${validacao.excede ? "#fecaca" : "#bbf7d0"}`,
+              borderRadius:8, padding:"12px 14px", display:"flex", gap:10, alignItems:"flex-start",
+            }}>
+              <Icon name="warning" size={16} color={validacao.excede ? C.red : C.green} />
+              <div style={{ fontSize:12.5, color: validacao.excede ? "#991b1b" : "#166534", lineHeight:1.5 }}>{validacao.mensagem}</div>
+            </div>
+
+            <div style={{ fontSize:11, fontWeight:700, color:SX.laranjaEsc, textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6 }}>2. Numeração e Datas</div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Número do Processo Administrativo" value={form.numeroProcesso} onChange={ff("numeroProcesso")} placeholder="013/2026" />
+              <Input label="Número da Dispensa" value={form.numeroDispensa} onChange={ff("numeroDispensa")} placeholder="005/2026" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Data de Abertura" value={form.dataAbertura} onChange={ff("dataAbertura")} type="date" />
+              <Input label="Data da Sessão/Ratificação" value={form.dataSessao} onChange={ff("dataSessao")} type="date" />
+            </div>
+
+            <div style={{ fontSize:11, fontWeight:700, color:SX.laranjaEsc, textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6 }}>3. Justificativa e Unidade Demandante</div>
+            <Input label="Secretaria/Unidade Demandante" value={form.secretariaDemandante} onChange={ff("secretariaDemandante")} placeholder="Ex.: Secretaria Municipal de Planejamento e Obras" />
+            <TextArea label="Justificativa da Necessidade" value={form.justificativa} onChange={ff("justificativa")} rows={3} placeholder="Justificativa técnica da contratação (opcional — o Agente gera um texto padrão se deixado em branco)" />
+
+            <div style={{ fontSize:11, fontWeight:700, color:SX.laranjaEsc, textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6 }}>4. Empresa Vencedora (complementar após cotação)</div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Razão Social" value={form.empresaRazaoSocial} onChange={ff("empresaRazaoSocial")} placeholder="Razão social da empresa" />
+              <Input label="CNPJ" value={form.empresaCnpj} onChange={ff("empresaCnpj")} placeholder="00.000.000/0001-00" />
+            </div>
+            <Input label="Endereço da Empresa" value={form.empresaEndereco} onChange={ff("empresaEndereco")} placeholder="Endereço completo" />
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap:12 }}>
+              <Input label="Representante" value={form.empresaRepresentante} onChange={ff("empresaRepresentante")} placeholder="Nome do representante" />
+              <Input label="CPF do Representante" value={form.empresaRepresentanteCpf} onChange={ff("empresaRepresentanteCpf")} placeholder="000.000.000-00" />
+              <Input label="RG do Representante" value={form.empresaRepresentanteRg} onChange={ff("empresaRepresentanteRg")} placeholder="00.000.000-0" />
+            </div>
+
+            <div style={{ fontSize:11, fontWeight:700, color:SX.laranjaEsc, textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6 }}>5. Dotação, Contrato e Fiscalização</div>
+            <TextArea label="Dotação Orçamentária" value={form.dotacaoOrcamentaria} onChange={ff("dotacaoOrcamentaria")} rows={2} placeholder="Poder / Órgão / Unidade / Elemento de despesa / Fonte de recurso" />
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Número do Contrato" value={form.numeroContrato} onChange={ff("numeroContrato")} placeholder="001/2026" />
+              <Input label="Vigência do Contrato" value={form.vigenciaContrato} onChange={ff("vigenciaContrato")} placeholder="12 (doze) meses" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Fiscal do Contrato" value={form.fiscalContrato} onChange={ff("fiscalContrato")} placeholder="Nome do fiscal designado" />
+              <Input label="CPF do Fiscal" value={form.fiscalContratoCpf} onChange={ff("fiscalContratoCpf")} placeholder="000.000.000-00" />
+            </div>
+
+            <div style={{ fontSize:11, fontWeight:700, color:SX.laranjaEsc, textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6 }}>6. Itens / Planilha de Custos (opcional)</div>
+            {form.itens.map((it, i) => (
+              <div key={i} style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "3fr 1fr 1fr 1fr auto", gap:8, alignItems:"end" }}>
+                <Input label={i===0 ? "Descrição" : undefined} value={it.descricao} onChange={v=>updItem(i,"descricao",v)} placeholder="Descrição do item" />
+                <Input label={i===0 ? "Unid." : undefined} value={it.unidade} onChange={v=>updItem(i,"unidade",v)} placeholder="UND" />
+                <Input label={i===0 ? "Quant." : undefined} value={it.quantidade} onChange={v=>updItem(i,"quantidade",v)} placeholder="0" />
+                <Input label={i===0 ? "V. Unit." : undefined} value={it.valorUnitario} onChange={v=>updItem(i,"valorUnitario",v)} placeholder="0,00" />
+                <button onClick={()=>rmItem(i)} style={{ height:36, background:`${C.red}12`, border:`1px solid ${C.red}44`, borderRadius:6, color:C.red, cursor:"pointer" }}>
+                  <Icon name="trash" size={14} />
+                </button>
+              </div>
+            ))}
+            <Btn variant="outline" color={SX.laranjaEsc} onClick={addItem} style={{ alignSelf:"flex-start" }}>
+              <Icon name="plus" size={13} /> Adicionar Item
+            </Btn>
+
+            {resultado && (
+              <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:14, display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:"#166534" }}>Processo gerado com sucesso!</div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {resultado.docxUrl && <Btn color={SX.laranja} onClick={()=>window.open(resultado.docxUrl,"_blank","noopener")}><Icon name="file" size={14}/> Baixar .DOCX</Btn>}
+                  {resultado.pdfUrl && <Btn color={SX.preto} onClick={()=>window.open(resultado.pdfUrl,"_blank","noopener")}><Icon name="file" size={14}/> Baixar .PDF</Btn>}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8, flexWrap:"wrap" }}>
+              <Btn variant="outline" onClick={()=>setModal(false)} color={C.sub}>Fechar</Btn>
+              <Btn variant="outline" color={SX.prataEsc} disabled={salvandoRascunho} onClick={salvarRascunho} style={{ borderColor:`${SX.prataEsc}55` }}>
+                {salvandoRascunho ? "Salvando..." : "Salvar Rascunho"}
+              </Btn>
+              <Btn color={SX.laranja} disabled={gerando || validacao.excede} onClick={gerar}>
+                {gerando ? "Gerando documentos..." : "Gerar Processo (.docx + .pdf)"}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {configModal && (
+        <Modal title="Configurações Institucionais" onClose={()=>setConfigModal(false)} wide>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:12, color:C.sub, marginBottom:4 }}>
+              Estes dados são reutilizados automaticamente em todos os processos gerados pelo Agente de Dispensas.
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap:12 }}>
+              <Input label="Município" value={config.municipio} onChange={v=>setConfig(c=>({...c,municipio:v}))} placeholder="Ex.: Mascote" />
+              <Input label="UF" value={config.uf} onChange={v=>setConfig(c=>({...c,uf:v}))} placeholder="BA" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="CNPJ do Município" value={config.cnpjMunicipio} onChange={v=>setConfig(c=>({...c,cnpjMunicipio:v}))} placeholder="00.000.000/0001-00" />
+              <Input label="E-mail do Setor de Licitações" value={config.emailLicitacao} onChange={v=>setConfig(c=>({...c,emailLicitacao:v}))} placeholder="licitacao@municipio.ba.gov.br" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap:12 }}>
+              <Input label="Endereço da Prefeitura" value={config.endereco} onChange={v=>setConfig(c=>({...c,endereco:v}))} placeholder="Praça..., nº, Centro" />
+              <Input label="CEP" value={config.cep} onChange={v=>setConfig(c=>({...c,cep:v}))} placeholder="00000-000" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Prefeito(a) Municipal" value={config.prefeitoNome} onChange={v=>setConfig(c=>({...c,prefeitoNome:v}))} placeholder="Nome completo" />
+              <Input label="CPF do(a) Prefeito(a)" value={config.prefeitoCpf} onChange={v=>setConfig(c=>({...c,prefeitoCpf:v}))} placeholder="000.000.000-00" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Agente de Contratação" value={config.agenteContratacaoNome} onChange={v=>setConfig(c=>({...c,agenteContratacaoNome:v}))} placeholder="Nome completo" />
+              <Input label="Matrícula do Agente" value={config.agenteContratacaoMatricula} onChange={v=>setConfig(c=>({...c,agenteContratacaoMatricula:v}))} placeholder="000000" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Procurador(a) Geral" value={config.procuradorNome} onChange={v=>setConfig(c=>({...c,procuradorNome:v}))} placeholder="Nome completo" />
+              <Input label="OAB do(a) Procurador(a)" value={config.procuradorOab} onChange={v=>setConfig(c=>({...c,procuradorOab:v}))} placeholder="OAB-BA nº ..." />
+            </div>
+            <Input label="Secretário(a) de Finanças" value={config.secretarioFinancasNome} onChange={v=>setConfig(c=>({...c,secretarioFinancasNome:v}))} placeholder="Nome completo" />
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <Input label="Portaria de Designação do Agente" value={config.portariaAgente} onChange={v=>setConfig(c=>({...c,portariaAgente:v}))} placeholder="Portaria nº 011 de 06/01/2025" />
+              <Input label="Decreto Municipal Regulamentador" value={config.decretoMunicipal} onChange={v=>setConfig(c=>({...c,decretoMunicipal:v}))} placeholder="Decreto Municipal nº 020/2024" />
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+              <Btn variant="outline" onClick={()=>setConfigModal(false)} color={C.sub}>Cancelar</Btn>
+              <Btn color={SX.laranja} onClick={salvarConfig}>Salvar Configuração</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    RELATÓRIOS
 ══════════════════════════════════════════════════════════════ */
 const esc = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -3106,6 +3560,7 @@ const TABS = [
   { id:"atas",           icon:"atas",       label:"Ata de RP",        short:"Atas" },
   { id:"contratos",      icon:"contratos",  label:"Contratos",        short:"Contr." },
   { id:"dispensas",      icon:"dispensa",   label:"Dispensas",        short:"Disp." },
+  { id:"agentedispensas",icon:"sparkle",    label:"Agente de Dispensas", short:"Agente" },
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
   { id:"relatorios",     icon:"relatorios",  label:"Relatórios",       short:"Relat." },
@@ -3219,6 +3674,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
+              {tab==="agentedispensas" && <TabAgenteDispensas toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#8b5cf6" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
