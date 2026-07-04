@@ -22,6 +22,7 @@ import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
+import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 import Sidebar from "./components/Sidebar.jsx";
@@ -255,6 +256,7 @@ function Select({ label, value, onChange, options, style:sx={} }) {
 
 function Modal({ title, onClose, children, wide=false }) {
   useOverlayBack(true, onClose);
+  useEffect(() => { markModalOpen(); return () => markModalClosed(); }, []);
   return (
     <div style={{
       position:"fixed", inset:0,

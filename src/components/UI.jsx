@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import Icon from "./Icon.jsx";
 import { C, shadow } from "../lib/theme.js";
+import { markModalOpen, markModalClosed } from "../lib/modalGuard.js";
 
 export function Modal({ title, onClose, children, wide = false }) {
+  useEffect(() => { markModalOpen(); return () => markModalClosed(); }, []);
   return (
     <div
       style={{

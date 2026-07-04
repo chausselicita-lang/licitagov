@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useOverlayBack } from "../lib/useOverlayBack.js";
+import { markModalOpen, markModalClosed } from "../lib/modalGuard.js";
 
 // Cliente isolado — sem persistSession para garantir role anon no portal público
 const portalClient = createClient(
@@ -48,6 +49,7 @@ function Badge({ label }) {
 
 function Modal({ title, subtitle, onClose, children }) {
   useOverlayBack(true, onClose);
+  useEffect(() => { markModalOpen(); return () => markModalClosed(); }, []);
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.42)",backdropFilter:"blur(3px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>

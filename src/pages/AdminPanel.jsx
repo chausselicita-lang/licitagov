@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getSupabase } from "../lib/supabase.js";
 import { useOverlayBack } from "../lib/useOverlayBack.js";
+import { markModalOpen, markModalClosed } from "../lib/modalGuard.js";
 
 const C = {
   bg: "#f5f5f5",
@@ -75,6 +76,7 @@ function KPICard({ label, value, color = C.accent, icon }) {
 
 function Modal({ title, onClose, children }) {
   useOverlayBack(true, onClose);
+  useEffect(() => { markModalOpen(); return () => markModalClosed(); }, []);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(3px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
