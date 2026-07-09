@@ -2895,7 +2895,7 @@ function RelProcessos({ processos, onClose }) {
 }
 
 function TabRelatorios({ data }) {
-  const { processos, atas, dispensas, inexigibilidades } = data;
+  const { processos, atas, contratos, dispensas, inexigibilidades } = data;
   const [relatorio, setRelatorio] = useState(null); // { titulo, corpo }
   const iframeRef = useRef(null);
   useOverlayBack(!!relatorio, () => setRelatorio(null));
@@ -2905,6 +2905,7 @@ function TabRelatorios({ data }) {
     { icon:"dispensa",  color:"#f59e0b",  title:"Dispensas de Licitação",     desc:`${dispensas.length} registro(s) · Contratada, objeto e valor`,            total:fmtBRL(dispensas.reduce((s,d)=>s+(d.valor_total||0),0)),               label:"Valor total", gerar:()=>setRelatorio({ titulo:"Relatório — Dispensas",        corpo:gerarRelatorioDispensas(dispensas) }) },
     { icon:"inexigib",  color:C.purple,   title:"Inexigibilidade",             desc:`${inexigibilidades.length} registro(s) · Contratada, objeto e valor`,    total:fmtBRL(inexigibilidades.reduce((s,i)=>s+(i.valor_total||0),0)),       label:"Valor total", gerar:()=>setRelatorio({ titulo:"Relatório — Inexigibilidade", corpo:gerarRelatorioInexigibilidades(inexigibilidades) }) },
     { icon:"processos", color:C.accent,   title:"Processos Licitatórios",     desc:`${processos.length} processo(s) · Modalidade, fase e valor`,              total:processos.filter(p=>p.fase==="Em andamento").length+" em andamento",   label:"Situação",    gerar:()=>setRelatorio({ titulo:"Relatório — Processos",        corpo:gerarRelatorioProcessos(processos) }) },
+    { icon:"contratos", color:C.green,    title:"Contratos",                  desc:`${contratos.length} contrato(s) · Vigência, fornecedor e valor`,          total:fmtBRL(contratos.filter(c=>c.status==="Vigente").reduce((s,c)=>s+c.valor,0)), label:"Valor vigente", gerar:()=>setRelatorio({ titulo:"Relatório — Contratos",       corpo:gerarRelatorioContratos(contratos) }) },
   ];
 
   if (relatorio) {
