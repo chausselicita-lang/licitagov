@@ -31,11 +31,16 @@ a legislação fornecida no contexto.
 Responda APENAS com o texto final da peça, pronto para protocolo, sem markdown e sem comentários fora da peça.`;
 }
 
+// Recebe os pontos críticos já carregados do banco (formato camelCase de
+// pontoFromDb em lexcoreDb.js: nivelRisco, tipoProblema, descricaoProblema,
+// trechoEdital, fundamentacaoLegal, artigoLei) — não o array snake_case cru
+// que a IA devolve antes de ser inserido (esse é tratado por
+// parsePontosCriticosJSON, nunca chega aqui diretamente).
 export function buildPecaUserPrompt({ tipoPecaLabel, nomeEdital, numeroProcesso, pontos }) {
   const listaPontos = pontos.map((p, i) => (
-    `${i + 1}. [Risco ${p.nivel_risco.toUpperCase()} — ${p.tipo_problema}] ${p.descricao_problema}\n` +
-    `   Trecho do edital: "${p.trecho_edital}"\n` +
-    `   Fundamentação: ${p.fundamentacao_legal}${p.artigo_lei ? ` (${p.artigo_lei})` : ""}`
+    `${i + 1}. [Risco ${p.nivelRisco.toUpperCase()} — ${p.tipoProblema}] ${p.descricaoProblema}\n` +
+    `   Trecho do edital: "${p.trechoEdital}"\n` +
+    `   Fundamentação: ${p.fundamentacaoLegal}${p.artigoLei ? ` (${p.artigoLei})` : ""}`
   )).join("\n\n");
 
   return `Edital: ${nomeEdital || "não informado"}
