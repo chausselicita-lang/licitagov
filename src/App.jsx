@@ -22,6 +22,12 @@ import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
+import {
+  sbListLexcoreAnalises, sbCreateLexcoreAnalise, sbUpdateLexcoreAnalise, sbDeleteLexcoreAnalise,
+  sbGetLexcoreAnalise, sbListPontosCriticos, sbInsertPontosCriticos, sbSetPontoSelecionado,
+  sbListPecas, sbGetPeca, sbCreatePeca, sbUpdatePeca, exportarPecaDocx, uploadEditalOriginal,
+} from './lib/lexcoreDb.js';
+import { ANALISE_SYSTEM, buildPecaSystem, buildPecaUserPrompt, parsePontosCriticosJSON, TIPOS_PECA, labelTipoPeca, labelTipoProblema } from './lib/lexcoreLegal.js';
 import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
@@ -136,6 +142,7 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     externallink:<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
     dispensa:    <><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></>,
     inexigib:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
+    lexcore:     <><path d="M12 3v18"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/><path d="M5 7h14"/><path d="M12 3l-3 2 3 2 3-2z"/><path d="M7 21h10"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -2856,6 +2863,498 @@ function RelContratos({ contratos, onClose }) {
   );
 }
 
+/* ══════════════════════════════════════════════════════════════
+   LEXCORE — Análise de editais (Lei 14.133/2021) e geração de peças
+══════════════════════════════════════════════════════════════ */
+
+const RISCO_LABEL = { alto: "Risco Alto", medio: "Risco Médio", baixo: "Risco Baixo" };
+const RISCO_COLOR = { alto: "#b91c1c", medio: "#b45309", baixo: "#15803d" };
+
+function TabLexCore({ toast }) {
+  const isMobile = useMobileCD();
+  const [view, setView] = useState("lista"); // lista | nova | analise | peca
+  const [analiseId, setAnaliseId] = useState(null);
+  const [pecaId, setPecaId] = useState(null);
+  const [analises, setAnalises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await sbListLexcoreAnalises();
+    if (error) toast("Erro ao carregar análises: " + error.message, "error");
+    setAnalises(data);
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const abrirAnalise = (id) => { setAnaliseId(id); setView("analise"); };
+
+  const deletar = async (id) => {
+    if (!window.confirm("Excluir esta análise? Os pontos críticos e peças geradas serão perdidos.")) return;
+    const { error } = await sbDeleteLexcoreAnalise(id);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setAnalises(prev => prev.filter(a => a.id !== id));
+    toast("Análise excluída");
+  };
+
+  if (view === "nova") {
+    return (
+      <LexcoreNova
+        isMobile={isMobile}
+        toast={toast}
+        onCancel={() => setView("lista")}
+        onCriada={(id) => { carregar(); abrirAnalise(id); }}
+      />
+    );
+  }
+
+  if (view === "analise" && analiseId) {
+    return (
+      <LexcoreAnalise
+        analiseId={analiseId}
+        isMobile={isMobile}
+        toast={toast}
+        onVoltar={() => { setView("lista"); carregar(); }}
+        onAbrirPeca={(id) => { setPecaId(id); setView("peca"); }}
+      />
+    );
+  }
+
+  if (view === "peca" && pecaId) {
+    return (
+      <LexcorePeca
+        pecaId={pecaId}
+        toast={toast}
+        onVoltar={() => setView("analise")}
+      />
+    );
+  }
+
+  const filtered = analises.filter(a => {
+    const s = search.toLowerCase();
+    return (a.nomeEdital || "").toLowerCase().includes(s) || (a.numeroProcesso || "").toLowerCase().includes(s);
+  });
+
+  const statusInfo = (status) => ({
+    processando: { label: "Processando", color: undefined },
+    concluida: { label: "Concluída", color: "#15803d" },
+    erro: { label: "Erro", color: "#b91c1c" },
+  }[status] || { label: status, color: undefined });
+
+  return (
+    <div>
+      <div style={{
+        background: `linear-gradient(135deg, ${SX.preto} 0%, ${SX.pretoSoft} 100%)`,
+        border: `1px solid ${SX.laranja}33`, borderRadius: 12, padding: "18px 20px",
+        marginBottom: 16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
+      }}>
+        <div>
+          <div style={{ fontSize:16, fontWeight:700, color:"#fff", fontFamily:"Inter,system-ui,sans-serif", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="lexcore" size={18} color={SX.laranja} />
+            LexCore
+          </div>
+          <div style={{ fontSize:12, color:SX.prata, marginTop:3 }}>Análise de editais frente à Lei 14.133/2021 e geração de peças jurídicas (impugnação, recursos, contrarrazões)</div>
+        </div>
+        <Btn color={SX.laranja} onClick={() => setView("nova")}>
+          <Icon name="plus" size={14} /> Nova Análise
+        </Btn>
+      </div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nome do edital ou processo..."
+          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+          onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+      </div>
+
+      {loading ? (
+        <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análises...</div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon="lexcore" title="Nenhuma análise de edital" sub='Clique em "Nova Análise" para enviar um edital em PDF e identificar pontos críticos frente à Lei 14.133/2021' />
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {filtered.map(a => {
+            const st = statusInfo(a.status);
+            return (
+              <div key={a.id} onClick={() => abrirAnalise(a.id)} style={{
+                background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${a.status==="erro"?C.red:SX.laranja}`,
+                borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
+                display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
+              }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{a.nomeEdital}</span>
+                    <Badge label={st.label} color={st.color} />
+                  </div>
+                  <div style={{ fontSize:12, color:C.sub }}>{a.numeroProcesso ? `Processo ${a.numeroProcesso}` : "Sem número de processo"} · {fmtDate(a.createdAt)}</div>
+                </div>
+                <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
+                  <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletar(a.id)} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LexcoreNova({ isMobile, toast, onCancel, onCriada }) {
+  const [nomeEdital, setNomeEdital] = useState("");
+  const [numeroProcesso, setNumeroProcesso] = useState("");
+  const [file, setFile] = useState(null);
+  const [analisando, setAnalisando] = useState(false);
+  const fileRef = useRef(null);
+
+  const handleFile = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.type !== "application/pdf") { toast("Envie o edital em formato PDF", "error"); return; }
+    if (f.size > 20*1024*1024) { toast("Arquivo muito grande (máx. 20 MB)", "warn"); return; }
+    setFile(f);
+  };
+
+  const analisar = async () => {
+    if (!nomeEdital.trim()) { toast("Informe o nome do edital", "error"); return; }
+    if (!file) { toast("Selecione o PDF do edital", "error"); return; }
+    setAnalisando(true);
+    let analise = null;
+    try {
+      const { url: arquivoOriginalUrl, error: upErr } = await uploadEditalOriginal(file);
+      if (upErr) throw upErr;
+
+      const { data, error: createErr } = await sbCreateLexcoreAnalise({ nomeEdital: nomeEdital.trim(), numeroProcesso: numeroProcesso.trim(), arquivoOriginalUrl });
+      if (createErr) throw createErr;
+      analise = data;
+
+      const fileData = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(file); });
+      const b64 = fileData.split(",")[1];
+
+      const res = await anthropicFetch(null, {
+        method: "POST",
+        headers: { "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-beta": "pdfs-2024-09-25" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6", max_tokens: 8192, system: ANALISE_SYSTEM,
+          messages: [{ role: "user", content: [
+            { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
+            { type: "text", text: "Analise este edital de licitação e retorne o array JSON de pontos críticos, conforme instruções do sistema." },
+          ] }],
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+      const json = await res.json();
+      if (json.stop_reason === "max_tokens") throw new Error("Edital muito extenso para análise automática. Tente um arquivo menor.");
+      const text = json.content?.[0]?.text || "";
+      const pontos = parsePontosCriticosJSON(text);
+
+      await sbInsertPontosCriticos(analise.id, pontos);
+      await sbUpdateLexcoreAnalise(analise.id, { status: "concluida" });
+
+      toast(`Análise concluída — ${pontos.length} ponto(s) crítico(s) identificado(s)`);
+      onCriada(analise.id);
+    } catch (err) {
+      if (analise) await sbUpdateLexcoreAnalise(analise.id, { status: "erro", mensagemErro: err.message });
+      toast("Erro na análise: " + err.message, "error");
+    } finally {
+      setAnalisando(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onCancel} />
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>Nova Análise de Edital</div>
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, maxWidth:640, display:"flex", flexDirection:"column", gap:14 }}>
+        <Input label="Nome do Edital" value={nomeEdital} onChange={setNomeEdital} placeholder="Ex.: Pregão Eletrônico nº 012/2026 — Aquisição de material de expediente" required />
+        <Input label="Número do Processo" value={numeroProcesso} onChange={setNumeroProcesso} placeholder="Ex.: 2026.001.0034" />
+
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Edital (PDF)</label>
+          <input ref={fileRef} type="file" accept="application/pdf" onChange={handleFile} style={{ display:"none" }} />
+          <Btn variant="outline" color={SX.laranja} onClick={() => fileRef.current?.click()} style={{ alignSelf:"flex-start" }}>
+            <Icon name="attach" size={14} /> {file ? file.name : "Selecionar PDF do edital"}
+          </Btn>
+        </div>
+
+        <div style={{
+          background:"#fff1e6", border:`1px solid ${SX.laranja}55`, borderRadius:8, padding:"12px 14px",
+          display:"flex", gap:10, alignItems:"flex-start", fontSize:12.5, color:"#7c2d12", lineHeight:1.5,
+        }}>
+          <Icon name="warning" size={16} color={SX.laranjaEsc} />
+          A IA lê o PDF diretamente e identifica cláusulas restritivas, ilegais, dúbias ou de risco frente à Lei nº 14.133/2021. A análise pode levar alguns segundos para editais extensos.
+        </div>
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <Btn variant="outline" color={C.sub} onClick={onCancel} disabled={analisando}>Cancelar</Btn>
+          <Btn color={SX.laranja} onClick={analisar} disabled={analisando}>
+            {analisando ? "Analisando edital..." : (<><Icon name="sparkle" size={14} /> Analisar Edital</>)}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca }) {
+  const [analise, setAnalise] = useState(null);
+  const [pontos, setPontos] = useState([]);
+  const [pecas, setPecas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tipoPeca, setTipoPeca] = useState(TIPOS_PECA[0].value);
+  const [gerando, setGerando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const [{ data: a, error: eA }, { data: p, error: eP }, { data: pc, error: eC }] = await Promise.all([
+      sbGetLexcoreAnalise(analiseId), sbListPontosCriticos(analiseId), sbListPecas(analiseId),
+    ]);
+    if (eA) toast("Erro ao carregar análise: " + eA.message, "error");
+    if (eP) toast("Erro ao carregar pontos críticos: " + eP.message, "error");
+    if (eC) toast("Erro ao carregar peças: " + eC.message, "error");
+    setAnalise(a); setPontos(p); setPecas(pc);
+    setLoading(false);
+  }, [analiseId, toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const togglePonto = async (ponto) => {
+    const novoValor = !ponto.selecionado;
+    setPontos(prev => prev.map(p => p.id === ponto.id ? { ...p, selecionado: novoValor } : p));
+    const { error } = await sbSetPontoSelecionado(ponto.id, novoValor);
+    if (error) toast("Erro ao salvar seleção: " + error.message, "error");
+  };
+
+  const selecionados = pontos.filter(p => p.selecionado);
+
+  const gerarPeca = async () => {
+    if (selecionados.length === 0) { toast("Selecione ao menos um ponto crítico", "error"); return; }
+    setGerando(true);
+    try {
+      const label = labelTipoPeca(tipoPeca);
+      const res = await anthropicFetch(null, {
+        method: "POST",
+        headers: { "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6", max_tokens: 4096,
+          system: buildPecaSystem(label),
+          messages: [{ role: "user", content: buildPecaUserPrompt({
+            tipoPecaLabel: label, nomeEdital: analise.nomeEdital, numeroProcesso: analise.numeroProcesso, pontos: selecionados,
+          }) }],
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+      const json = await res.json();
+      if (json.stop_reason === "max_tokens") throw new Error("Peça muito extensa para gerar de uma vez. Reduza a quantidade de pontos selecionados.");
+      const conteudo = json.content?.[0]?.text || "";
+      if (!conteudo.trim()) throw new Error("IA não retornou conteúdo para a peça.");
+
+      const { data: peca, error } = await sbCreatePeca({
+        analiseId, tipoPeca, pontosCriticosIds: selecionados.map(p => p.id), conteudoGerado: conteudo,
+      });
+      if (error) throw error;
+      toast("Peça gerada com sucesso!");
+      onAbrirPeca(peca.id);
+    } catch (err) {
+      toast("Erro ao gerar peça: " + err.message, "error");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análise...</div>;
+  if (!analise) return <EmptyState icon="lexcore" title="Análise não encontrada" sub="" />;
+
+  const grupos = ["alto", "medio", "baixo"].map(nivel => ({
+    nivel, itens: pontos.filter(p => p.nivelRisco === nivel),
+  })).filter(g => g.itens.length > 0);
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onVoltar} />
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{analise.nomeEdital}</div>
+          <div style={{ fontSize:12, color:C.sub }}>{analise.numeroProcesso ? `Processo ${analise.numeroProcesso}` : "Sem número de processo"}</div>
+        </div>
+      </div>
+
+      {analise.status === "erro" && (
+        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8, padding:"12px 14px", marginBottom:16, color:"#991b1b", fontSize:12.5 }}>
+          Falha na análise: {analise.mensagemErro || "erro desconhecido"}
+        </div>
+      )}
+
+      {pontos.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:10, marginBottom:16 }}>
+          <KpiCard label="Pontos Críticos" value={pontos.length} color={SX.laranja} />
+          <KpiCard label="Risco Alto" value={pontos.filter(p=>p.nivelRisco==="alto").length} color={C.red} />
+          <KpiCard label="Selecionados" value={selecionados.length} color={C.green} />
+          <KpiCard label="Peças Geradas" value={pecas.length} color={C.accent2} />
+        </div>
+      )}
+
+      {pontos.length === 0 && analise.status === "concluida" && (
+        <EmptyState icon="check" title="Nenhum ponto crítico identificado" sub="A IA não encontrou cláusulas restritivas, ilegais, dúbias ou de risco neste edital." />
+      )}
+
+      {grupos.map(g => (
+        <div key={g.nivel} style={{ marginBottom:20 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:RISCO_COLOR[g.nivel], textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>
+            {RISCO_LABEL[g.nivel]} ({g.itens.length})
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {g.itens.map(p => (
+              <label key={p.id} style={{
+                background:C.card, border:`1px solid ${p.selecionado ? SX.laranja : C.border}`,
+                borderRadius:10, padding:14, display:"flex", gap:12, cursor:"pointer",
+                boxShadow: p.selecionado ? `0 0 0 3px ${SX.laranja}1a` : "none",
+              }}>
+                <input type="checkbox" checked={p.selecionado} onChange={() => togglePonto(p)} style={{ marginTop:3, flexShrink:0, width:16, height:16, accentColor:SX.laranja }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6, flexWrap:"wrap" }}>
+                    <Badge label={labelTipoProblema(p.tipoProblema)} color={RISCO_COLOR[p.nivelRisco]} />
+                    {p.artigoLei && <span style={{ fontSize:11.5, color:C.tertiary }}>{p.artigoLei}</span>}
+                  </div>
+                  <div style={{ fontSize:13.5, color:C.text, fontWeight:500, marginBottom:6, lineHeight:1.5 }}>{p.descricaoProblema}</div>
+                  <div style={{ fontSize:12.5, color:C.sub, background:C.overlay, borderLeft:`3px solid ${C.border}`, padding:"6px 10px", borderRadius:4, marginBottom:6, fontStyle:"italic" }}>
+                    "{p.trechoEdital}"
+                  </div>
+                  <div style={{ fontSize:12, color:C.sub }}>{p.fundamentacaoLegal}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {pontos.length > 0 && (
+        <div style={{
+          position: isMobile ? "static" : "sticky", bottom: isMobile ? "auto" : 0,
+          background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16,
+          display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap", marginTop:8, boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+        }}>
+          <Select label={`Gerar peça com ${selecionados.length} ponto(s) selecionado(s)`} value={tipoPeca} onChange={setTipoPeca} options={TIPOS_PECA} style={{ minWidth:220 }} />
+          <Btn color={SX.laranja} onClick={gerarPeca} disabled={gerando || selecionados.length === 0}>
+            {gerando ? "Gerando peça..." : (<><Icon name="sparkle" size={14} /> Gerar Peça</>)}
+          </Btn>
+        </div>
+      )}
+
+      {pecas.length > 0 && (
+        <div style={{ marginTop:24 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.sub, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>Peças Geradas</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {pecas.map(p => (
+              <div key={p.id} onClick={() => onAbrirPeca(p.id)} style={{
+                background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px",
+                display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer", gap:10,
+              }}>
+                <div>
+                  <span style={{ fontSize:13.5, fontWeight:600, color:C.text }}>{labelTipoPeca(p.tipoPeca)}</span>
+                  <span style={{ fontSize:12, color:C.sub, marginLeft:8 }}>v{p.versao} · {fmtDate(p.createdAt)}</span>
+                </div>
+                <Badge label={p.status === "finalizada" ? "Finalizada" : "Rascunho"} color={p.status === "finalizada" ? C.green : undefined} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LexcorePeca({ pecaId, toast, onVoltar }) {
+  const [peca, setPeca] = useState(null);
+  const [conteudo, setConteudo] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [exportando, setExportando] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    sbGetPeca(pecaId).then(({ data, error }) => {
+      if (!ativo) return;
+      if (error) toast("Erro ao carregar peça: " + error.message, "error");
+      setPeca(data);
+      setConteudo(data?.conteudoGerado || "");
+      setLoading(false);
+    });
+    return () => { ativo = false; };
+  }, [pecaId, toast]);
+
+  const salvar = async () => {
+    setSalvando(true);
+    const { data, error } = await sbUpdatePeca(pecaId, { conteudoGerado: conteudo });
+    setSalvando(false);
+    if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+    setPeca(data);
+    toast("Rascunho salvo");
+  };
+
+  const exportar = async () => {
+    setExportando(true);
+    try {
+      await salvar();
+      const { peca: atualizada, docxUrl } = await exportarPecaDocx({
+        pecaId, tipoPeca: peca.tipoPeca, conteudoGerado: conteudo,
+      });
+      setPeca(atualizada);
+      toast("Peça exportada em .docx");
+      window.open(docxUrl, "_blank", "noopener");
+    } catch (err) {
+      toast("Erro ao exportar: " + err.message, "error");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando peça...</div>;
+  if (!peca) return <EmptyState icon="lexcore" title="Peça não encontrada" sub="" />;
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onVoltar} />
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{labelTipoPeca(peca.tipoPeca)}</div>
+          <div style={{ fontSize:12, color:C.sub }}>Versão {peca.versao} · <Badge label={peca.status === "finalizada" ? "Finalizada" : "Rascunho"} color={peca.status === "finalizada" ? C.green : undefined} /></div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="outline" color={SX.laranja} onClick={salvar} disabled={salvando || exportando}>{salvando ? "Salvando..." : "Salvar Rascunho"}</Btn>
+          <Btn color={SX.laranja} onClick={exportar} disabled={exportando}>
+            {exportando ? "Exportando..." : (<><Icon name="file" size={14} /> Exportar .docx</>)}
+          </Btn>
+        </div>
+      </div>
+
+      {peca.arquivoDocxUrl && (
+        <div style={{ marginBottom:12 }}>
+          <a href={peca.arquivoDocxUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12.5, color:SX.laranjaEsc, textDecoration:"none", fontWeight:600 }}>
+            <Icon name="externallink" size={12} /> Última versão exportada — abrir .docx
+          </a>
+        </div>
+      )}
+
+      <textarea value={conteudo} onChange={e => setConteudo(e.target.value)} rows={28}
+        style={{
+          width:"100%", boxSizing:"border-box", background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+          padding:"16px 18px", color:C.text, fontSize:13.5, lineHeight:1.7, fontFamily:"'Times New Roman',serif",
+          outline:"none", resize:"vertical",
+        }}
+        onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+        onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+      />
+    </div>
+  );
+}
+
 function RelProcessos({ processos, onClose }) {
   const S = { page:{ fontFamily:"Inter,system-ui,sans-serif", color:"#111", background:"#fff", padding:"32px 40px", maxWidth:900, margin:"0 auto" }, titulo:{ fontSize:22, fontWeight:700, marginBottom:4 }, sub:{ fontSize:13, color:"#555", marginBottom:32 }, label:{ fontSize:11, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }, val:{ fontSize:14, fontWeight:500, color:"#111" }, grid3:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", marginBottom:10 } };
   const faseColor = { "Em andamento":"#4f46e5", "Publicado":"#0891b2", "Homologado":"#166534", "Planejamento":"#92400e", "Revogado":"#991b1b", "Suspenso":"#b45309", "Encerrado":"#374151" };
@@ -3564,6 +4063,7 @@ const TABS = [
   { id:"contratos",      icon:"contratos",  label:"Contratos",        short:"Contr." },
   { id:"dispensas",      icon:"dispensa",   label:"Dispensas",        short:"Disp." },
   { id:"agentedispensas",icon:"sparkle",    label:"Agente de Dispensas", short:"Agente" },
+  { id:"lexcore",        icon:"lexcore",    label:"LexCore",          short:"LexCore" },
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
   { id:"relatorios",     icon:"relatorios",  label:"Relatórios",       short:"Relat." },
@@ -3678,6 +4178,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
               {tab==="agentedispensas" && <TabAgenteDispensas toast={showToast} />}
+              {tab==="lexcore" && <TabLexCore toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
