@@ -158,17 +158,30 @@ export async function sbDeletePeca(id) {
   return sb.from('lexcore_pecas').delete().eq('id', id);
 }
 
-// ── Upload do edital original (Storage) ─────────────────────────
+// ── Upload do edital original ────────────────────────────────────
+// Feito via endpoint serverless (service role, ignora RLS) — o mesmo padrão
+// já usado por dispensas-docs (api/dispensa-gerar.js). Upload direto do
+// navegador com a chave anon/authenticated não tem policy de INSERT no
+// bucket (só leitura pública), então sempre falha com RLS violation.
 export async function uploadEditalOriginal(file) {
-  const sb = getSupabase();
-  const path = `editais/${crypto.randomUUID()}-${file.name}`;
-  const { error } = await sb.storage.from('lexcore-docs').upload(path, file, {
-    contentType: file.type || 'application/pdf',
-    upsert: false,
-  });
-  if (error) return { url: null, error };
-  const { data } = sb.storage.from('lexcore-docs').getPublicUrl(path);
-  return { url: data.publicUrl, error: null };
+  try {
+    const fileBase64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = e => resolve(e.target.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    const resp = await fetch('/api/lexcore-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName: file.name, fileType: file.type, fileBase64 }),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { url: null, error: new Error(json.error || 'Erro ao enviar o edital') };
+    return { url: json.url, error: null };
+  } catch (error) {
+    return { url: null, error };
+  }
 }
 
 // ── Chama a API serverless que gera o .docx e faz upload ────────
