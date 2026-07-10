@@ -89,9 +89,9 @@ com base nos pontos críticos fornecidos. A peça deve ter: endereçamento forma
 síntese fática, fundamentação jurídica (citando os artigos da Lei 14.133/2021 aplicáveis), pedidos claros
 e fechamento. Linguagem jurídica formal, mas objetiva. Não invente jurisprudência específica — cite apenas
 a legislação fornecida no contexto.
-Responda APENAS com o texto final da peça, pronto para protocolo, sem markdown e sem comentários fora da peça.`}function v1({tipoPecaLabel:e,nomeEdital:t,numeroProcesso:r,pontos:n}){const s=n.map((i,a)=>`${a+1}. [Risco ${i.nivel_risco.toUpperCase()} — ${i.tipo_problema}] ${i.descricao_problema}
-   Trecho do edital: "${i.trecho_edital}"
-   Fundamentação: ${i.fundamentacao_legal}${i.artigo_lei?` (${i.artigo_lei})`:""}`).join(`
+Responda APENAS com o texto final da peça, pronto para protocolo, sem markdown e sem comentários fora da peça.`}function v1({tipoPecaLabel:e,nomeEdital:t,numeroProcesso:r,pontos:n}){const s=n.map((i,a)=>`${a+1}. [Risco ${i.nivelRisco.toUpperCase()} — ${i.tipoProblema}] ${i.descricaoProblema}
+   Trecho do edital: "${i.trechoEdital}"
+   Fundamentação: ${i.fundamentacaoLegal}${i.artigoLei?` (${i.artigoLei})`:""}`).join(`
 
 `);return`Edital: ${t||"não informado"}
 Processo nº: ${r||"não informado"}
