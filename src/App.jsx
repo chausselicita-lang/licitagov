@@ -1429,7 +1429,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     const cotId = uid();
     const newCot = {
       id:cotId,
-      numero:`COT-IA ${String(n).padStart(3,"0")}/${new Date().getFullYear()}`,
+      numero:`COT-GOV ${String(n).padStart(3,"0")}/${new Date().getFullYear()}`,
       objeto:objetoIA.trim(),
       processo:"",
       status:"Finalizada",
@@ -1628,7 +1628,6 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     if (!cot) { setCotAtiva(null); return null; }
 
     if (relatorioCot) {
-      const linkRastreabilidade = `${window.location.origin}/portal?cotacao=${cot.id}`;
       return (
         <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, display:"flex", flexDirection:"column" }}>
           <div style={{ background:C.accent, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0, gap:10 }}>
@@ -1639,7 +1638,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
             <Btn onClick={()=>iframeCotRef.current?.contentWindow?.print()} color="#121212" size="sm" style={{ color:"#fff", background:"#121212", border:"none" }}>🖨 Imprimir</Btn>
           </div>
           <iframe ref={iframeCotRef} title={`Mapa de Preços — ${cot.numero}`}
-            srcDoc={buildRelatorioDoc(`Mapa de Preços — ${cot.numero}`, gerarRelatorioCotacao(cot, linkRastreabilidade))}
+            srcDoc={buildRelatorioDoc(`Mapa de Preços — ${cot.numero}`, gerarRelatorioCotacao(cot))}
             style={{ flex:1, border:"none", width:"100%" }} />
         </div>
       );
@@ -2607,7 +2606,6 @@ const BASE_CSS = `
   .planilha th,.planilha td{border:1px solid #999;padding:6px 9px}
   .planilha th{background:#e5e7eb;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.03em}
   .planilha tfoot td{background:#fff7ed;border-top:2px solid #111;font-weight:700}
-  .rastreio{background:#f8fafc;border:1px solid #ddd;border-radius:6px;padding:10px 14px;font-size:11px;color:#333;margin-top:16px;word-break:break-all}
   @media print{body{padding:16px 20px} .planilha{font-size:10px}}
 `;
 
@@ -2780,7 +2778,7 @@ const gerarRelatorioProcessos = (processos) => {
   return html;
 };
 
-const gerarRelatorioCotacao = (cot, linkRastreabilidade) => {
+const gerarRelatorioCotacao = (cot) => {
   const valsDe = it => cot.fornecedores.map(f=>it.valores[f.id]||0).filter(v=>v>0);
   const totalGeral = cot.itens.reduce((acc,it)=>acc + calcMediana(valsDe(it))*(parseFloat(it.qtd)||0), 0);
 
@@ -2823,7 +2821,6 @@ const gerarRelatorioCotacao = (cot, linkRastreabilidade) => {
     </tbody></table>`;
   }
 
-  html += `<div class="rastreio"><strong>Rastreabilidade:</strong> confira este mapa de preços no Portal de Transparência — ${esc(linkRastreabilidade)}</div>`;
   html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 · ${hojeStr()}</div>`;
   return html;
 };
