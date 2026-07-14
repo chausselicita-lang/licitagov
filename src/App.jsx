@@ -1344,6 +1344,8 @@ O campo texto_mapa_precos deve ser o texto formal do Mapa de Preços para instru
 function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const [modal, setModal] = useState(null);
   const [cotAtiva, setCotAtiva] = useState(null);
+  const [relatorioCot, setRelatorioCot] = useState(false);
+  const iframeCotRef = useRef(null);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ numero:"", objeto:"", processo:"" });
   const [fornecedores, setFornecedores] = useState([{ id:"f1",razao:"",cnpj:"" },{ id:"f2",razao:"",cnpj:"" },{ id:"f3",razao:"",cnpj:"" }]);
@@ -1360,6 +1362,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   useOverlayBack(!!cotAtiva, () => setCotAtiva(null));
   useOverlayBack(!!resultadoIA, () => setResultadoIA(null));
   useOverlayBack(!!fonteAberta, () => setFonteAberta(null));
+  useOverlayBack(relatorioCot, () => setRelatorioCot(false));
 
   const addFornecedor = () => setFornecedores(p=>[...p,{ id:uid(), razao:"", cnpj:"" }]);
   const remFornecedor = id => setFornecedores(p=>p.filter(f=>f.id!==id));
@@ -1623,6 +1626,25 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   if (cotAtiva) {
     const cot = cotacoes.find(c=>c.id===cotAtiva);
     if (!cot) { setCotAtiva(null); return null; }
+
+    if (relatorioCot) {
+      const linkRastreabilidade = `${window.location.origin}/portal?cotacao=${cot.id}`;
+      return (
+        <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, display:"flex", flexDirection:"column" }}>
+          <div style={{ background:C.accent, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0, gap:10 }}>
+            <button onClick={()=>setRelatorioCot(false)} style={{ background:"none", border:"1px solid rgba(0,0,0,0.35)", borderRadius:6, padding:"7px 14px", color:"#121212", cursor:"pointer", fontSize:13, fontFamily:"inherit", fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
+              <Icon name="back" size={13} color="#121212" /> Voltar
+            </button>
+            <span style={{ color:"#121212", fontWeight:700, fontSize:14, flex:1, textAlign:"center" }}>Mapa de Preços — {cot.numero}</span>
+            <Btn onClick={()=>iframeCotRef.current?.contentWindow?.print()} color="#121212" size="sm" style={{ color:"#fff", background:"#121212", border:"none" }}>🖨 Imprimir</Btn>
+          </div>
+          <iframe ref={iframeCotRef} title={`Mapa de Preços — ${cot.numero}`}
+            srcDoc={buildRelatorioDoc(`Mapa de Preços — ${cot.numero}`, gerarRelatorioCotacao(cot, linkRastreabilidade))}
+            style={{ flex:1, border:"none", width:"100%" }} />
+        </div>
+      );
+    }
+
     return (
       <div>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
@@ -1710,7 +1732,7 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
           </div>
         </div>
         <div style={{ display:"flex", justifyContent:"center" }}>
-          <Btn color={C.sub} variant="outline" onClick={()=>window.print()}>Imprimir Mapa de Preços</Btn>
+          <Btn color={C.sub} variant="outline" onClick={()=>setRelatorioCot(true)}>🖨 Imprimir Mapa de Preços</Btn>
         </div>
       </div>
     );
@@ -2581,7 +2603,12 @@ const BASE_CSS = `
   th{padding:7px 10px;text-align:left;background:#f5f5f5;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #ddd}
   td{padding:7px 10px;border-bottom:1px solid #eee}
   .footer{margin-top:36px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:10px}
-  @media print{body{padding:16px 20px}}
+  .planilha{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}
+  .planilha th,.planilha td{border:1px solid #999;padding:6px 9px}
+  .planilha th{background:#e5e7eb;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.03em}
+  .planilha tfoot td{background:#fff7ed;border-top:2px solid #111;font-weight:700}
+  .rastreio{background:#f8fafc;border:1px solid #ddd;border-radius:6px;padding:10px 14px;font-size:11px;color:#333;margin-top:16px;word-break:break-all}
+  @media print{body{padding:16px 20px} .planilha{font-size:10px}}
 `;
 
 const buildRelatorioDoc = (titulo, corpo) =>
@@ -2749,6 +2776,54 @@ const gerarRelatorioProcessos = (processos) => {
       </div>
     </div>`;
   });
+  html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 · ${hojeStr()}</div>`;
+  return html;
+};
+
+const gerarRelatorioCotacao = (cot, linkRastreabilidade) => {
+  const valsDe = it => cot.fornecedores.map(f=>it.valores[f.id]||0).filter(v=>v>0);
+  const totalGeral = cot.itens.reduce((acc,it)=>acc + calcMediana(valsDe(it))*(parseFloat(it.qtd)||0), 0);
+
+  let html = `<div class="hdr"><h1>Mapa de Preços — ${esc(cot.numero)}</h1><div class="sub">${esc(cot.objeto)}${cot.processo?` &nbsp;·&nbsp; Processo ${esc(cot.processo)}`:""} &nbsp;·&nbsp; Gerado em ${hojeStr()} &nbsp;·&nbsp; Mediana conforme IN SEGES 65/2021 (Lei 14.133/2021)</div></div>`;
+
+  html += `<table class="planilha"><thead><tr>
+    <th>Item</th><th>Un.</th><th>Qtd</th>
+    ${cot.fornecedores.map((f,i)=>`<th>F${i+1} — ${esc(f.razao)}${f.cnpj?`<br/><span style="font-weight:400;font-size:9px;text-transform:none">${esc(f.cnpj)}</span>`:""}</th>`).join("")}
+    <th>Mediana</th><th>Total Ref.</th>
+  </tr></thead><tbody>
+  ${cot.itens.map(it=>{
+    const mediana = calcMediana(valsDe(it));
+    const qtd = parseFloat(it.qtd)||0;
+    return `<tr>
+      <td>${esc(it.descricao)}</td>
+      <td style="text-align:center">${esc(it.unidade)}</td>
+      <td style="text-align:center">${qtd.toLocaleString("pt-BR")}</td>
+      ${cot.fornecedores.map(f=>{
+        const v = it.valores[f.id]||0;
+        return `<td style="text-align:right">${v>0?fmtBRL(v):"—"}</td>`;
+      }).join("")}
+      <td style="text-align:right;color:#92400e">${fmtBRL(mediana)}</td>
+      <td style="text-align:right">${fmtBRL(mediana*qtd)}</td>
+    </tr>`;
+  }).join("")}
+  </tbody><tfoot><tr>
+    <td colspan="${3+cot.fornecedores.length}" style="text-align:right">VALOR TOTAL DE REFERÊNCIA</td>
+    <td colspan="2" style="text-align:right;font-size:13px">${fmtBRL(totalGeral)}</td>
+  </tr></tfoot></table>`;
+
+  html += `<div class="sec" style="margin-top:18px">Fornecedores Consultados</div>
+  <div class="g2">
+    ${cot.fornecedores.map((f,i)=>`<div><div class="lbl">F${i+1}</div><div class="val">${esc(f.razao)||"—"}${f.cnpj?` · ${esc(f.cnpj)}`:""}</div></div>`).join("")}
+  </div>`;
+
+  if (cot.fontes_ia?.length) {
+    html += `<div class="sec" style="margin-top:18px">Fontes Pesquisadas (Pesquisa de Mercado com IA)</div>
+    <table class="planilha"><thead><tr><th>Descrição</th><th>Fornecedor / Plataforma</th><th>Valor Unitário</th><th>Link da Fonte</th></tr></thead><tbody>
+    ${cot.fontes_ia.map(f=>`<tr><td>${esc(f.descricao)}</td><td>${esc(f.fornecedor)}</td><td style="text-align:right">${fmtBRL(f.valor_unitario)}</td><td style="font-size:9px">${esc(f.url)}</td></tr>`).join("")}
+    </tbody></table>`;
+  }
+
+  html += `<div class="rastreio"><strong>Rastreabilidade:</strong> confira este mapa de preços no Portal de Transparência — ${esc(linkRastreabilidade)}</div>`;
   html += `<div class="footer">LicitaGov — Sistema de Gestão de Licitações · Lei 14.133/2021 · ${hojeStr()}</div>`;
   return html;
 };

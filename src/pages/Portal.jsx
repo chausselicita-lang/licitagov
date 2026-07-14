@@ -19,6 +19,28 @@ const C = {
 const fmtBRL  = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
 const fmtDate = d => d ? new Date(d+"T00:00:00").toLocaleDateString("pt-BR") : "—";
 const hoje    = () => new Date().toISOString().slice(0,10);
+const calcMediana = arr => {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a,b)=>a-b);
+  const m = Math.floor(s.length/2);
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+};
+
+function cotacaoFromDb(row) {
+  const fornecedores = (row.cot_fornecedores || []).map(f => ({ id:f.id, razao:f.razao||'', cnpj:f.cnpj||'' }));
+  const itens = (row.cot_itens || []).map(it => {
+    const valores = {};
+    (it.cot_valores || []).forEach(v => { valores[v.fornecedor_id] = parseFloat(v.valor) || 0; });
+    return { id:it.id, descricao:it.descricao||'', unidade:it.unidade||'', qtd:String(it.qtd||''), valores };
+  });
+  return {
+    id: row.id, numero: row.numero, objeto: row.objeto, processo: row.processo || '',
+    status: row.status || 'Finalizada', dataCriacao: row.data_criacao || '',
+    geradoPorIA: row.gerado_por_ia || false, createdAt: row.created_at,
+    fornecedores, itens,
+    fontes_ia: (row.cot_fontes_ia || []).map(f => ({ descricao:f.descricao||'', fornecedor:f.fornecedor||'', valor_unitario:parseFloat(f.valor_unitario)||0, url:f.url||'' })),
+  };
+}
 
 const BADGE_MAP = {
   "Publicado":    {bg:"#fff1e6",fg:"#c25a00"},
@@ -47,13 +69,13 @@ function Badge({ label }) {
   );
 }
 
-function Modal({ title, subtitle, onClose, children }) {
+function Modal({ title, subtitle, onClose, children, wide=false }) {
   useOverlayBack(true, onClose);
   useEffect(() => { markModalOpen(); return () => markModalClosed(); }, []);
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.42)",backdropFilter:"blur(3px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:C.surface,border:`1px solid ${C.borderStrong}`,borderRadius:14,padding:"28px 32px",width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.22)"}}>
+      <div style={{background:C.surface,border:`1px solid ${C.borderStrong}`,borderRadius:14,padding:"28px 32px",width:"100%",maxWidth:wide?920:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.22)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
           <div>
             {subtitle&&<div style={{fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:4}}>{subtitle}</div>}
@@ -384,6 +406,124 @@ function TabContratos({ contratos, isMobile }) {
   );
 }
 
+/* ── Cotações / Pesquisa de Preços ───────────────────────────── */
+function TabCotacoes({ cotacoes, isMobile, focusId, onFocused }) {
+  const [busca,setBusca]=useState(""); const [modal,setModal]=useState(null);
+
+  useEffect(() => {
+    if (!focusId) return;
+    const alvo = cotacoes.find(c=>c.id===focusId);
+    if (alvo) setModal(alvo);
+    onFocused?.();
+  }, [focusId, cotacoes, onFocused]);
+
+  const rows=useMemo(()=>cotacoes.filter(c=>{
+    const q=busca.toLowerCase();
+    return !q||(c.numero||"").toLowerCase().includes(q)||(c.objeto||"").toLowerCase().includes(q);
+  }),[cotacoes,busca]);
+
+  const totalRef = c => c.itens.reduce((acc,it)=>{
+    const vals = c.fornecedores.map(f=>it.valores[f.id]||0).filter(v=>v>0);
+    return acc + calcMediana(vals)*(parseFloat(it.qtd)||0);
+  },0);
+
+  const cols=[
+    {label:"Número",  render:r=><span style={{fontWeight:600,color:C.accent,whiteSpace:"nowrap"}}>{r.numero||"—"}</span>},
+    {label:"Objeto",  render:r=><div style={{maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.objeto||"—"}</div>},
+    {label:"Fornecedores",render:r=><span style={{color:C.sub,whiteSpace:"nowrap"}}>{r.fornecedores.length}</span>},
+    {label:"Valor Total Ref.",render:r=><span style={{whiteSpace:"nowrap",fontWeight:600}}>{fmtBRL(totalRef(r))}</span>},
+    {label:"Data",    render:r=><span style={{color:C.sub,whiteSpace:"nowrap"}}>{fmtDate(r.dataCriacao)}</span>},
+    {label:"Status",  render:r=><Badge label={r.status}/>},
+  ];
+
+  return (
+    <div>
+      {modal&&(()=>{
+        const vals = it => modal.fornecedores.map(f=>it.valores[f.id]||0).filter(v=>v>0);
+        return (
+          <Modal title={modal.numero||"Cotação"} subtitle="Mapa de Preços — Lei 14.133/2021" onClose={()=>setModal(null)} wide>
+            <MRow label="Objeto" value={modal.objeto}/>
+            {modal.processo&&<MRow label="Processo" value={modal.processo}/>}
+            <MRow label="Data" value={fmtDate(modal.dataCriacao)}/>
+            <MRow label="Status" value={<Badge label={modal.status}/>}/>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:480}}>
+                <thead>
+                  <tr style={{background:"#f8fafc"}}>
+                    <th style={{padding:"8px 10px",textAlign:"left",border:`1px solid ${C.border}`}}>Item</th>
+                    <th style={{padding:"8px 10px",textAlign:"center",border:`1px solid ${C.border}`}}>Un.</th>
+                    <th style={{padding:"8px 10px",textAlign:"center",border:`1px solid ${C.border}`}}>Qtd</th>
+                    {modal.fornecedores.map((f,i)=>(
+                      <th key={f.id} style={{padding:"8px 10px",textAlign:"right",border:`1px solid ${C.border}`,color:C.accent}}>F{i+1}</th>
+                    ))}
+                    <th style={{padding:"8px 10px",textAlign:"right",border:`1px solid ${C.border}`,color:C.gold}}>Mediana</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",border:`1px solid ${C.border}`}}>Total Ref.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modal.itens.map(it=>{
+                    const mediana = calcMediana(vals(it));
+                    const qtd = parseFloat(it.qtd)||0;
+                    return (
+                      <tr key={it.id}>
+                        <td style={{padding:"8px 10px",border:`1px solid ${C.border}`}}>{it.descricao}</td>
+                        <td style={{padding:"8px 10px",border:`1px solid ${C.border}`,textAlign:"center"}}>{it.unidade}</td>
+                        <td style={{padding:"8px 10px",border:`1px solid ${C.border}`,textAlign:"center"}}>{qtd.toLocaleString("pt-BR")}</td>
+                        {modal.fornecedores.map(f=>(
+                          <td key={f.id} style={{padding:"8px 10px",border:`1px solid ${C.border}`,textAlign:"right"}}>{it.valores[f.id]?fmtBRL(it.valores[f.id]):"—"}</td>
+                        ))}
+                        <td style={{padding:"8px 10px",border:`1px solid ${C.border}`,textAlign:"right",fontWeight:700,color:C.gold}}>{fmtBRL(mediana)}</td>
+                        <td style={{padding:"8px 10px",border:`1px solid ${C.border}`,textAlign:"right",fontWeight:600}}>{fmtBRL(mediana*qtd)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{background:C.accentSubtle}}>
+                    <td colSpan={3+modal.fornecedores.length} style={{padding:"8px 10px",border:`1px solid ${C.border}`,fontWeight:700,textAlign:"right"}}>VALOR TOTAL DE REFERÊNCIA</td>
+                    <td colSpan={2} style={{padding:"8px 10px",border:`1px solid ${C.border}`,fontWeight:700,textAlign:"right"}}>{fmtBRL(totalRef(modal))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div style={{marginTop:6}}>
+              <div style={{fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Fornecedores Consultados</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {modal.fornecedores.map((f,i)=>(
+                  <div key={f.id} style={{fontSize:13}}><strong>F{i+1}</strong> — {f.razao||"—"}{f.cnpj?` · ${f.cnpj}`:""}</div>
+                ))}
+              </div>
+            </div>
+            {modal.fontes_ia?.length>0 && (
+              <div>
+                <div style={{fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Fontes Pesquisadas (Pesquisa de Mercado)</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {modal.fontes_ia.map((f,i)=>(
+                    <div key={i} style={{fontSize:12,padding:"8px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6}}>
+                      <div><strong>{f.fornecedor||"Fonte"}</strong> — {fmtBRL(f.valor_unitario)}</div>
+                      {f.descricao&&<div style={{color:C.sub}}>{f.descricao}</div>}
+                      {f.url&&<a href={f.url} target="_blank" rel="noopener noreferrer" style={{color:C.accent,fontSize:11,wordBreak:"break-all"}}>{f.url}</a>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
+      <FilterBar busca={busca} setBusca={setBusca} placeholder="Buscar por número ou objeto..."/>
+      <Count total={cotacoes.length} filtrado={rows.length}/>
+      {isMobile
+        ?<MobileCards rows={rows} onRow={setModal} render={r=><>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontWeight:700,color:C.accent,fontSize:12}}>{r.numero||"—"}</span><Badge label={r.status}/></div>
+            <div style={{fontSize:13,fontWeight:500,marginBottom:3}}>{r.objeto||"—"}</div>
+            <div style={{fontSize:12,color:C.sub}}>{r.fornecedores.length} fornecedor(es) · {fmtBRL(totalRef(r))}</div>
+          </>}/>
+        :<Tabela cols={cols} rows={rows} onRow={setModal}/>}
+    </div>
+  );
+}
+
 /* ── Órgãos ──────────────────────────────────────────────────── */
 function TabOrgaos({ orgaos, processos, isMobile }) {
   const [busca,setBusca]=useState("");
@@ -450,16 +590,20 @@ const PORTAL_TABS=[
   {id:"inexigibilidades", label:"Inexigibilidades"},
   {id:"atas",             label:"Atas de RP"},
   {id:"contratos",        label:"Contratos"},
+  {id:"cotacoes",         label:"Cotações"},
   {id:"orgaos",           label:"Órgãos"},
 ];
-const SEED={processos:[],dispensas:[],inexigibilidades:[],atas:[],contratos:[],orgaos:[]};
+const SEED={processos:[],dispensas:[],inexigibilidades:[],atas:[],contratos:[],cotacoes:[],orgaos:[]};
 
 export default function Portal() {
-  const [tab,setTab]       = useState("dashboard");
+  const params = useMemo(()=>new URLSearchParams(window.location.search),[]);
+  const cotacaoFoco = params.get("cotacao");
+  const [tab,setTab]       = useState(cotacaoFoco ? "cotacoes" : "dashboard");
   const [data,setData]     = useState(SEED);
   const [loading,setLoad]  = useState(true);
   const [erro,setErro]     = useState(null);
   const [isMobile]         = useState(()=>window.innerWidth<768);
+  const [focusCotacaoId,setFocusCotacaoId] = useState(cotacaoFoco);
 
   useEffect(()=>{
     const safe = r => (r.status==="fulfilled" && !r.value?.error) ? (r.value.data||[]) : [];
@@ -469,9 +613,10 @@ export default function Portal() {
       portalClient.from("inexigibilidades").select("*").order("created_at",{ascending:false}),
       portalClient.from("atas").select("*").order("created_at",{ascending:false}),
       portalClient.from("contratos").select("*").order("created_at",{ascending:false}),
+      portalClient.from("cotacoes").select("*, cot_fornecedores(*), cot_itens(*, cot_valores(*)), cot_fontes_ia(*)").order("created_at",{ascending:false}),
       portalClient.from("orgaos").select("*").order("nome",{ascending:true}),
-    ]).then(([p,d,i,a,c,o])=>{
-      setData({processos:safe(p),dispensas:safe(d),inexigibilidades:safe(i),atas:safe(a),contratos:safe(c),orgaos:safe(o)});
+    ]).then(([p,d,i,a,c,cot,o])=>{
+      setData({processos:safe(p),dispensas:safe(d),inexigibilidades:safe(i),atas:safe(a),contratos:safe(c),cotacoes:safe(cot).map(cotacaoFromDb),orgaos:safe(o)});
       setLoad(false);
     });
   },[]);
@@ -548,6 +693,7 @@ export default function Portal() {
             {tab==="inexigibilidades" &&<TabInexig inexigibilidades={data.inexigibilidades} isMobile={isMobile}/>}
             {tab==="atas"             &&<TabAtas atas={data.atas} isMobile={isMobile}/>}
             {tab==="contratos"        &&<TabContratos contratos={data.contratos} isMobile={isMobile}/>}
+            {tab==="cotacoes"         &&<TabCotacoes cotacoes={data.cotacoes} isMobile={isMobile} focusId={focusCotacaoId} onFocused={()=>setFocusCotacaoId(null)}/>}
             {tab==="orgaos"           &&<TabOrgaos orgaos={data.orgaos} processos={data.processos} isMobile={isMobile}/>}
           </>
         )}
