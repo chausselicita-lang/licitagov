@@ -6,6 +6,7 @@ const TITULOS_PECA = {
   razoes_recurso: "RAZÕES DE RECURSO ADMINISTRATIVO",
   contrarrazoes: "CONTRARRAZÕES DE RECURSO",
   peticao: "PETIÇÃO",
+  resposta_impugnacao: "RESPOSTA À IMPUGNAÇÃO",
 };
 
 // A IA devolve texto corrido; parágrafos separados por linha em branco.
