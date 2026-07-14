@@ -95,7 +95,14 @@ const parseBRL = v => {
   }
   return parseFloat(s) || 0;
 };
-const fmtDate = d => d ? new Date(d+"T00:00:00").toLocaleDateString("pt-BR") : "—";
+const fmtDate = d => {
+  if (!d) return "—";
+  // Datas puras (YYYY-MM-DD, campos de formulário como abertura/vigência) precisam do "T00:00:00"
+  // para não sofrer o shift de fuso horário do UTC; timestamps completos (createdAt/updatedAt,
+  // vindos como timestamptz do Postgres) já têm hora e fuso embutidos e não devem ser concatenados.
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + "T00:00:00" : d);
+  return isNaN(date) ? "—" : date.toLocaleDateString("pt-BR");
+};
 const hoje = () => new Date().toISOString().slice(0,10);
 const diasParaVencer = d => {
   if (!d) return null;
