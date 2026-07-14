@@ -35,7 +35,7 @@ const EMAIL        = process.env.LEXCORE_TEST_EMAIL || "chausselicita@gmail.com"
 const PROD_URL     = process.env.LEXCORE_APP_URL || "https://licitagov-one.vercel.app";
 const DOC_PDF      = path.join(__dirname, "fixtures", "edital-teste.pdf");
 
-test.setTimeout(120000); // geração via IA pode levar ~1min
+test.setTimeout(180000); // geração via IA (resposta completa, ~4096 tokens) medida em ~84s em produção
 
 function followRedirect(url) {
   return new Promise((resolve, reject) => {
@@ -88,7 +88,7 @@ test("fluxo completo Resposta a Impugnação/Recurso: anexar -> gerar -> editar 
   // 4. Disparar geração por IA e aguardar o editor da resposta
   await page.locator("button", { hasText: "Gerar Resposta" }).first().click();
   console.log("Gerando resposta via IA...");
-  await expect(page.locator("textarea")).toBeVisible({ timeout: 60000 });
+  await expect(page.locator("textarea")).toBeVisible({ timeout: 120000 });
   console.log("✅ Resposta gerada — editor exibido");
 
   const textoGerado = await page.locator("textarea").inputValue();
