@@ -28,6 +28,11 @@ import {
   sbListPecas, sbGetPeca, sbCreatePeca, sbUpdatePeca, exportarPecaDocx, uploadEditalOriginal,
 } from './lib/lexcoreDb.js';
 import { ANALISE_SYSTEM, buildPecaSystem, buildPecaUserPrompt, parsePontosCriticosJSON, TIPOS_PECA, labelTipoPeca, labelTipoProblema } from './lib/lexcoreLegal.js';
+import {
+  sbListRespostas, sbCreateResposta, sbGetResposta, sbUpdateResposta, sbDeleteResposta,
+  uploadDocumentoRecebido, exportarRespostaDocx,
+} from './lib/lexcoreRespostaDb.js';
+import { TIPOS_RESPOSTA, labelTipoResposta, buildRespostaSystem, buildRespostaUserText } from './lib/lexcoreRespostaLegal.js';
 import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
@@ -2872,12 +2877,17 @@ const RISCO_COLOR = { alto: "#b91c1c", medio: "#b45309", baixo: "#15803d" };
 
 function TabLexCore({ toast }) {
   const isMobile = useMobileCD();
+  const [secao, setSecao] = useState("analise"); // "analise" | "resposta"
+
   const [view, setView] = useState("lista"); // lista | nova | analise | peca
   const [analiseId, setAnaliseId] = useState(null);
   const [pecaId, setPecaId] = useState(null);
   const [analises, setAnalises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  const [respostaView, setRespostaView] = useState("lista"); // lista | nova | detalhe
+  const [respostaId, setRespostaId] = useState(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -2932,6 +2942,26 @@ function TabLexCore({ toast }) {
     );
   }
 
+  if (respostaView === "nova") {
+    return (
+      <LexcoreRespostaNova
+        toast={toast}
+        onCancel={() => setRespostaView("lista")}
+        onCriada={(id) => { setRespostaId(id); setRespostaView("detalhe"); }}
+      />
+    );
+  }
+
+  if (respostaView === "detalhe" && respostaId) {
+    return (
+      <LexcoreRespostaDetalhe
+        respostaId={respostaId}
+        toast={toast}
+        onVoltar={() => setRespostaView("lista")}
+      />
+    );
+  }
+
   const filtered = analises.filter(a => {
     const s = search.toLowerCase();
     return (a.nomeEdital || "").toLowerCase().includes(s) || (a.numeroProcesso || "").toLowerCase().includes(s);
@@ -2957,46 +2987,71 @@ function TabLexCore({ toast }) {
           </div>
           <div style={{ fontSize:12, color:SX.prata, marginTop:3 }}>Análise de editais frente à Lei 14.133/2021 e geração de peças jurídicas (impugnação, recursos, contrarrazões)</div>
         </div>
-        <Btn color={SX.laranja} onClick={() => setView("nova")}>
-          <Icon name="plus" size={14} /> Nova Análise
-        </Btn>
+        {secao === "analise" ? (
+          <Btn color={SX.laranja} onClick={() => setView("nova")}>
+            <Icon name="plus" size={14} /> Nova Análise
+          </Btn>
+        ) : (
+          <Btn color={SX.laranja} onClick={() => setRespostaView("nova")}>
+            <Icon name="plus" size={14} /> Nova Resposta
+          </Btn>
+        )}
       </div>
 
-      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nome do edital ou processo..."
-          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
-          onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
-          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        <button onClick={() => setSecao("analise")} style={{
+          padding:"8px 16px", borderRadius:8, border:`1px solid ${secao==="analise" ? SX.laranja : C.border}`,
+          background: secao==="analise" ? `${SX.laranja}1a` : "transparent",
+          color: secao==="analise" ? SX.laranjaEsc : C.sub, fontSize:12.5, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+        }}>Análise de Editais</button>
+        <button onClick={() => setSecao("resposta")} style={{
+          padding:"8px 16px", borderRadius:8, border:`1px solid ${secao==="resposta" ? SX.laranja : C.border}`,
+          background: secao==="resposta" ? `${SX.laranja}1a` : "transparent",
+          color: secao==="resposta" ? SX.laranjaEsc : C.sub, fontSize:12.5, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+        }}>Respostas a Impugnação/Recurso</button>
       </div>
 
-      {loading ? (
-        <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análises...</div>
-      ) : filtered.length === 0 ? (
-        <EmptyState icon="lexcore" title="Nenhuma análise de edital" sub='Clique em "Nova Análise" para enviar um edital em PDF e identificar pontos críticos frente à Lei 14.133/2021' />
-      ) : (
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {filtered.map(a => {
-            const st = statusInfo(a.status);
-            return (
-              <div key={a.id} onClick={() => abrirAnalise(a.id)} style={{
-                background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${a.status==="erro"?C.red:SX.laranja}`,
-                borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
-                display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
-              }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{a.nomeEdital}</span>
-                    <Badge label={st.label} color={st.color} />
+      {secao === "analise" ? (
+        <>
+          <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nome do edital ou processo..."
+              style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+              onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+          </div>
+
+          {loading ? (
+            <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análises...</div>
+          ) : filtered.length === 0 ? (
+            <EmptyState icon="lexcore" title="Nenhuma análise de edital" sub='Clique em "Nova Análise" para enviar um edital em PDF e identificar pontos críticos frente à Lei 14.133/2021' />
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {filtered.map(a => {
+                const st = statusInfo(a.status);
+                return (
+                  <div key={a.id} onClick={() => abrirAnalise(a.id)} style={{
+                    background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${a.status==="erro"?C.red:SX.laranja}`,
+                    borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
+                    display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
+                  }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{a.nomeEdital}</span>
+                        <Badge label={st.label} color={st.color} />
+                      </div>
+                      <div style={{ fontSize:12, color:C.sub }}>{a.numeroProcesso ? `Processo ${a.numeroProcesso}` : "Sem número de processo"} · {fmtDate(a.createdAt)}</div>
+                    </div>
+                    <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
+                      <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletar(a.id)} />
+                    </div>
                   </div>
-                  <div style={{ fontSize:12, color:C.sub }}>{a.numeroProcesso ? `Processo ${a.numeroProcesso}` : "Sem número de processo"} · {fmtDate(a.createdAt)}</div>
-                </div>
-                <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
-                  <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletar(a.id)} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <LexcoreRespostaLista toast={toast} isMobile={isMobile} onAbrir={(id) => { setRespostaId(id); setRespostaView("detalhe"); }} />
       )}
     </div>
   );
@@ -3337,6 +3392,259 @@ function LexcorePeca({ pecaId, toast, onVoltar }) {
       {peca.arquivoDocxUrl && (
         <div style={{ marginBottom:12 }}>
           <a href={peca.arquivoDocxUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12.5, color:SX.laranjaEsc, textDecoration:"none", fontWeight:600 }}>
+            <Icon name="externallink" size={12} /> Última versão exportada — abrir .docx
+          </a>
+        </div>
+      )}
+
+      <textarea value={conteudo} onChange={e => setConteudo(e.target.value)} rows={28}
+        style={{
+          width:"100%", boxSizing:"border-box", background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+          padding:"16px 18px", color:C.text, fontSize:13.5, lineHeight:1.7, fontFamily:"'Times New Roman',serif",
+          outline:"none", resize:"vertical",
+        }}
+        onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+        onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+      />
+    </div>
+  );
+}
+
+function LexcoreRespostaLista({ toast, isMobile, onAbrir }) {
+  const [respostas, setRespostas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await sbListRespostas();
+    if (error) toast("Erro ao carregar respostas: " + error.message, "error");
+    setRespostas(data);
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const deletar = async (id) => {
+    if (!window.confirm("Excluir esta resposta?")) return;
+    const { error } = await sbDeleteResposta(id);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setRespostas(prev => prev.filter(r => r.id !== id));
+    toast("Resposta excluída");
+  };
+
+  const filtered = respostas.filter(r => {
+    const s = search.toLowerCase();
+    return (r.nomeReferencia || "").toLowerCase().includes(s) || (r.numeroProcesso || "").toLowerCase().includes(s);
+  });
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por edital/objeto ou processo..."
+          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+          onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+      </div>
+
+      {loading ? (
+        <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando respostas...</div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon="lexcore" title="Nenhuma resposta gerada" sub='Clique em "Nova Resposta" para anexar o PDF de uma impugnação ou recurso recebido e gerar a defesa' />
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {filtered.map(r => (
+            <div key={r.id} onClick={() => onAbrir(r.id)} style={{
+              background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${SX.laranja}`,
+              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
+              display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
+            }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{labelTipoResposta(r.tipoResposta)}</span>
+                  <Badge label={r.status === "finalizada" ? "Finalizada" : "Rascunho"} color={r.status === "finalizada" ? C.green : undefined} />
+                </div>
+                <div style={{ fontSize:12, color:C.sub }}>
+                  {r.nomeReferencia || "Sem edital/objeto informado"}{r.numeroProcesso ? ` · Processo ${r.numeroProcesso}` : ""} · {fmtDate(r.createdAt)}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
+                <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletar(r.id)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LexcoreRespostaNova({ toast, onCancel, onCriada }) {
+  const [tipoResposta, setTipoResposta] = useState(TIPOS_RESPOSTA[0].value);
+  const [nomeReferencia, setNomeReferencia] = useState("");
+  const [numeroProcesso, setNumeroProcesso] = useState("");
+  const [file, setFile] = useState(null);
+  const [gerando, setGerando] = useState(false);
+  const fileRef = useRef(null);
+
+  const handleFile = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.type !== "application/pdf") { toast("Envie o documento em formato PDF", "error"); return; }
+    if (f.size > 20*1024*1024) { toast("Arquivo muito grande (máx. 20 MB)", "warn"); return; }
+    setFile(f);
+  };
+
+  const gerar = async () => {
+    if (!file) { toast("Selecione o PDF da impugnação ou do recurso recebido", "error"); return; }
+    setGerando(true);
+    try {
+      const { url: arquivoOrigemUrl, error: upErr } = await uploadDocumentoRecebido(file);
+      if (upErr) throw upErr;
+
+      const label = labelTipoResposta(tipoResposta);
+      const fileData = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(file); });
+      const b64 = fileData.split(",")[1];
+
+      const res = await anthropicFetch(null, {
+        method: "POST",
+        headers: { "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-beta": "pdfs-2024-09-25" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6", max_tokens: 4096, system: buildRespostaSystem(label),
+          messages: [{ role: "user", content: [
+            { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
+            { type: "text", text: buildRespostaUserText({ tipoRespostaLabel: label, nomeReferencia: nomeReferencia.trim(), numeroProcesso: numeroProcesso.trim() }) },
+          ] }],
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+      const json = await res.json();
+      if (json.stop_reason === "max_tokens") throw new Error("Documento muito extenso para gerar a resposta de uma vez.");
+      const conteudo = json.content?.[0]?.text || "";
+      if (!conteudo.trim()) throw new Error("IA não retornou conteúdo para a resposta.");
+
+      const { data: resposta, error } = await sbCreateResposta({
+        tipoResposta, nomeReferencia: nomeReferencia.trim(), numeroProcesso: numeroProcesso.trim(),
+        arquivoOrigemUrl, conteudoGerado: conteudo,
+      });
+      if (error) throw error;
+      toast("Resposta gerada com sucesso!");
+      onCriada(resposta.id);
+    } catch (err) {
+      toast("Erro ao gerar resposta: " + err.message, "error");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onCancel} />
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>Nova Resposta a Impugnação/Recurso</div>
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, maxWidth:640, display:"flex", flexDirection:"column", gap:14 }}>
+        <Select label="Tipo de resposta" value={tipoResposta} onChange={setTipoResposta} options={TIPOS_RESPOSTA} />
+        <Input label="Edital/Objeto de referência (opcional)" value={nomeReferencia} onChange={setNomeReferencia} placeholder="Ex.: Pregão Eletrônico nº 012/2026 — Aquisição de material de expediente" />
+        <Input label="Número do Processo (opcional)" value={numeroProcesso} onChange={setNumeroProcesso} placeholder="Ex.: 2026.001.0034" />
+
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Impugnação ou Recurso recebido (PDF)</label>
+          <input ref={fileRef} type="file" accept="application/pdf" onChange={handleFile} style={{ display:"none" }} />
+          <Btn variant="outline" color={SX.laranja} onClick={() => fileRef.current?.click()} style={{ alignSelf:"flex-start" }}>
+            <Icon name="attach" size={14} /> {file ? file.name : "Selecionar PDF recebido"}
+          </Btn>
+        </div>
+
+        <div style={{
+          background:"#fff1e6", border:`1px solid ${SX.laranja}55`, borderRadius:8, padding:"12px 14px",
+          display:"flex", gap:10, alignItems:"flex-start", fontSize:12.5, color:"#7c2d12", lineHeight:1.5,
+        }}>
+          <Icon name="warning" size={16} color={SX.laranjaEsc} />
+          A IA lê o PDF anexado diretamente e redige a resposta em nome do órgão licitante, defendendo o edital ou a decisão frente aos argumentos apresentados. Independente de qualquer análise de edital salva.
+        </div>
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <Btn variant="outline" color={C.sub} onClick={onCancel} disabled={gerando}>Cancelar</Btn>
+          <Btn color={SX.laranja} onClick={gerar} disabled={gerando}>
+            {gerando ? "Gerando resposta..." : (<><Icon name="sparkle" size={14} /> Gerar Resposta</>)}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LexcoreRespostaDetalhe({ respostaId, toast, onVoltar }) {
+  const [resposta, setResposta] = useState(null);
+  const [conteudo, setConteudo] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [exportando, setExportando] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    sbGetResposta(respostaId).then(({ data, error }) => {
+      if (!ativo) return;
+      if (error) toast("Erro ao carregar resposta: " + error.message, "error");
+      setResposta(data);
+      setConteudo(data?.conteudoGerado || "");
+      setLoading(false);
+    });
+    return () => { ativo = false; };
+  }, [respostaId, toast]);
+
+  const salvar = async () => {
+    setSalvando(true);
+    const { data, error } = await sbUpdateResposta(respostaId, { conteudoGerado: conteudo });
+    setSalvando(false);
+    if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+    setResposta(data);
+    toast("Rascunho salvo");
+  };
+
+  const exportar = async () => {
+    setExportando(true);
+    try {
+      await salvar();
+      const { resposta: atualizada, docxUrl } = await exportarRespostaDocx({
+        respostaId, tipoResposta: resposta.tipoResposta, conteudoGerado: conteudo,
+        nomeReferencia: resposta.nomeReferencia, numeroProcesso: resposta.numeroProcesso,
+      });
+      setResposta(atualizada);
+      toast("Resposta exportada em .docx");
+      window.open(docxUrl, "_blank", "noopener");
+    } catch (err) {
+      toast("Erro ao exportar: " + err.message, "error");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando resposta...</div>;
+  if (!resposta) return <EmptyState icon="lexcore" title="Resposta não encontrada" sub="" />;
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onVoltar} />
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{labelTipoResposta(resposta.tipoResposta)}</div>
+          <div style={{ fontSize:12, color:C.sub }}>{resposta.nomeReferencia || "Sem edital/objeto informado"} · <Badge label={resposta.status === "finalizada" ? "Finalizada" : "Rascunho"} color={resposta.status === "finalizada" ? C.green : undefined} /></div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="outline" color={SX.laranja} onClick={salvar} disabled={salvando || exportando}>{salvando ? "Salvando..." : "Salvar Rascunho"}</Btn>
+          <Btn color={SX.laranja} onClick={exportar} disabled={exportando}>
+            {exportando ? "Exportando..." : (<><Icon name="file" size={14} /> Exportar .docx</>)}
+          </Btn>
+        </div>
+      </div>
+
+      {resposta.arquivoDocxUrl && (
+        <div style={{ marginBottom:12 }}>
+          <a href={resposta.arquivoDocxUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12.5, color:SX.laranjaEsc, textDecoration:"none", fontWeight:600 }}>
             <Icon name="externallink" size={12} /> Última versão exportada — abrir .docx
           </a>
         </div>
