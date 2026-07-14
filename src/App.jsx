@@ -25,7 +25,7 @@ import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
   sbListLexcoreAnalises, sbCreateLexcoreAnalise, sbUpdateLexcoreAnalise, sbDeleteLexcoreAnalise,
   sbGetLexcoreAnalise, sbListPontosCriticos, sbInsertPontosCriticos, sbSetPontoSelecionado,
-  sbListPecas, sbGetPeca, sbCreatePeca, sbUpdatePeca, exportarPecaDocx, uploadEditalOriginal,
+  sbListPecas, sbListTodasPecas, sbGetPeca, sbCreatePeca, sbUpdatePeca, sbDeletePeca, exportarPecaDocx, uploadEditalOriginal,
 } from './lib/lexcoreDb.js';
 import { ANALISE_SYSTEM, buildPecaSystem, buildPecaUserPrompt, parsePontosCriticosJSON, TIPOS_PECA, labelTipoPeca, labelTipoProblema } from './lib/lexcoreLegal.js';
 import {
@@ -2877,31 +2877,48 @@ const RISCO_COLOR = { alto: "#b91c1c", medio: "#b45309", baixo: "#15803d" };
 
 function TabLexCore({ toast }) {
   const isMobile = useMobileCD();
-  const [secao, setSecao] = useState("analise"); // "analise" | "resposta"
+  const [screen, setScreen] = useState({ name: "home" }); // home | novaAnalise | analise | novaPeca | peca | resposta
 
-  const [view, setView] = useState("lista"); // lista | nova | analise | peca
-  const [analiseId, setAnaliseId] = useState(null);
-  const [pecaId, setPecaId] = useState(null);
   const [analises, setAnalises] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [loadingAnalises, setLoadingAnalises] = useState(true);
+  const [searchAnalises, setSearchAnalises] = useState("");
 
-  const [respostaView, setRespostaView] = useState("lista"); // lista | nova | detalhe
-  const [respostaId, setRespostaId] = useState(null);
+  const [pecasTodas, setPecasTodas] = useState([]);
+  const [loadingPecas, setLoadingPecas] = useState(true);
+  const [searchPecas, setSearchPecas] = useState("");
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
+  const carregarAnalises = useCallback(async () => {
+    setLoadingAnalises(true);
     const { data, error } = await sbListLexcoreAnalises();
     if (error) toast("Erro ao carregar análises: " + error.message, "error");
     setAnalises(data);
-    setLoading(false);
+    setLoadingAnalises(false);
   }, [toast]);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  const carregarPecas = useCallback(async () => {
+    setLoadingPecas(true);
+    const [{ data: pecas, error: eP }, { data: respostas, error: eR }] = await Promise.all([
+      sbListTodasPecas(), sbListRespostas(),
+    ]);
+    if (eP) toast("Erro ao carregar peças: " + eP.message, "error");
+    if (eR) toast("Erro ao carregar respostas: " + eR.message, "error");
+    const combinada = [
+      ...(pecas || []).map(p => ({
+        ...p, origem: "analise", titulo: labelTipoPeca(p.tipoPeca),
+        referencia: p.nomeEdital ? `${p.nomeEdital}${p.numeroProcesso ? " · Processo " + p.numeroProcesso : ""}` : "Sem edital de origem",
+      })),
+      ...(respostas || []).map(r => ({
+        ...r, origem: "pdf", titulo: labelTipoResposta(r.tipoResposta),
+        referencia: r.nomeReferencia || "Sem edital/objeto informado",
+      })),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    setPecasTodas(combinada);
+    setLoadingPecas(false);
+  }, [toast]);
 
-  const abrirAnalise = (id) => { setAnaliseId(id); setView("analise"); };
+  useEffect(() => { carregarAnalises(); carregarPecas(); }, [carregarAnalises, carregarPecas]);
 
-  const deletar = async (id) => {
+  const deletarAnalise = async (id) => {
     if (!window.confirm("Excluir esta análise? Os pontos críticos e peças geradas serão perdidos.")) return;
     const { error } = await sbDeleteLexcoreAnalise(id);
     if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
@@ -2909,62 +2926,77 @@ function TabLexCore({ toast }) {
     toast("Análise excluída");
   };
 
-  if (view === "nova") {
+  const deletarPeca = async (item) => {
+    if (!window.confirm("Excluir esta peça jurídica?")) return;
+    const { error } = item.origem === "analise" ? await sbDeletePeca(item.id) : await sbDeleteResposta(item.id);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setPecasTodas(prev => prev.filter(p => p.id !== item.id));
+    toast("Peça excluída");
+  };
+
+  if (screen.name === "novaAnalise") {
     return (
       <LexcoreNova
         isMobile={isMobile}
         toast={toast}
-        onCancel={() => setView("lista")}
-        onCriada={(id) => { carregar(); abrirAnalise(id); }}
+        onCancel={() => setScreen({ name: "home" })}
+        onCriada={(id) => { carregarAnalises(); setScreen({ name: "analise", id }); }}
       />
     );
   }
 
-  if (view === "analise" && analiseId) {
+  if (screen.name === "analise") {
     return (
       <LexcoreAnalise
-        analiseId={analiseId}
+        analiseId={screen.id}
         isMobile={isMobile}
         toast={toast}
-        onVoltar={() => { setView("lista"); carregar(); }}
-        onAbrirPeca={(id) => { setPecaId(id); setView("peca"); }}
+        onVoltar={() => { setScreen({ name: "home" }); carregarAnalises(); }}
+        onAbrirPeca={(id) => setScreen({ name: "peca", id })}
+        onIrGerarPeca={(analiseId) => setScreen({ name: "novaPeca", presetAnaliseId: analiseId })}
       />
     );
   }
 
-  if (view === "peca" && pecaId) {
+  if (screen.name === "novaPeca") {
+    return (
+      <NovaPecaJuridica
+        presetAnaliseId={screen.presetAnaliseId}
+        toast={toast}
+        onCancel={() => setScreen({ name: "home" })}
+        onCriada={(id, origem) => { carregarPecas(); setScreen({ name: origem === "analise" ? "peca" : "resposta", id }); }}
+      />
+    );
+  }
+
+  if (screen.name === "peca") {
     return (
       <LexcorePeca
-        pecaId={pecaId}
+        pecaId={screen.id}
         toast={toast}
-        onVoltar={() => setView("analise")}
+        onVoltar={() => { setScreen({ name: "home" }); carregarPecas(); }}
       />
     );
   }
 
-  if (respostaView === "nova") {
-    return (
-      <LexcoreRespostaNova
-        toast={toast}
-        onCancel={() => setRespostaView("lista")}
-        onCriada={(id) => { setRespostaId(id); setRespostaView("detalhe"); }}
-      />
-    );
-  }
-
-  if (respostaView === "detalhe" && respostaId) {
+  if (screen.name === "resposta") {
     return (
       <LexcoreRespostaDetalhe
-        respostaId={respostaId}
+        respostaId={screen.id}
         toast={toast}
-        onVoltar={() => setRespostaView("lista")}
+        onVoltar={() => { setScreen({ name: "home" }); carregarPecas(); }}
       />
     );
   }
 
-  const filtered = analises.filter(a => {
-    const s = search.toLowerCase();
+  const filteredAnalises = analises.filter(a => {
+    const s = searchAnalises.toLowerCase();
     return (a.nomeEdital || "").toLowerCase().includes(s) || (a.numeroProcesso || "").toLowerCase().includes(s);
+  });
+
+  const filteredPecas = pecasTodas.filter(p => {
+    const s = searchPecas.toLowerCase();
+    return (p.titulo || "").toLowerCase().includes(s) || (p.referencia || "").toLowerCase().includes(s);
   });
 
   const statusInfo = (status) => ({
@@ -2973,63 +3005,52 @@ function TabLexCore({ toast }) {
     erro: { label: "Erro", color: "#b91c1c" },
   }[status] || { label: status, color: undefined });
 
-  return (
-    <div>
-      <div style={{
-        background: `linear-gradient(135deg, ${SX.preto} 0%, ${SX.pretoSoft} 100%)`,
-        border: `1px solid ${SX.laranja}33`, borderRadius: 12, padding: "18px 20px",
-        marginBottom: 16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
-      }}>
-        <div>
-          <div style={{ fontSize:16, fontWeight:700, color:"#fff", fontFamily:"Inter,system-ui,sans-serif", display:"flex", alignItems:"center", gap:8 }}>
-            <Icon name="lexcore" size={18} color={SX.laranja} />
-            LexCore
-          </div>
-          <div style={{ fontSize:12, color:SX.prata, marginTop:3 }}>Análise de editais frente à Lei 14.133/2021 e geração de peças jurídicas (impugnação, recursos, contrarrazões)</div>
+  const CardHeader = ({ title, sub, onNovo, novoLabel }) => (
+    <div style={{
+      background: `linear-gradient(135deg, ${SX.preto} 0%, ${SX.pretoSoft} 100%)`,
+      border: `1px solid ${SX.laranja}33`, borderRadius: "12px 12px 0 0",
+      padding: "18px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
+    }}>
+      <div>
+        <div style={{ fontSize:16, fontWeight:700, color:"#fff", fontFamily:"Inter,system-ui,sans-serif", display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="lexcore" size={18} color={SX.laranja} />
+          {title}
         </div>
-        {secao === "analise" ? (
-          <Btn color={SX.laranja} onClick={() => setView("nova")}>
-            <Icon name="plus" size={14} /> Nova Análise
-          </Btn>
-        ) : (
-          <Btn color={SX.laranja} onClick={() => setRespostaView("nova")}>
-            <Icon name="plus" size={14} /> Nova Resposta
-          </Btn>
-        )}
+        <div style={{ fontSize:12, color:SX.prata, marginTop:3 }}>{sub}</div>
       </div>
+      <Btn color={SX.laranja} onClick={onNovo}>
+        <Icon name="plus" size={14} /> {novoLabel}
+      </Btn>
+    </div>
+  );
 
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        <button onClick={() => setSecao("analise")} style={{
-          padding:"8px 16px", borderRadius:8, border:`1px solid ${secao==="analise" ? SX.laranja : C.border}`,
-          background: secao==="analise" ? `${SX.laranja}1a` : "transparent",
-          color: secao==="analise" ? SX.laranjaEsc : C.sub, fontSize:12.5, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
-        }}>Análise de Editais</button>
-        <button onClick={() => setSecao("resposta")} style={{
-          padding:"8px 16px", borderRadius:8, border:`1px solid ${secao==="resposta" ? SX.laranja : C.border}`,
-          background: secao==="resposta" ? `${SX.laranja}1a` : "transparent",
-          color: secao==="resposta" ? SX.laranjaEsc : C.sub, fontSize:12.5, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
-        }}>Respostas a Impugnação/Recurso</button>
-      </div>
-
-      {secao === "analise" ? (
-        <>
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
+      <div>
+        <CardHeader
+          title="LexCore Análise de Editais"
+          sub="Analisa o edital frente à Lei 14.133/2021 e identifica cláusulas restritivas, ilegais, dúbias ou de risco."
+          onNovo={() => setScreen({ name: "novaAnalise" })}
+          novoLabel="Nova Análise"
+        />
+        <div style={{ border:`1px solid ${C.border}`, borderTop:"none", borderRadius:"0 0 12px 12px", padding:16, background:C.bg }}>
           <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nome do edital ou processo..."
+            <input value={searchAnalises} onChange={e=>setSearchAnalises(e.target.value)} placeholder="Buscar por nome do edital ou processo..."
               style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
               onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
               onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
           </div>
 
-          {loading ? (
+          {loadingAnalises ? (
             <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análises...</div>
-          ) : filtered.length === 0 ? (
+          ) : filteredAnalises.length === 0 ? (
             <EmptyState icon="lexcore" title="Nenhuma análise de edital" sub='Clique em "Nova Análise" para enviar um edital em PDF e identificar pontos críticos frente à Lei 14.133/2021' />
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-              {filtered.map(a => {
+              {filteredAnalises.map(a => {
                 const st = statusInfo(a.status);
                 return (
-                  <div key={a.id} onClick={() => abrirAnalise(a.id)} style={{
+                  <div key={a.id} onClick={() => setScreen({ name: "analise", id: a.id })} style={{
                     background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${a.status==="erro"?C.red:SX.laranja}`,
                     borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
                     display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
@@ -3042,17 +3063,60 @@ function TabLexCore({ toast }) {
                       <div style={{ fontSize:12, color:C.sub }}>{a.numeroProcesso ? `Processo ${a.numeroProcesso}` : "Sem número de processo"} · {fmtDate(a.createdAt)}</div>
                     </div>
                     <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
-                      <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletar(a.id)} />
+                      <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletarAnalise(a.id)} />
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-        </>
-      ) : (
-        <LexcoreRespostaLista toast={toast} isMobile={isMobile} onAbrir={(id) => { setRespostaId(id); setRespostaView("detalhe"); }} />
-      )}
+        </div>
+      </div>
+
+      <div>
+        <CardHeader
+          title="LexCore Peças Jurídicas"
+          sub="Gera peças a partir dos pontos críticos de uma análise salva ou a partir de uma impugnação/recurso recebido."
+          onNovo={() => setScreen({ name: "novaPeca" })}
+          novoLabel="Nova Peça"
+        />
+        <div style={{ border:`1px solid ${C.border}`, borderTop:"none", borderRadius:"0 0 12px 12px", padding:16, background:C.bg }}>
+          <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+            <input value={searchPecas} onChange={e=>setSearchPecas(e.target.value)} placeholder="Buscar por tipo de peça ou edital/objeto..."
+              style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+              onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+          </div>
+
+          {loadingPecas ? (
+            <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando peças...</div>
+          ) : filteredPecas.length === 0 ? (
+            <EmptyState icon="lexcore" title="Nenhuma peça jurídica gerada" sub='Clique em "Nova Peça" para gerar a partir de uma análise salva ou de um PDF recebido' />
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {filteredPecas.map(p => (
+                <div key={`${p.origem}-${p.id}`} onClick={() => setScreen({ name: p.origem === "analise" ? "peca" : "resposta", id: p.id })} style={{
+                  background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${SX.laranja}`,
+                  borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
+                  display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
+                }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{p.titulo}</span>
+                      <Badge label={p.origem === "analise" ? "Análise" : "PDF Recebido"} color={p.origem === "analise" ? undefined : C.accent2} />
+                      <Badge label={p.status === "finalizada" ? "Finalizada" : "Rascunho"} color={p.status === "finalizada" ? C.green : undefined} />
+                    </div>
+                    <div style={{ fontSize:12, color:C.sub }}>{p.referencia} · v{p.versao} · {fmtDate(p.createdAt)}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
+                    <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletarPeca(p)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -3157,13 +3221,51 @@ function LexcoreNova({ isMobile, toast, onCancel, onCriada }) {
   );
 }
 
-function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca }) {
+function PontosCriticosList({ pontos, onToggle }) {
+  const grupos = ["alto", "medio", "baixo"].map(nivel => ({
+    nivel, itens: pontos.filter(p => p.nivelRisco === nivel),
+  })).filter(g => g.itens.length > 0);
+
+  return (
+    <>
+      {grupos.map(g => (
+        <div key={g.nivel} style={{ marginBottom:20 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:RISCO_COLOR[g.nivel], textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>
+            {RISCO_LABEL[g.nivel]} ({g.itens.length})
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {g.itens.map(p => (
+              <label key={p.id} style={{
+                background:C.card, border:`1px solid ${p.selecionado ? SX.laranja : C.border}`,
+                borderRadius:10, padding:14, display:"flex", gap:12, cursor:"pointer",
+                boxShadow: p.selecionado ? `0 0 0 3px ${SX.laranja}1a` : "none",
+              }}>
+                <input type="checkbox" checked={p.selecionado} onChange={() => onToggle(p)} style={{ marginTop:3, flexShrink:0, width:16, height:16, accentColor:SX.laranja }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6, flexWrap:"wrap" }}>
+                    <Badge label={labelTipoProblema(p.tipoProblema)} color={RISCO_COLOR[p.nivelRisco]} />
+                    {p.artigoLei && <span style={{ fontSize:11.5, color:C.tertiary }}>{p.artigoLei}</span>}
+                  </div>
+                  <div style={{ fontSize:13.5, color:C.text, fontWeight:500, marginBottom:6, lineHeight:1.5 }}>{p.descricaoProblema}</div>
+                  <div style={{ fontSize:12.5, color:C.sub, background:C.overlay, borderLeft:`3px solid ${C.border}`, padding:"6px 10px", borderRadius:4, marginBottom:6, fontStyle:"italic" }}>
+                    "{p.trechoEdital}"
+                  </div>
+                  <div style={{ fontSize:12, color:C.sub }}>{p.fundamentacaoLegal}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onIrGerarPeca }) {
   const [analise, setAnalise] = useState(null);
   const [pontos, setPontos] = useState([]);
   const [pecas, setPecas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tipoPeca, setTipoPeca] = useState(TIPOS_PECA[0].value);
-  const [gerando, setGerando] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -3188,47 +3290,8 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca }) {
 
   const selecionados = pontos.filter(p => p.selecionado);
 
-  const gerarPeca = async () => {
-    if (selecionados.length === 0) { toast("Selecione ao menos um ponto crítico", "error"); return; }
-    setGerando(true);
-    try {
-      const label = labelTipoPeca(tipoPeca);
-      const res = await anthropicFetch(null, {
-        method: "POST",
-        headers: { "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6", max_tokens: 4096,
-          system: buildPecaSystem(label),
-          messages: [{ role: "user", content: buildPecaUserPrompt({
-            tipoPecaLabel: label, nomeEdital: analise.nomeEdital, numeroProcesso: analise.numeroProcesso, pontos: selecionados,
-          }) }],
-        }),
-      });
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
-      const json = await res.json();
-      if (json.stop_reason === "max_tokens") throw new Error("Peça muito extensa para gerar de uma vez. Reduza a quantidade de pontos selecionados.");
-      const conteudo = json.content?.[0]?.text || "";
-      if (!conteudo.trim()) throw new Error("IA não retornou conteúdo para a peça.");
-
-      const { data: peca, error } = await sbCreatePeca({
-        analiseId, tipoPeca, pontosCriticosIds: selecionados.map(p => p.id), conteudoGerado: conteudo,
-      });
-      if (error) throw error;
-      toast("Peça gerada com sucesso!");
-      onAbrirPeca(peca.id);
-    } catch (err) {
-      toast("Erro ao gerar peça: " + err.message, "error");
-    } finally {
-      setGerando(false);
-    }
-  };
-
   if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análise...</div>;
   if (!analise) return <EmptyState icon="lexcore" title="Análise não encontrada" sub="" />;
-
-  const grupos = ["alto", "medio", "baixo"].map(nivel => ({
-    nivel, itens: pontos.filter(p => p.nivelRisco === nivel),
-  })).filter(g => g.itens.length > 0);
 
   return (
     <div>
@@ -3259,45 +3322,17 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca }) {
         <EmptyState icon="check" title="Nenhum ponto crítico identificado" sub="A IA não encontrou cláusulas restritivas, ilegais, dúbias ou de risco neste edital." />
       )}
 
-      {grupos.map(g => (
-        <div key={g.nivel} style={{ marginBottom:20 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:RISCO_COLOR[g.nivel], textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>
-            {RISCO_LABEL[g.nivel]} ({g.itens.length})
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {g.itens.map(p => (
-              <label key={p.id} style={{
-                background:C.card, border:`1px solid ${p.selecionado ? SX.laranja : C.border}`,
-                borderRadius:10, padding:14, display:"flex", gap:12, cursor:"pointer",
-                boxShadow: p.selecionado ? `0 0 0 3px ${SX.laranja}1a` : "none",
-              }}>
-                <input type="checkbox" checked={p.selecionado} onChange={() => togglePonto(p)} style={{ marginTop:3, flexShrink:0, width:16, height:16, accentColor:SX.laranja }} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6, flexWrap:"wrap" }}>
-                    <Badge label={labelTipoProblema(p.tipoProblema)} color={RISCO_COLOR[p.nivelRisco]} />
-                    {p.artigoLei && <span style={{ fontSize:11.5, color:C.tertiary }}>{p.artigoLei}</span>}
-                  </div>
-                  <div style={{ fontSize:13.5, color:C.text, fontWeight:500, marginBottom:6, lineHeight:1.5 }}>{p.descricaoProblema}</div>
-                  <div style={{ fontSize:12.5, color:C.sub, background:C.overlay, borderLeft:`3px solid ${C.border}`, padding:"6px 10px", borderRadius:4, marginBottom:6, fontStyle:"italic" }}>
-                    "{p.trechoEdital}"
-                  </div>
-                  <div style={{ fontSize:12, color:C.sub }}>{p.fundamentacaoLegal}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
-      ))}
+      <PontosCriticosList pontos={pontos} onToggle={togglePonto} />
 
       {pontos.length > 0 && (
         <div style={{
           position: isMobile ? "static" : "sticky", bottom: isMobile ? "auto" : 0,
           background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16,
-          display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap", marginTop:8, boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+          display:"flex", gap:12, alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", marginTop:8, boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
         }}>
-          <Select label={`Gerar peça com ${selecionados.length} ponto(s) selecionado(s)`} value={tipoPeca} onChange={setTipoPeca} options={TIPOS_PECA} style={{ minWidth:220 }} />
-          <Btn color={SX.laranja} onClick={gerarPeca} disabled={gerando || selecionados.length === 0}>
-            {gerando ? "Gerando peça..." : (<><Icon name="sparkle" size={14} /> Gerar Peça</>)}
+          <div style={{ fontSize:12.5, color:C.sub }}>{selecionados.length} ponto(s) selecionado(s) para gerar peça</div>
+          <Btn color={SX.laranja} onClick={() => onIrGerarPeca(analiseId)} disabled={selecionados.length === 0}>
+            <Icon name="sparkle" size={14} /> Gerar Peça Jurídica
           </Btn>
         </div>
       )}
@@ -3319,6 +3354,185 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NovaPecaJuridica({ presetAnaliseId, toast, onCancel, onCriada }) {
+  const [origem, setOrigem] = useState(presetAnaliseId ? "analise" : null); // null | analise | pdf
+
+  if (origem === "analise") {
+    return (
+      <NovaPecaAPartirDeAnalise
+        presetAnaliseId={presetAnaliseId}
+        toast={toast}
+        onCancel={presetAnaliseId ? onCancel : () => setOrigem(null)}
+        onCriada={(id) => onCriada(id, "analise")}
+      />
+    );
+  }
+
+  if (origem === "pdf") {
+    return (
+      <LexcoreRespostaNova
+        toast={toast}
+        onCancel={() => setOrigem(null)}
+        onCriada={(id) => onCriada(id, "pdf")}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onCancel} />
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>Nova Peça Jurídica</div>
+      </div>
+      <div style={{ fontSize:13, color:C.sub, marginBottom:16 }}>Escolha a origem da peça a ser gerada:</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:12, maxWidth:640 }}>
+        <button onClick={() => setOrigem("analise")} style={{
+          textAlign:"left", background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:18,
+          cursor:"pointer", fontFamily:"inherit", display:"flex", gap:14, alignItems:"flex-start",
+        }}>
+          <Icon name="lexcore" size={20} color={SX.laranja} />
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:4 }}>A partir de uma Análise de Edital salva</div>
+            <div style={{ fontSize:12.5, color:C.sub, lineHeight:1.5 }}>Gera Impugnação, Razões de Recurso, Contrarrazões ou Petição com base nos pontos críticos já identificados numa análise.</div>
+          </div>
+        </button>
+        <button onClick={() => setOrigem("pdf")} style={{
+          textAlign:"left", background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:18,
+          cursor:"pointer", fontFamily:"inherit", display:"flex", gap:14, alignItems:"flex-start",
+        }}>
+          <Icon name="attach" size={20} color={SX.laranja} />
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:4 }}>A partir de um PDF recebido</div>
+            <div style={{ fontSize:12.5, color:C.sub, lineHeight:1.5 }}>Anexe uma impugnação ou recurso recebido de um licitante e gere a resposta em defesa do edital, independente de qualquer análise salva.</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NovaPecaAPartirDeAnalise({ presetAnaliseId, toast, onCancel, onCriada }) {
+  const [analises, setAnalises] = useState([]);
+  const [analiseId, setAnaliseId] = useState(presetAnaliseId || "");
+  const [analise, setAnalise] = useState(null);
+  const [pontos, setPontos] = useState([]);
+  const [loadingPontos, setLoadingPontos] = useState(false);
+  const [tipoPeca, setTipoPeca] = useState(TIPOS_PECA[0].value);
+  const [gerando, setGerando] = useState(false);
+
+  useEffect(() => {
+    if (presetAnaliseId) return;
+    let ativo = true;
+    sbListLexcoreAnalises().then(({ data, error }) => {
+      if (!ativo) return;
+      if (error) toast("Erro ao carregar análises: " + error.message, "error");
+      const concluidas = (data || []).filter(a => a.status === "concluida");
+      setAnalises(concluidas);
+      setAnaliseId(prev => prev || concluidas[0]?.id || "");
+    });
+    return () => { ativo = false; };
+  }, [presetAnaliseId, toast]);
+
+  useEffect(() => {
+    let ativo = true;
+    if (!analiseId) { setAnalise(null); setPontos([]); return; }
+    setLoadingPontos(true);
+    Promise.all([sbGetLexcoreAnalise(analiseId), sbListPontosCriticos(analiseId)]).then(([{ data: a, error: eA }, { data: p, error: eP }]) => {
+      if (!ativo) return;
+      if (eA) toast("Erro ao carregar análise: " + eA.message, "error");
+      if (eP) toast("Erro ao carregar pontos críticos: " + eP.message, "error");
+      setAnalise(a); setPontos(p || []);
+      setLoadingPontos(false);
+    });
+    return () => { ativo = false; };
+  }, [analiseId, toast]);
+
+  const togglePonto = async (ponto) => {
+    const novoValor = !ponto.selecionado;
+    setPontos(prev => prev.map(p => p.id === ponto.id ? { ...p, selecionado: novoValor } : p));
+    const { error } = await sbSetPontoSelecionado(ponto.id, novoValor);
+    if (error) toast("Erro ao salvar seleção: " + error.message, "error");
+  };
+
+  const selecionados = pontos.filter(p => p.selecionado);
+
+  const gerar = async () => {
+    if (!analiseId) { toast("Selecione uma análise de edital", "error"); return; }
+    if (selecionados.length === 0) { toast("Selecione ao menos um ponto crítico", "error"); return; }
+    setGerando(true);
+    try {
+      const label = labelTipoPeca(tipoPeca);
+      const res = await anthropicFetch(null, {
+        method: "POST",
+        headers: { "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6", max_tokens: 4096,
+          system: buildPecaSystem(label),
+          messages: [{ role: "user", content: buildPecaUserPrompt({
+            tipoPecaLabel: label, nomeEdital: analise.nomeEdital, numeroProcesso: analise.numeroProcesso, pontos: selecionados,
+          }) }],
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+      const json = await res.json();
+      if (json.stop_reason === "max_tokens") throw new Error("Peça muito extensa para gerar de uma vez. Reduza a quantidade de pontos selecionados.");
+      const conteudo = json.content?.[0]?.text || "";
+      if (!conteudo.trim()) throw new Error("IA não retornou conteúdo para a peça.");
+
+      const { data: peca, error } = await sbCreatePeca({
+        analiseId, tipoPeca, pontosCriticosIds: selecionados.map(p => p.id), conteudoGerado: conteudo,
+      });
+      if (error) throw error;
+      toast("Peça gerada com sucesso!");
+      onCriada(peca.id);
+    } catch (err) {
+      toast("Erro ao gerar peça: " + err.message, "error");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onCancel} />
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>Nova Peça a partir de Análise</div>
+      </div>
+
+      {!presetAnaliseId && (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, maxWidth:640, marginBottom:16 }}>
+          {analises.length === 0 ? (
+            <div style={{ fontSize:12.5, color:C.sub }}>Nenhuma análise concluída disponível. Finalize uma análise de edital primeiro, ou gere a peça a partir de um PDF recebido.</div>
+          ) : (
+            <Select label="Análise de Edital" value={analiseId} onChange={setAnaliseId}
+              options={analises.map(a => ({ value:a.id, label:`${a.nomeEdital}${a.numeroProcesso?` — ${a.numeroProcesso}`:""}` }))} />
+          )}
+        </div>
+      )}
+
+      {loadingPontos ? (
+        <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando pontos críticos...</div>
+      ) : analiseId && pontos.length === 0 ? (
+        <EmptyState icon="check" title="Nenhum ponto crítico nesta análise" sub="Selecione outra análise ou gere a peça a partir de um PDF recebido." />
+      ) : (
+        <PontosCriticosList pontos={pontos} onToggle={togglePonto} />
+      )}
+
+      {pontos.length > 0 && (
+        <div style={{
+          background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16,
+          display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap", marginTop:8, boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
+        }}>
+          <Select label={`Gerar peça com ${selecionados.length} ponto(s) selecionado(s)`} value={tipoPeca} onChange={setTipoPeca} options={TIPOS_PECA} style={{ minWidth:220 }} />
+          <Btn color={SX.laranja} onClick={gerar} disabled={gerando || selecionados.length === 0}>
+            {gerando ? "Gerando peça..." : (<><Icon name="sparkle" size={14} /> Gerar Peça</>)}
+          </Btn>
         </div>
       )}
     </div>
@@ -3406,75 +3620,6 @@ function LexcorePeca({ pecaId, toast, onVoltar }) {
         onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
         onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
       />
-    </div>
-  );
-}
-
-function LexcoreRespostaLista({ toast, isMobile, onAbrir }) {
-  const [respostas, setRespostas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-
-  const carregar = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await sbListRespostas();
-    if (error) toast("Erro ao carregar respostas: " + error.message, "error");
-    setRespostas(data);
-    setLoading(false);
-  }, [toast]);
-
-  useEffect(() => { carregar(); }, [carregar]);
-
-  const deletar = async (id) => {
-    if (!window.confirm("Excluir esta resposta?")) return;
-    const { error } = await sbDeleteResposta(id);
-    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
-    setRespostas(prev => prev.filter(r => r.id !== id));
-    toast("Resposta excluída");
-  };
-
-  const filtered = respostas.filter(r => {
-    const s = search.toLowerCase();
-    return (r.nomeReferencia || "").toLowerCase().includes(s) || (r.numeroProcesso || "").toLowerCase().includes(s);
-  });
-
-  return (
-    <div>
-      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por edital/objeto ou processo..."
-          style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
-          onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
-          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
-      </div>
-
-      {loading ? (
-        <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando respostas...</div>
-      ) : filtered.length === 0 ? (
-        <EmptyState icon="lexcore" title="Nenhuma resposta gerada" sub='Clique em "Nova Resposta" para anexar o PDF de uma impugnação ou recurso recebido e gerar a defesa' />
-      ) : (
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {filtered.map(r => (
-            <div key={r.id} onClick={() => onAbrir(r.id)} style={{
-              background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${SX.laranja}`,
-              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
-              display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
-            }}>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
-                  <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{labelTipoResposta(r.tipoResposta)}</span>
-                  <Badge label={r.status === "finalizada" ? "Finalizada" : "Rascunho"} color={r.status === "finalizada" ? C.green : undefined} />
-                </div>
-                <div style={{ fontSize:12, color:C.sub }}>
-                  {r.nomeReferencia || "Sem edital/objeto informado"}{r.numeroProcesso ? ` · Processo ${r.numeroProcesso}` : ""} · {fmtDate(r.createdAt)}
-                </div>
-              </div>
-              <div style={{ display:"flex", gap:8 }} onClick={e=>e.stopPropagation()}>
-                <IconBtn name="trash" color={C.red} title="Excluir" onClick={() => deletar(r.id)} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

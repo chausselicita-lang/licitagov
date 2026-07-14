@@ -87,12 +87,20 @@ test("fluxo completo LexCore: upload -> análise -> seleção -> peça -> docx",
   console.log("✅ Análise concluída — dashboard de pontos críticos exibido");
   await page.screenshot({ path: path.join(__dirname, "lexcore-analise.png") });
 
-  // 5. Selecionar ao menos um ponto crítico (checkbox) e gerar peça
+  // 5. Selecionar ao menos um ponto crítico (checkbox) e ir para o card de Peças Jurídicas
   const checkboxes = page.locator('input[type="checkbox"]');
   const total = await checkboxes.count();
   expect(total).toBeGreaterThan(0);
   await checkboxes.first().check();
   console.log(`✅ ${total} ponto(s) crítico(s) identificado(s) — 1 selecionado`);
+
+  // A geração de peça foi desmembrada da tela de Análise (ver src/App.jsx,
+  // componente LexcoreAnalise) — agora só existe o botão de navegação
+  // "Gerar Peça Jurídica", que leva para o card "LexCore Peças Jurídicas"
+  // (componente NovaPecaAPartirDeAnalise) já com esta análise pré-selecionada.
+  await page.locator("button", { hasText: "Gerar Peça Jurídica" }).first().click();
+  await expect(page.locator("text=Nova Peça a partir de Análise")).toBeVisible({ timeout: 8000 });
+  console.log("✅ Navegou para o card de Peças Jurídicas com a análise pré-selecionada");
 
   await page.locator("button", { hasText: "Gerar Peça" }).first().click();
   console.log("Gerando peça jurídica via IA...");

@@ -65,15 +65,16 @@ test("fluxo completo Resposta a Impugnação/Recurso: anexar -> gerar -> editar 
   await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(3000);
 
-  // 2. Navegar para a aba LexCore e trocar para a seção de Respostas
+  // 2. Navegar para a aba LexCore e abrir o card "LexCore Peças Jurídicas"
   await page.locator("text=LexCore").first().click();
   await page.waitForTimeout(500);
-  await expect(page.locator("text=Respostas a Impugnação/Recurso")).toBeVisible({ timeout: 8000 });
-  await page.locator("text=Respostas a Impugnação/Recurso").first().click();
-  console.log("✅ Seção de Respostas aberta");
+  await expect(page.locator("text=LexCore Peças Jurídicas")).toBeVisible({ timeout: 8000 });
+  await page.locator("button", { hasText: "Nova Peça" }).first().click();
+  console.log("✅ Fluxo de Nova Peça Jurídica aberto");
 
-  // 3. Iniciar nova resposta — SEM nenhuma análise de edital envolvida
-  await page.locator("button", { hasText: "Nova Resposta" }).first().click();
+  // 3. Escolher a origem "PDF recebido" — SEM nenhuma análise de edital envolvida
+  await expect(page.locator("text=Nova Peça Jurídica")).toBeVisible({ timeout: 8000 });
+  await page.locator("text=A partir de um PDF recebido").first().click();
   await expect(page.locator("text=Nova Resposta a Impugnação/Recurso")).toBeVisible({ timeout: 8000 });
 
   await page.locator("select").selectOption("contrarrazoes");
@@ -100,12 +101,11 @@ test("fluxo completo Resposta a Impugnação/Recurso: anexar -> gerar -> editar 
   await expect(page.locator("text=abrir .docx")).toBeVisible({ timeout: 30000 });
   console.log("✅ Resposta exportada em .docx com sucesso");
 
-  // 6. Voltar à lista e confirmar que a seção de Análise de Editais permanece intacta
+  // 6. Voltar à tela inicial da aba e confirmar que o card de Análise de Editais permanece intacto
   await page.locator('[title="Voltar"]').first().click();
-  await expect(page.locator("button", { hasText: "Análise de Editais" })).toBeVisible({ timeout: 8000 });
-  await page.locator("button", { hasText: "Análise de Editais" }).first().click();
-  await expect(page.locator("text=Nova Análise")).toBeVisible({ timeout: 8000 });
-  console.log("✅ Seção de Análise de Editais continua funcionando normalmente");
+  await expect(page.locator("text=LexCore Análise de Editais")).toBeVisible({ timeout: 8000 });
+  await expect(page.locator("button", { hasText: "Nova Análise" })).toBeVisible({ timeout: 8000 });
+  console.log("✅ Card de Análise de Editais continua funcionando normalmente");
 
   console.log("✅ FLUXO COMPLETO RESPOSTA VALIDADO: anexar → gerar → editar → exportação, independente da análise de edital");
 });

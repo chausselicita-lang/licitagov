@@ -123,6 +123,25 @@ export async function sbListPecas(analiseId) {
   return { data: data.map(pecaFromDb), error: null };
 }
 
+// Lista TODAS as peças (de todas as análises), com nome/número do edital
+// de origem embutidos via join — usada pela lista unificada do card
+// "LexCore Peças Jurídicas", que não é mais escopada por análise.
+export async function sbListTodasPecas() {
+  const sb = getSupabase();
+  const { data, error } = await sb.from('lexcore_pecas')
+    .select('*, lexcore_analises(nome_edital, numero_processo)')
+    .order('created_at', { ascending: false });
+  if (error) return { data: [], error };
+  return {
+    data: data.map(row => ({
+      ...pecaFromDb(row),
+      nomeEdital: row.lexcore_analises?.nome_edital || '',
+      numeroProcesso: row.lexcore_analises?.numero_processo || '',
+    })),
+    error: null,
+  };
+}
+
 export async function sbGetPeca(id) {
   const sb = getSupabase();
   const { data, error } = await sb.from('lexcore_pecas').select('*').eq('id', id).single();
