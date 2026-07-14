@@ -102,8 +102,8 @@ test("fluxo completo Resposta a Impugnação/Recurso: anexar -> gerar -> editar 
 
   // 6. Voltar à lista e confirmar que a seção de Análise de Editais permanece intacta
   await page.locator('[title="Voltar"]').first().click();
-  await expect(page.locator("text=Análise de Editais")).toBeVisible({ timeout: 8000 });
-  await page.locator("text=Análise de Editais").first().click();
+  await expect(page.locator("button", { hasText: "Análise de Editais" })).toBeVisible({ timeout: 8000 });
+  await page.locator("button", { hasText: "Análise de Editais" }).first().click();
   await expect(page.locator("text=Nova Análise")).toBeVisible({ timeout: 8000 });
   console.log("✅ Seção de Análise de Editais continua funcionando normalmente");
 
