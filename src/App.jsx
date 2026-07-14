@@ -3479,7 +3479,7 @@ function NovaPecaAPartirDeAnalise({ presetAnaliseId, toast, onCancel, onCriada }
         method: "POST",
         headers: { "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6", max_tokens: 4096,
+          model: "claude-sonnet-4-6", max_tokens: 8192,
           system: buildPecaSystem(label),
           messages: [{ role: "user", content: buildPecaUserPrompt({
             tipoPecaLabel: label, nomeEdital: analise.nomeEdital, numeroProcesso: analise.numeroProcesso, pontos: selecionados,
@@ -3663,7 +3663,7 @@ function LexcoreRespostaNova({ toast, onCancel, onCriada }) {
         method: "POST",
         headers: { "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-beta": "pdfs-2024-09-25" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6", max_tokens: 4096, system: buildRespostaSystem(label),
+          model: "claude-sonnet-4-6", max_tokens: 8192, system: buildRespostaSystem(label),
           messages: [{ role: "user", content: [
             { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
             { type: "text", text: buildRespostaUserText({ tipoRespostaLabel: label, nomeReferencia: nomeReferencia.trim(), numeroProcesso: numeroProcesso.trim() }) },
