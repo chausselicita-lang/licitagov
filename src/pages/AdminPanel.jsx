@@ -210,6 +210,7 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [senhaResetada, setSenhaResetada] = useState(null);
+  const [meuTenantId, setMeuTenantId] = useState(null);
   const [toast, setToast] = useState(null);
   const [isMobile] = useState(() => window.innerWidth < 768);
 
@@ -223,11 +224,15 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
     if (!sb) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [profRes, procRes] = await Promise.all([
+      const [profRes, procRes, meuPerfilRes] = await Promise.all([
         sb.from("user_profiles").select("*").neq("role", "super_admin").order("created_at", { ascending: false }),
         sb.from("processos").select("id", { count: "exact", head: true }),
+        session?.user?.id
+          ? sb.from("user_profiles").select("tenant_id").eq("id", session.user.id).single()
+          : Promise.resolve({ data: null }),
       ]);
       setPrefeituras(profRes.data || []);
+      setMeuTenantId(meuPerfilRes.data?.tenant_id || null);
       setMetrics({
         processos: procRes.count || 0,
         usuarios: (profRes.data || []).length,
@@ -334,7 +339,7 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
             {!isMobile && <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{ADMIN_TABS.find(t => t.id === activeTab)?.label}</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => onImpersonate({ id: session?.user?.id, prefeitura_nome: "Minha Área (Super Admin)" })}
+            <button onClick={() => onImpersonate({ id: session?.user?.id, prefeitura_nome: "Minha Área (Super Admin)", tenant_id: meuTenantId })}
               title="Acessar seus próprios processos/atas/contratos"
               onMouseEnter={e => { e.currentTarget.style.background = C.accentSubtle; e.currentTarget.style.borderColor = C.accent; }}
               onMouseLeave={e => { e.currentTarget.style.background = C.surface; e.currentTarget.style.borderColor = C.border; }}

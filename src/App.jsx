@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component {
 }
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
-import { loadAllData, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
+import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
@@ -4603,11 +4603,8 @@ const TABS = [
 ];
 
 /* ── AUTHED APP — renderizado dentro do AuthProvider ────────── */
-function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCotacoes, setDispensas, setInexigibilidades, showToast, toast, isMobile, sideOpen, setSideOpen, tab, setTab, deferredPrompt, installPWA, session }) {
+function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCotacoes, setDispensas, setInexigibilidades, showToast, toast, isMobile, sideOpen, setSideOpen, tab, setTab, deferredPrompt, installPWA, session, impersonating, setImpersonating }) {
   const { isSuperAdmin, profileLoading, role, prefeitura, municipio, nome } = useAuth();
-  const [impersonating, setImpersonating] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem("licitagov_impersonate")); } catch { return null; }
-  });
 
   if (profileLoading) {
     return (
@@ -4627,9 +4624,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
         signOut={signOut}
         session={session}
         onImpersonate={(pref) => {
-          const d = { id: pref.id, nome: pref.prefeitura_nome };
-          sessionStorage.setItem("licitagov_impersonate", JSON.stringify(d));
-          setImpersonating(d);
+          setImpersonating({ id: pref.id, nome: pref.prefeitura_nome, tenantId: pref.tenant_id || null });
         }}
       />
     );
@@ -4639,10 +4634,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
   const curTab = TABS.find(t=>t.id===tab);
   const userEmail = session?.user?.email || "Usuário";
 
-  const stopImpersonating = () => {
-    sessionStorage.removeItem("licitagov_impersonate");
-    setImpersonating(null);
-  };
+  const stopImpersonating = () => setImpersonating(null);
 
   return (
     <div style={{ background:C.bg, fontFamily:"Inter,system-ui,sans-serif", color:C.text, height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
@@ -4778,6 +4770,17 @@ export default function App() {
   const [appData, setAppData] = useState(SEED);
   const [dataLoading, setDataLoading] = useState(true);
   const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = appData;
+  // "Acessar como"/"Minha Área" (super_admin) — vive aqui em vez de dentro do
+  // AuthedApp porque o carregamento de dados (loadAllData/setTenantScope,
+  // logo abaixo) também vive aqui e precisa reagir a toda troca de tenant.
+  const [impersonating, setImpersonatingState] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("licitagov_impersonate")); } catch { return null; }
+  });
+  const setImpersonating = useCallback(d => {
+    if (d) sessionStorage.setItem("licitagov_impersonate", JSON.stringify(d));
+    else sessionStorage.removeItem("licitagov_impersonate");
+    setImpersonatingState(d);
+  }, []);
   // O Supabase gera um objeto `session` novo (mesma referência não é preservada)
   // toda vez que renova o token em segundo plano (TOKEN_REFRESHED), o que acontece
   // sozinho sempre que a aba volta a ficar visível. Sem este guard, o efeito abaixo
@@ -4785,7 +4788,9 @@ export default function App() {
   // desmontava o AuthedApp inteiro (tela cheia "Carregando dados...") e fechava/zerava
   // qualquer modal ou formulário aberto (ex.: Configurações Institucionais do Agente
   // de Dispensas). Mesma classe de bug já corrigida em AuthContext.jsx (profileLoading).
-  const loadedDataUserIdRef = useRef(null);
+  // A chave agora inclui o tenant sendo impersonado, pra recarregar de verdade
+  // (com o filtro certo) toda vez que o super_admin trocar de "Acessar como".
+  const loadedScopeRef = useRef(null);
 
   const setProcessos        = useCallback(fn=>setAppData(prev=>({ ...prev, processos:       typeof fn==="function"?fn(prev.processos):fn })), []);
   const setAtas             = useCallback(fn=>setAppData(prev=>({ ...prev, atas:            typeof fn==="function"?fn(prev.atas):fn })), []);
@@ -4801,17 +4806,19 @@ export default function App() {
 
   useEffect(() => {
     const userId = session?.user?.id || null;
-    if (!userId) { setDataLoading(false); loadedDataUserIdRef.current = null; return; }
-    if (loadedDataUserIdRef.current === userId) return; // refresh de token em segundo plano — dados já carregados
+    if (!userId) { setDataLoading(false); loadedScopeRef.current = null; setTenantScope(null); return; }
+    const scopeKey = `${userId}:${impersonating?.tenantId || ''}`;
+    if (loadedScopeRef.current === scopeKey) return; // refresh de token em segundo plano — dados já carregados
     setDataLoading(true);
+    setTenantScope(impersonating?.tenantId || null);
     loadAllData()
-      .then(data => { setAppData(data); setDataLoading(false); loadedDataUserIdRef.current = userId; })
+      .then(data => { setAppData(data); setDataLoading(false); loadedScopeRef.current = scopeKey; })
       .catch(err => {
         console.error('[LicitaGov] Erro ao carregar dados:', err);
         showToast('Erro ao carregar dados do servidor: ' + (err.message || 'verifique a conexão'), 'error');
         setDataLoading(false);
       });
-  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, impersonating]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   useEffect(() => {
@@ -4896,6 +4903,8 @@ export default function App() {
         deferredPrompt={deferredPrompt}
         installPWA={installPWA}
         session={session}
+        impersonating={impersonating}
+        setImpersonating={setImpersonating}
       />
     </AuthProvider>
   );
