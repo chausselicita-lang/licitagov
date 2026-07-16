@@ -334,6 +334,14 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
             {!isMobile && <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{ADMIN_TABS.find(t => t.id === activeTab)?.label}</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => onImpersonate({ id: session?.user?.id, prefeitura_nome: "Minha Área (Super Admin)" })}
+              title="Acessar seus próprios processos/atas/contratos"
+              onMouseEnter={e => { e.currentTarget.style.background = C.accentSubtle; e.currentTarget.style.borderColor = C.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.background = C.surface; e.currentTarget.style.borderColor = C.border; }}
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", color: C.accent, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, fontFamily: "inherit", transition: "all 0.12s" }}>
+              <Icon name="eye" size={13} color={C.accent} />
+              {!isMobile && "Minha Área"}
+            </button>
             <button onClick={() => window.open("/portal", "_blank")}
               onMouseEnter={e => { e.currentTarget.style.background = C.accentSubtle; e.currentTarget.style.borderColor = C.accent; }}
               onMouseLeave={e => { e.currentTarget.style.background = C.surface; e.currentTarget.style.borderColor = C.border; }}
