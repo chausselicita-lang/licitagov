@@ -1,4 +1,12 @@
 const { createClient } = require("@supabase/supabase-js");
+const crypto = require("crypto");
+
+function gerarSenhaProvisoria() {
+  const base = crypto.randomBytes(9).toString("base64").replace(/[^a-zA-Z0-9]/g, "");
+  const simbolo = "!@#$%&*"[crypto.randomInt(7)];
+  const digito = crypto.randomInt(10);
+  return `${base.slice(0, 10)}${simbolo}${digito}`;
+}
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -25,29 +33,70 @@ module.exports = async (req, res) => {
   const { data: profile } = await adminSb.from("user_profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role !== "super_admin") return res.status(403).json({ error: "Acesso negado" });
 
-  const { email, password, nome, prefeitura_nome, prefeitura_municipio } = req.body || {};
-  if (!email || !password || !prefeitura_nome) return res.status(400).json({ error: "email, password e prefeitura_nome são obrigatórios" });
+  const {
+    email, nome, prefeitura_nome, prefeitura_municipio, uf, cnpj,
+    responsavel_telefone, tenant_id: tenantIdExistente,
+  } = req.body || {};
+  if (!email) return res.status(400).json({ error: "email é obrigatório" });
+  if (!tenantIdExistente && !prefeitura_nome) {
+    return res.status(400).json({ error: "prefeitura_nome é obrigatório para criar uma nova prefeitura" });
+  }
+
+  let tenantId = tenantIdExistente || null;
+  let tenantCriado = null;
+
+  if (!tenantId) {
+    const { data: tenant, error: tenantErr } = await adminSb
+      .from("tenants")
+      .insert({
+        nome: prefeitura_nome,
+        municipio: prefeitura_municipio || null,
+        uf: uf || null,
+        cnpj: cnpj || null,
+        responsavel_nome: nome || null,
+        responsavel_telefone: responsavel_telefone || null,
+        email_institucional: email,
+        ativo: true,
+      })
+      .select()
+      .single();
+    if (tenantErr) return res.status(400).json({ error: tenantErr.message });
+    tenantId = tenant.id;
+    tenantCriado = tenant;
+  }
+
+  const senhaProvisoria = gerarSenhaProvisoria();
 
   const { data: authData, error: createErr } = await adminSb.auth.admin.createUser({
     email,
-    password,
+    password: senhaProvisoria,
     email_confirm: true,
   });
-  if (createErr) return res.status(400).json({ error: createErr.message });
+  if (createErr) {
+    if (tenantCriado) await adminSb.from("tenants").delete().eq("id", tenantCriado.id);
+    return res.status(400).json({ error: createErr.message });
+  }
 
   const { error: profileErr } = await adminSb.from("user_profiles").insert({
     id: authData.user.id,
     email,
     nome: nome || prefeitura_nome,
     role: "cliente",
-    prefeitura_nome,
+    prefeitura_nome: prefeitura_nome || tenantCriado?.nome,
     prefeitura_municipio: prefeitura_municipio || "",
+    tenant_id: tenantId,
     ativo: true,
   });
   if (profileErr) {
     await adminSb.auth.admin.deleteUser(authData.user.id);
+    if (tenantCriado) await adminSb.from("tenants").delete().eq("id", tenantCriado.id);
     return res.status(400).json({ error: profileErr.message });
   }
 
-  res.json({ success: true, user: { id: authData.user.id, email } });
+  res.json({
+    success: true,
+    user: { id: authData.user.id, email },
+    tenant: tenantCriado || { id: tenantId },
+    senhaProvisoria,
+  });
 };

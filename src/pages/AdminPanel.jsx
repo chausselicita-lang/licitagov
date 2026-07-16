@@ -106,30 +106,64 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", required
   );
 }
 
+function ModalSenhaGerada({ titulo, email, senha, onClose }) {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = () => {
+    navigator.clipboard.writeText(senha);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+  return (
+    <Modal title={titulo} onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ fontSize: 13, color: C.sub }}>Copie e envie manualmente ao responsável (WhatsApp/e-mail). Essa senha não fica salva em nenhum lugar visível depois de fechar esta tela.</div>
+        <div style={{ background: C.accentSubtle, border: `1px solid ${C.accent}`, borderRadius: 8, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12, color: C.sub }}>E-mail de acesso</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{email}</div>
+          <div style={{ fontSize: 12, color: C.sub, marginTop: 6 }}>Senha provisória</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: "monospace", letterSpacing: "0.03em" }}>{senha}</div>
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={copiar}
+            style={{ background: copiado ? C.green : C.accent, color: copiado ? "#fff" : "#121212", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            {copiado ? "Copiado!" : "Copiar senha"}
+          </button>
+          <button onClick={onClose} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", color: C.sub }}>Fechar</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function ModalAddPrefeitura({ onClose, onSuccess, session }) {
   const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [prefNome, setPrefNome] = useState("");
   const [municipio, setMunicipio] = useState("");
+  const [uf, setUf] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [telefone, setTelefone] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [criado, setCriado] = useState(null);
 
   const criar = async () => {
-    if (!email || !senha || !prefNome) { setErr("Email, senha e nome da prefeitura são obrigatórios."); return; }
-    if (senha.length < 6) { setErr("A senha deve ter pelo menos 6 caracteres."); return; }
+    if (!email || !prefNome) { setErr("E-mail institucional e nome da prefeitura são obrigatórios."); return; }
     setLoading(true); setErr("");
     try {
       const token = session?.access_token;
       const res = await fetch("/api/admin-create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ email, password: senha, nome, prefeitura_nome: prefNome, prefeitura_municipio: municipio }),
+        body: JSON.stringify({
+          email, nome, prefeitura_nome: prefNome, prefeitura_municipio: municipio,
+          uf, cnpj, responsavel_telefone: telefone,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erro ao criar usuário");
       onSuccess();
-      onClose();
+      setCriado({ email, senhaProvisoria: json.senhaProvisoria });
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -137,14 +171,25 @@ function ModalAddPrefeitura({ onClose, onSuccess, session }) {
     }
   };
 
+  if (criado) {
+    return <ModalSenhaGerada titulo="Prefeitura criada com sucesso" email={criado.email} senha={criado.senhaProvisoria} onClose={onClose} />;
+  }
+
   return (
     <Modal title="Nova Prefeitura / Cliente" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Inp label="Nome da Prefeitura" value={prefNome} onChange={setPrefNome} placeholder="Prefeitura Municipal de..." required />
-        <Inp label="Município / UF" value={municipio} onChange={setMunicipio} placeholder="ex: Palmas/TO" />
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 2 }}><Inp label="Município" value={municipio} onChange={setMunicipio} placeholder="ex: Palmas" /></div>
+          <div style={{ flex: 1 }}><Inp label="UF" value={uf} onChange={v => setUf(v.toUpperCase().slice(0, 2))} placeholder="TO" /></div>
+        </div>
+        <Inp label="CNPJ" value={cnpj} onChange={setCnpj} placeholder="00.000.000/0001-00" />
         <Inp label="Nome do Responsável" value={nome} onChange={setNome} placeholder="Nome do administrador" />
-        <Inp label="E-mail de acesso" value={email} onChange={setEmail} type="email" placeholder="admin@prefeitura.gov.br" required />
-        <Inp label="Senha provisória" value={senha} onChange={setSenha} type="password" placeholder="Mínimo 6 caracteres" required />
+        <Inp label="Telefone / WhatsApp do Responsável" value={telefone} onChange={setTelefone} placeholder="(00) 00000-0000" />
+        <Inp label="E-mail institucional (login)" value={email} onChange={setEmail} type="email" placeholder="admin@prefeitura.gov.br" required />
+        <div style={{ fontSize: 12, color: C.sub, background: "#f8fafc", padding: "8px 12px", borderRadius: 6 }}>
+          A senha provisória é gerada automaticamente e exibida na próxima tela para você copiar.
+        </div>
         {err && <div style={{ fontSize: 12, color: C.red, background: "rgba(220,38,38,0.06)", padding: "8px 12px", borderRadius: 6 }}>{err}</div>}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
           <button onClick={onClose} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", color: C.sub }}>Cancelar</button>
@@ -164,6 +209,7 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
   const [metrics, setMetrics] = useState({ processos: 0, usuarios: 0 });
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [senhaResetada, setSenhaResetada] = useState(null);
   const [toast, setToast] = useState(null);
   const [isMobile] = useState(() => window.innerWidth < 768);
 
@@ -195,12 +241,30 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
 
   useEffect(() => { loadData(); }, []);
 
-  const toggleAtivo = async (id, ativo) => {
+  const toggleAtivo = async (id, ativo, tenantId) => {
     const sb = getSupabase();
     const { error } = await sb.from("user_profiles").update({ ativo: !ativo }).eq("id", id);
     if (error) { showMsg("Erro ao atualizar: " + error.message, "error"); return; }
+    if (tenantId) await sb.from("tenants").update({ ativo: !ativo }).eq("id", tenantId);
     showMsg(ativo ? "Prefeitura bloqueada" : "Prefeitura reativada");
     loadData();
+  };
+
+  const resetSenha = async p => {
+    if (!window.confirm(`Gerar uma nova senha provisória para ${p.email}?`)) return;
+    try {
+      const token = session?.access_token;
+      const res = await fetch("/api/admin-reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ userId: p.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erro ao resetar senha");
+      setSenhaResetada({ email: p.email, senhaProvisoria: json.senhaProvisoria });
+    } catch (e) {
+      showMsg("Erro: " + e.message, "error");
+    }
   };
 
   const ADMIN_TABS = [
@@ -215,6 +279,7 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}`}</style>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
       {showAdd && <ModalAddPrefeitura session={session} onClose={() => setShowAdd(false)} onSuccess={() => { showMsg("Prefeitura criada com sucesso!"); loadData(); }} />}
+      {senhaResetada && <ModalSenhaGerada titulo="Nova senha gerada" email={senhaResetada.email} senha={senhaResetada.senhaProvisoria} onClose={() => setSenhaResetada(null)} />}
 
       {/* Sidebar */}
       {!isMobile && (
@@ -308,10 +373,10 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "16px" : "28px" }}>
           {activeTab === "dashboard" && (
-            <TabDashboardAdmin prefeituras={prefeituras} metrics={metrics} loading={loading} onAddPrefeitura={() => setShowAdd(true)} onImpersonate={onImpersonate} onToggleAtivo={toggleAtivo} />
+            <TabDashboardAdmin prefeituras={prefeituras} metrics={metrics} loading={loading} onAddPrefeitura={() => setShowAdd(true)} onImpersonate={onImpersonate} onToggleAtivo={toggleAtivo} onResetSenha={resetSenha} />
           )}
           {activeTab === "prefeituras" && (
-            <TabPrefeituras prefeituras={prefeituras} loading={loading} onAdd={() => setShowAdd(true)} onImpersonate={onImpersonate} onToggleAtivo={toggleAtivo} />
+            <TabPrefeituras prefeituras={prefeituras} loading={loading} onAdd={() => setShowAdd(true)} onImpersonate={onImpersonate} onToggleAtivo={toggleAtivo} onResetSenha={resetSenha} />
           )}
           {activeTab === "orgaos" && (
             <TabOrgaosAdmin showMsg={showMsg} />
@@ -325,7 +390,7 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
   );
 }
 
-function TabDashboardAdmin({ prefeituras, metrics, loading, onAddPrefeitura, onImpersonate, onToggleAtivo }) {
+function TabDashboardAdmin({ prefeituras, metrics, loading, onAddPrefeitura, onImpersonate, onToggleAtivo, onResetSenha }) {
   const ativas = prefeituras.filter(p => p.ativo !== false).length;
   const bloqueadas = prefeituras.length - ativas;
 
@@ -354,12 +419,12 @@ function TabDashboardAdmin({ prefeituras, metrics, loading, onAddPrefeitura, onI
       </div>
 
       {/* Recent prefeituras */}
-      <PrefeiturасTable prefeituras={prefeituras.slice(0, 5)} loading={loading} onImpersonate={onImpersonate} onToggleAtivo={onToggleAtivo} title="Prefeituras Recentes" />
+      <PrefeiturасTable prefeituras={prefeituras.slice(0, 5)} loading={loading} onImpersonate={onImpersonate} onToggleAtivo={onToggleAtivo} onResetSenha={onResetSenha} title="Prefeituras Recentes" />
     </div>
   );
 }
 
-function TabPrefeituras({ prefeituras, loading, onAdd, onImpersonate, onToggleAtivo }) {
+function TabPrefeituras({ prefeituras, loading, onAdd, onImpersonate, onToggleAtivo, onResetSenha }) {
   const [busca, setBusca] = useState("");
   const filtered = prefeituras.filter(p =>
     !busca || (p.prefeitura_nome || "").toLowerCase().includes(busca.toLowerCase()) || (p.prefeitura_municipio || "").toLowerCase().includes(busca.toLowerCase())
@@ -381,12 +446,12 @@ function TabPrefeituras({ prefeituras, loading, onAdd, onImpersonate, onToggleAt
           </button>
         </div>
       </div>
-      <PrefeiturасTable prefeituras={filtered} loading={loading} onImpersonate={onImpersonate} onToggleAtivo={onToggleAtivo} />
+      <PrefeiturасTable prefeituras={filtered} loading={loading} onImpersonate={onImpersonate} onToggleAtivo={onToggleAtivo} onResetSenha={onResetSenha} />
     </div>
   );
 }
 
-function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo, title }) {
+function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo, onResetSenha, title }) {
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
       {title && (
@@ -435,11 +500,18 @@ function PrefeiturасTable({ prefeituras, loading, onImpersonate, onToggleAtivo
                         <Icon name="eye" size={12} color={C.accent} />
                         Acessar como
                       </button>
-                      <button onClick={() => onToggleAtivo(p.id, p.ativo !== false)} title={p.ativo !== false ? "Bloquear" : "Reativar"}
+                      <button onClick={() => onToggleAtivo(p.id, p.ativo !== false, p.tenant_id)} title={p.ativo !== false ? "Bloquear" : "Reativar"}
                         style={{ background: p.ativo !== false ? "#fef2f2" : "#f0fdf4", border: "none", borderRadius: 6, padding: "5px 10px", color: p.ativo !== false ? C.red : C.green, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
                         <Icon name={p.ativo !== false ? "block" : "check"} size={12} color="currentColor" />
                         {p.ativo !== false ? "Bloquear" : "Reativar"}
                       </button>
+                      {onResetSenha && (
+                        <button onClick={() => onResetSenha(p)} title="Gerar nova senha provisória"
+                          style={{ background: "#f8fafc", border: "none", borderRadius: 6, padding: "5px 10px", color: C.sub, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+                          <Icon name="settings" size={12} color="currentColor" />
+                          Resetar senha
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
