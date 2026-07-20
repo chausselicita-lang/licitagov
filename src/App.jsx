@@ -4599,7 +4599,7 @@ const TABS = [
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
   { id:"relatorios",     icon:"relatorios",  label:"Relatórios",       short:"Relat." },
-  { id:"claude",         icon:"claude",      label:"IA Claude",        short:"IA" },
+  { id:"claude",         icon:"claude",      label:"AGENTSERV",        short:"IA" },
 ];
 
 /* ── AUTHED APP — renderizado dentro do AuthProvider ────────── */
