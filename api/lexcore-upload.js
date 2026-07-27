@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import { sanitizeStorageFileName } from '../src/lib/storageSafeName.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '30mb' } } };
 
 const SUPABASE_URL = 'https://xqlrfsrjvqmucchzpapk.supabase.co';
 const BUCKET = 'lexcore-docs';
-const DIACRITICS_RE = new RegExp('[̀-ͯ]', 'g');
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,12 +30,7 @@ export default async function handler(req, res) {
 
   try {
     const buffer = Buffer.from(fileBase64, 'base64');
-    // Nomes de edital em PT-BR quase sempre têm acento/caractere especial
-    // ("Pregão", "Licitação", "nº", "/") — o Supabase Storage rejeita esses
-    // bytes na key do objeto ("Invalid key"). Normaliza pra ASCII seguro.
-    const safeName = fileName
-      .normalize('NFD').replace(DIACRITICS_RE, '')
-      .replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const safeName = sanitizeStorageFileName(fileName);
     const path = `editais/${crypto.randomUUID()}-${safeName}`;
 
     const upload = await sb.storage.from(BUCKET).upload(path, buffer, {
