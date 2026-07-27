@@ -26,6 +26,7 @@ import {
   sbListLexcoreAnalises, sbCreateLexcoreAnalise, sbUpdateLexcoreAnalise, sbDeleteLexcoreAnalise,
   sbGetLexcoreAnalise, sbListPontosCriticos, sbInsertPontosCriticos, sbSetPontoSelecionado,
   sbListPecas, sbListTodasPecas, sbGetPeca, sbCreatePeca, sbUpdatePeca, sbDeletePeca, exportarPecaDocx, uploadEditalOriginal,
+  exportarAnaliseDocx,
 } from './lib/lexcoreDb.js';
 import { ANALISE_SYSTEM, buildPecaSystem, buildPecaUserPrompt, parsePontosCriticosJSON, TIPOS_PECA, labelTipoPeca, labelTipoProblema } from './lib/lexcoreLegal.js';
 import {
@@ -133,6 +134,7 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     settings:   <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
     print:      <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
     install:    <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+    download:   <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
     menu:       <><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>,
     user:       <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
     back:       <><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>,
@@ -2954,7 +2956,7 @@ function RelContratos({ contratos, onClose }) {
 const RISCO_LABEL = { alto: "Risco Alto", medio: "Risco Médio", baixo: "Risco Baixo" };
 const RISCO_COLOR = { alto: "#b91c1c", medio: "#b45309", baixo: "#15803d" };
 
-function TabLexCore({ toast }) {
+function TabLexCore({ toast, impersonating }) {
   const isMobile = useMobileCD();
   const [screen, setScreen] = useState({ name: "home" }); // home | novaAnalise | analise | novaPeca | peca | resposta
 
@@ -3033,6 +3035,7 @@ function TabLexCore({ toast }) {
         onVoltar={() => { setScreen({ name: "home" }); carregarAnalises(); }}
         onAbrirPeca={(id) => setScreen({ name: "peca", id })}
         onIrGerarPeca={(analiseId) => setScreen({ name: "novaPeca", presetAnaliseId: analiseId })}
+        impersonating={impersonating}
       />
     );
   }
@@ -3340,11 +3343,15 @@ function PontosCriticosList({ pontos, onToggle }) {
   );
 }
 
-function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onIrGerarPeca }) {
+function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onIrGerarPeca, impersonating }) {
   const [analise, setAnalise] = useState(null);
   const [pontos, setPontos] = useState([]);
   const [pecas, setPecas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exportando, setExportando] = useState(false);
+  const { prefeitura, tenantId: meuTenantId } = useAuth();
+  const orgaoNome = impersonating?.nome || prefeitura;
+  const tenantIdParaLog = impersonating?.tenantId || meuTenantId;
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -3365,6 +3372,27 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onI
     setPontos(prev => prev.map(p => p.id === ponto.id ? { ...p, selecionado: novoValor } : p));
     const { error } = await sbSetPontoSelecionado(ponto.id, novoValor);
     if (error) toast("Erro ao salvar seleção: " + error.message, "error");
+  };
+
+  const exportarCompleta = async () => {
+    setExportando(true);
+    try {
+      const docxUrl = await exportarAnaliseDocx({
+        analiseId,
+        nomeEdital: analise.nomeEdital,
+        numeroProcesso: analise.numeroProcesso,
+        orgaoNome,
+        dataAnaliseISO: analise.createdAt,
+        pontos,
+        tenantId: tenantIdParaLog,
+      });
+      window.open(docxUrl, "_blank", "noopener");
+      toast("Análise completa exportada");
+    } catch (err) {
+      toast("Erro ao exportar análise: " + err.message, "error");
+    } finally {
+      setExportando(false);
+    }
   };
 
   const selecionados = pontos.filter(p => p.selecionado);
@@ -3403,16 +3431,23 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onI
 
       <PontosCriticosList pontos={pontos} onToggle={togglePonto} />
 
-      {pontos.length > 0 && (
+      {(pontos.length > 0 || analise.status === "concluida") && (
         <div style={{
           position: isMobile ? "static" : "sticky", bottom: isMobile ? "auto" : 0,
           background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16,
           display:"flex", gap:12, alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", marginTop:8, boxShadow:"0 -2px 12px rgba(0,0,0,0.06)",
         }}>
           <div style={{ fontSize:12.5, color:C.sub }}>{selecionados.length} ponto(s) selecionado(s) para gerar peça</div>
-          <Btn color={SX.laranja} onClick={() => onIrGerarPeca(analiseId)} disabled={selecionados.length === 0}>
-            <Icon name="sparkle" size={14} /> Gerar Peça Jurídica
-          </Btn>
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+            <Btn variant="outline" color={SX.laranja} onClick={exportarCompleta} disabled={exportando}>
+              <Icon name="download" size={14} /> {exportando ? "Exportando..." : "Exportar Análise Completa"}
+            </Btn>
+            {pontos.length > 0 && (
+              <Btn color={SX.laranja} onClick={() => onIrGerarPeca(analiseId)} disabled={selecionados.length === 0}>
+                <Icon name="sparkle" size={14} /> Gerar Peça Jurídica
+              </Btn>
+            )}
+          </div>
         </div>
       )}
 
@@ -4702,7 +4737,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
               {tab==="agentedispensas" && <TabAgenteDispensas toast={showToast} />}
-              {tab==="lexcore" && <TabLexCore toast={showToast} />}
+              {tab==="lexcore" && <TabLexCore toast={showToast} impersonating={impersonating} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
