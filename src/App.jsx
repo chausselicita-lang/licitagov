@@ -26,7 +26,6 @@ import {
   sbListLexcoreAnalises, sbCreateLexcoreAnalise, sbUpdateLexcoreAnalise, sbDeleteLexcoreAnalise,
   sbGetLexcoreAnalise, sbListPontosCriticos, sbInsertPontosCriticos, sbSetPontoSelecionado,
   sbListPecas, sbListTodasPecas, sbGetPeca, sbCreatePeca, sbUpdatePeca, sbDeletePeca, exportarPecaDocx, uploadEditalOriginal,
-  exportarAnaliseDocx,
 } from './lib/lexcoreDb.js';
 import { ANALISE_SYSTEM, buildPecaSystem, buildPecaUserPrompt, parsePontosCriticosJSON, TIPOS_PECA, labelTipoPeca, labelTipoProblema } from './lib/lexcoreLegal.js';
 import {
@@ -2956,7 +2955,39 @@ function RelContratos({ contratos, onClose }) {
 const RISCO_LABEL = { alto: "Risco Alto", medio: "Risco Médio", baixo: "Risco Baixo" };
 const RISCO_COLOR = { alto: "#b91c1c", medio: "#b45309", baixo: "#15803d" };
 
-function TabLexCore({ toast, impersonating }) {
+const gerarRelatorioAnaliseLexcore = (analise, pontos) => {
+  const porNivel = n => pontos.filter(p => p.nivelRisco === n);
+  const grupos = [["alto", porNivel("alto")], ["medio", porNivel("medio")], ["baixo", porNivel("baixo")]];
+  let html = `<div class="hdr"><h1>Análise de Edital — Relatório de Pontos Críticos</h1><div class="sub">${esc(analise.nomeEdital||"Edital sem nome")} — Processo ${esc(analise.numeroProcesso||"sem número")} &nbsp;·&nbsp; Gerado em ${hojeStr()} &nbsp;·&nbsp; ${pontos.length} ponto(s) crítico(s)</div></div>`;
+  html += `<div class="g4">
+    <div><div class="lbl">Total de Pontos</div><div class="val big">${pontos.length}</div></div>
+    <div><div class="lbl">Risco Alto</div><div class="val big" style="color:${RISCO_COLOR.alto}">${porNivel("alto").length}</div></div>
+    <div><div class="lbl">Risco Médio</div><div class="val big" style="color:${RISCO_COLOR.medio}">${porNivel("medio").length}</div></div>
+    <div><div class="lbl">Risco Baixo</div><div class="val big" style="color:${RISCO_COLOR.baixo}">${porNivel("baixo").length}</div></div>
+  </div>`;
+  if (!pontos.length) html += '<p style="color:#888;margin-top:20px">Nenhum ponto crítico identificado nesta análise.</p>';
+  grupos.forEach(([nivel, itens]) => {
+    if (!itens.length) return;
+    html += `<div class="sec" style="margin-top:20px;font-size:13px;color:${RISCO_COLOR[nivel]};border-color:${RISCO_COLOR[nivel]}">${RISCO_LABEL[nivel]} (${itens.length})</div>`;
+    itens.forEach(p => {
+      html += `<div class="card" style="border-left:4px solid ${RISCO_COLOR[nivel]}">
+        <div class="card-top">
+          <div>
+            <div class="card-num" style="color:${RISCO_COLOR[nivel]};font-size:14px">${esc(labelTipoProblema(p.tipoProblema))}</div>
+            ${p.artigoLei?`<div style="font-size:11px;color:#888;margin-top:2px">${esc(p.artigoLei)}</div>`:""}
+          </div>
+        </div>
+        <div style="font-size:13px;color:#111;margin-bottom:8px;line-height:1.6">${esc(p.descricaoProblema)}</div>
+        <div style="font-size:12px;color:#555;font-style:italic;border-left:2px solid #ddd;padding-left:10px;margin-bottom:8px">"${esc(p.trechoEdital)}"</div>
+        <div style="font-size:12px;color:#333"><strong>Fundamentação:</strong> ${esc(p.fundamentacaoLegal)}</div>
+      </div>`;
+    });
+  });
+  html += `<div class="footer">LicitaGov — LexCore · Análise de Edital gerada por IA · Lei 14.133/2021 · ${hojeStr()}</div>`;
+  return html;
+};
+
+function TabLexCore({ toast }) {
   const isMobile = useMobileCD();
   const [screen, setScreen] = useState({ name: "home" }); // home | novaAnalise | analise | novaPeca | peca | resposta
 
@@ -3035,7 +3066,6 @@ function TabLexCore({ toast, impersonating }) {
         onVoltar={() => { setScreen({ name: "home" }); carregarAnalises(); }}
         onAbrirPeca={(id) => setScreen({ name: "peca", id })}
         onIrGerarPeca={(analiseId) => setScreen({ name: "novaPeca", presetAnaliseId: analiseId })}
-        impersonating={impersonating}
       />
     );
   }
@@ -3343,15 +3373,13 @@ function PontosCriticosList({ pontos, onToggle }) {
   );
 }
 
-function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onIrGerarPeca, impersonating }) {
+function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onIrGerarPeca }) {
   const [analise, setAnalise] = useState(null);
   const [pontos, setPontos] = useState([]);
   const [pecas, setPecas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [exportando, setExportando] = useState(false);
-  const { prefeitura, tenantId: meuTenantId } = useAuth();
-  const orgaoNome = impersonating?.nome || prefeitura;
-  const tenantIdParaLog = impersonating?.tenantId || meuTenantId;
+  const [verRelatorio, setVerRelatorio] = useState(false);
+  const iframeRelatorioRef = useRef(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -3374,31 +3402,25 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onI
     if (error) toast("Erro ao salvar seleção: " + error.message, "error");
   };
 
-  const exportarCompleta = async () => {
-    setExportando(true);
-    try {
-      const docxUrl = await exportarAnaliseDocx({
-        analiseId,
-        nomeEdital: analise.nomeEdital,
-        numeroProcesso: analise.numeroProcesso,
-        orgaoNome,
-        dataAnaliseISO: analise.createdAt,
-        pontos,
-        tenantId: tenantIdParaLog,
-      });
-      window.open(docxUrl, "_blank", "noopener");
-      toast("Análise completa exportada");
-    } catch (err) {
-      toast("Erro ao exportar análise: " + err.message, "error");
-    } finally {
-      setExportando(false);
-    }
-  };
-
   const selecionados = pontos.filter(p => p.selecionado);
 
   if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando análise...</div>;
   if (!analise) return <EmptyState icon="lexcore" title="Análise não encontrada" sub="" />;
+
+  if (verRelatorio) {
+    return (
+      <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:200, display:"flex", flexDirection:"column" }}>
+        <div style={{ background:SX.laranja, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0, gap:10 }}>
+          <button onClick={()=>setVerRelatorio(false)} style={{ background:"none", border:"1px solid rgba(255,255,255,0.5)", borderRadius:6, padding:"7px 14px", color:"#fff", cursor:"pointer", fontSize:13, fontFamily:"inherit", fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="back" size={13} color="#fff" /> Voltar
+          </button>
+          <span style={{ color:"#fff", fontWeight:700, fontSize:14, flex:1, textAlign:"center" }}>Relatório — Análise de Edital</span>
+          <Btn onClick={()=>iframeRelatorioRef.current?.contentWindow?.print()} color="#fff" size="sm" style={{ color:SX.laranja, background:"#fff", border:"none" }}>🖨 Imprimir</Btn>
+        </div>
+        <iframe ref={iframeRelatorioRef} title="Relatório — Análise de Edital" srcDoc={buildRelatorioDoc("Relatório — Análise de Edital", gerarRelatorioAnaliseLexcore(analise, pontos))} style={{ flex:1, border:"none", width:"100%" }} />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -3439,8 +3461,8 @@ function LexcoreAnalise({ analiseId, isMobile, toast, onVoltar, onAbrirPeca, onI
         }}>
           <div style={{ fontSize:12.5, color:C.sub }}>{selecionados.length} ponto(s) selecionado(s) para gerar peça</div>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-            <Btn variant="outline" color={SX.laranja} onClick={exportarCompleta} disabled={exportando}>
-              <Icon name="download" size={14} /> {exportando ? "Exportando..." : "Exportar Análise Completa"}
+            <Btn variant="outline" color={SX.laranja} onClick={()=>setVerRelatorio(true)}>
+              <Icon name="download" size={14} /> Exportar Análise Completa
             </Btn>
             {pontos.length > 0 && (
               <Btn color={SX.laranja} onClick={() => onIrGerarPeca(analiseId)} disabled={selecionados.length === 0}>
@@ -4737,7 +4759,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
               {tab==="agentedispensas" && <TabAgenteDispensas toast={showToast} />}
-              {tab==="lexcore" && <TabLexCore toast={showToast} impersonating={impersonating} />}
+              {tab==="lexcore" && <TabLexCore toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}

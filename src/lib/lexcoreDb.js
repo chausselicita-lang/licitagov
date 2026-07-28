@@ -218,36 +218,3 @@ export async function exportarPecaDocx({ pecaId, tipoPeca, conteudoGerado, nomeE
   }
   return json;
 }
-
-// ── Exportação da Análise Completa (relatório informal, todos os pontos) ─
-// Diferente de exportarPecaDocx: não cria/atualiza registro em
-// lexcore_pecas — é um download direto, sem passar pelo fluxo de peça
-// jurídica formal. Busca o usuário autenticado aqui (mesmo padrão de
-// sbCreateLexcoreAnalise) porque o endpoint roda com service role e não
-// tem acesso à sessão do usuário.
-export async function exportarAnaliseDocx({ analiseId, nomeEdital, numeroProcesso, orgaoNome, dataAnaliseISO, pontos, tenantId }) {
-  const sb = getSupabase();
-  const { data: userData } = await sb.auth.getUser();
-
-  const resp = await fetch('/api/lexcore-analise-exportar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      analiseId, nomeEdital, numeroProcesso, orgaoNome, dataAnaliseISO,
-      pontos: pontos.map(p => ({
-        trechoEdital: p.trechoEdital,
-        tipoProblema: p.tipoProblema,
-        descricaoProblema: p.descricaoProblema,
-        fundamentacaoLegal: p.fundamentacaoLegal,
-        artigoLei: p.artigoLei,
-        nivelRisco: p.nivelRisco,
-      })),
-      tenantId: tenantId || null,
-      usuarioId: userData?.user?.id || null,
-      usuarioEmail: userData?.user?.email || null,
-    }),
-  });
-  const json = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(json.error || 'Erro ao exportar análise completa');
-  return json.docxUrl;
-}
