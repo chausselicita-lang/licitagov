@@ -33,6 +33,19 @@ import {
   uploadDocumentoRecebido, exportarRespostaDocx,
 } from './lib/lexcoreRespostaDb.js';
 import { TIPOS_RESPOSTA, labelTipoResposta, buildRespostaSystem, buildRespostaUserText } from './lib/lexcoreRespostaLegal.js';
+import {
+  sbCreateProcessoPlanejamento, sbGetProcessoPlanejamento, sbListProcessosPlanejamento, sbUpdateStatusProcessoPlanejamento,
+  sbGetDfd, sbCreateDfd, sbUpdateDfd, sbGetEtp, sbCreateEtp, sbUpdateEtp, sbGetTr, sbCreateTr, sbUpdateTr,
+  sbGetMapaRiscos, sbCreateMapaRiscos, sbUpdateMapaRiscos,
+  sbListCoerenciaChecks, sbCreateCoerenciaCheck, exportarPecaPlanejamentoDocx,
+} from './lib/dbPlanejamento.js';
+import {
+  labelTipoContratacao, DFD_MAX_TOKENS, buildDfdSystem, buildDfdUserText,
+  ETP_MAX_TOKENS, ETP_PERGUNTAS_COMPLEMENTARES, buildEtpSystem, buildEtpUserText,
+  TR_MAX_TOKENS, buildTrSystem, buildTrUserText,
+  MAPA_RISCOS_MAX_TOKENS, buildMapaRiscosSystem, buildMapaRiscosUserText, parseRiscosJSON, montarConteudoMapaRiscos,
+  COERENCIA_MAX_TOKENS, buildCoerenciaSystem, buildCoerenciaUserText, parseContradicoesJSON, statusGeralCoerencia,
+} from './lib/planejamentoPrompts.js';
 import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
@@ -4643,6 +4656,582 @@ function TabClaude({ data, setProcessos, setAtas, setContratos, setDispensas, se
 }
 
 /* ══════════════════════════════════════════════════════════════
+   PLANEJAMENTO ASSISTIDO POR IA — DFD → ETP → TR → Mapa de Riscos
+══════════════════════════════════════════════════════════════ */
+const TIPOS_CONTRATACAO_PLANEJAMENTO = ['bens', 'servicos', 'servicos_continuados', 'obras', 'ti', 'saude', 'outros']
+  .map(value => ({ value, label: labelTipoContratacao(value) }));
+
+const STATUS_PROCESSO_LABEL = {
+  intake: 'Intake',
+  dfd_gerado: 'DFD Gerado',
+  etp_gerado: 'ETP Gerado',
+  tr_gerado: 'TR Gerado',
+  mapa_riscos_gerado: 'Mapa de Riscos Gerado',
+  completo: 'Completo',
+};
+
+const LABEL_PECA_CURTO = { dfd: 'DFD', etp: 'ETP', tr: 'TR', mapa_riscos: 'Mapa de Riscos' };
+function labelPecaCoerencia(v) { return LABEL_PECA_CURTO[v] || v; }
+
+async function chamarIAPlanejamento(system, userText, maxTokens) {
+  const res = await anthropicFetch(null, {
+    method: "POST",
+    headers: { "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTokens, system, messages: [{ role: "user", content: userText }] }),
+  });
+  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro HTTP ${res.status}`); }
+  const json = await res.json();
+  if (json.stop_reason === "max_tokens") throw new Error("A geração ficou grande demais e foi cortada. Tente novamente.");
+  const texto = json.content?.[0]?.text || "";
+  if (!texto.trim()) throw new Error("IA não retornou conteúdo.");
+  return texto;
+}
+
+function TabPlanejamentoIA({ toast }) {
+  const isMobile = useMobileCD();
+  const [screen, setScreen] = useState({ name: "lista" }); // lista | intake | detalhe | peca
+  const [processos, setProcessos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await sbListProcessosPlanejamento();
+    if (error) toast("Erro ao carregar processos: " + error.message, "error");
+    setProcessos(data);
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  if (screen.name === "intake") {
+    return (
+      <PlanejamentoIntake
+        toast={toast}
+        onCancel={() => setScreen({ name: "lista" })}
+        onCriado={(id) => { carregar(); setScreen({ name: "detalhe", id }); }}
+      />
+    );
+  }
+
+  if (screen.name === "detalhe") {
+    return (
+      <PlanejamentoDetalhe
+        processoId={screen.id}
+        toast={toast}
+        onVoltar={() => { setScreen({ name: "lista" }); carregar(); }}
+        onAbrirPeca={(tipoPeca) => setScreen({ name: "peca", processoId: screen.id, tipoPeca })}
+      />
+    );
+  }
+
+  if (screen.name === "peca") {
+    return (
+      <PlanejamentoPeca
+        processoId={screen.processoId}
+        tipoPeca={screen.tipoPeca}
+        toast={toast}
+        onVoltar={() => setScreen({ name: "detalhe", id: screen.processoId })}
+      />
+    );
+  }
+
+  const filtered = processos.filter(p => {
+    const s = search.toLowerCase();
+    return (p.objeto || "").toLowerCase().includes(s) || (p.numeroProcesso || "").toLowerCase().includes(s) || (p.areaRequisitante || "").toLowerCase().includes(s);
+  });
+
+  return (
+    <div>
+      <div style={{
+        background: `linear-gradient(135deg, ${SX.preto} 0%, ${SX.pretoSoft} 100%)`,
+        border: `1px solid ${SX.laranja}33`, borderRadius: "12px 12px 0 0",
+        padding: "18px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
+      }}>
+        <div>
+          <div style={{ fontSize:16, fontWeight:700, color:"#fff", fontFamily:"Inter,system-ui,sans-serif", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="sparkle" size={18} color={SX.laranja} />
+            Planejamento Assistido por IA
+          </div>
+          <div style={{ fontSize:12, color:SX.prata, marginTop:3 }}>Geração em cascata DFD → ETP → TR → Mapa de Riscos — Lei nº 14.133/2021</div>
+        </div>
+        <Btn color={SX.laranja} onClick={() => setScreen({ name: "intake" })}>
+          <Icon name="plus" size={14} /> Novo Processo
+        </Btn>
+      </div>
+      <div style={{ border:`1px solid ${C.border}`, borderTop:"none", borderRadius:"0 0 12px 12px", padding:16, background:C.bg }}>
+        <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por objeto, processo ou área requisitante..."
+            style={{ flex:1, minWidth:150, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"inherit", outline:"none" }}
+            onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+            onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }} />
+        </div>
+        {loading ? (
+          <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando processos...</div>
+        ) : filtered.length === 0 ? (
+          <EmptyState icon="sparkle" title="Nenhum processo de planejamento" sub='Clique em "Novo Processo" para começar o intake e gerar o DFD automaticamente' />
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {filtered.map(p => (
+              <div key={p.id} onClick={() => setScreen({ name: "detalhe", id: p.id })} style={{
+                background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${SX.laranja}`,
+                borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", cursor:"pointer",
+                display:"flex", flexDirection: isMobile ? "column" : "row", gap:10, alignItems: isMobile ? "flex-start" : "center", justifyContent:"space-between",
+              }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{p.objeto}</span>
+                    <Badge label={STATUS_PROCESSO_LABEL[p.status] || p.status} color={p.status === "completo" ? C.green : undefined} />
+                  </div>
+                  <div style={{ fontSize:12, color:C.sub }}>
+                    {p.numeroProcesso ? `Processo ${p.numeroProcesso} · ` : ""}{p.areaRequisitante} · {p.valorEstimado != null ? fmtBRL(p.valorEstimado) : "valor não informado"} · {fmtDate(p.createdAt)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlanejamentoIntake({ toast, onCancel, onCriado }) {
+  const { nome, prefeitura, municipio } = useAuth();
+  const [form, setForm] = useState({
+    numeroProcesso: "", objeto: "", justificativaResumida: "", quantidadeEstimada: "", valorEstimado: "",
+    areaRequisitante: "", tipoContratacao: "bens",
+  });
+  const [gerando, setGerando] = useState(false);
+  const ff = (k) => (v) => setForm(f => ({ ...f, [k]: v }));
+
+  const gerar = async () => {
+    if (!form.objeto.trim()) { toast("Informe o objeto da contratação", "error"); return; }
+    if (!form.justificativaResumida.trim()) { toast("Informe a justificativa resumida", "error"); return; }
+    if (!form.areaRequisitante.trim()) { toast("Informe a área/unidade requisitante", "error"); return; }
+
+    setGerando(true);
+    let processo = null;
+    try {
+      const intake = {
+        numeroProcesso: form.numeroProcesso.trim() || null,
+        objeto: form.objeto.trim(),
+        justificativaResumida: form.justificativaResumida.trim(),
+        quantidadeEstimada: form.quantidadeEstimada.trim() || null,
+        valorEstimado: form.valorEstimado ? parseFloat(form.valorEstimado) : null,
+        areaRequisitante: form.areaRequisitante.trim(),
+        tipoContratacao: form.tipoContratacao,
+      };
+      const { data, error: createErr } = await sbCreateProcessoPlanejamento(intake);
+      if (createErr) throw createErr;
+      processo = data;
+
+      const sb = getSupabase();
+      const { data: userData } = await sb.auth.getUser();
+      const agente = { nome, prefeitura, municipio, email: userData?.user?.email };
+
+      const conteudoGerado = await chamarIAPlanejamento(buildDfdSystem(), buildDfdUserText({ intake, agente }), DFD_MAX_TOKENS);
+      const { error: dfdErr } = await sbCreateDfd({ processoId: processo.id, conteudoGerado });
+      if (dfdErr) throw dfdErr;
+      await sbUpdateStatusProcessoPlanejamento(processo.id, "dfd_gerado");
+
+      toast("DFD gerado com sucesso!");
+      onCriado(processo.id);
+    } catch (err) {
+      toast("Erro ao gerar DFD: " + err.message, "error");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onCancel} />
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>Novo Processo de Planejamento</div>
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, maxWidth:640, display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{
+          background:"#fff1e6", border:`1px solid ${SX.laranja}55`, borderRadius:8, padding:"12px 14px",
+          display:"flex", gap:10, alignItems:"flex-start", fontSize:12.5, color:"#7c2d12", lineHeight:1.5,
+        }}>
+          <Icon name="sparkle" size={16} color={SX.laranjaEsc} />
+          Preencha só estes 6 campos. A IA gera o DFD completo agora e, na sequência, ETP, TR e Mapa de Riscos — sem repetir informação.
+        </div>
+
+        <Input label="Objeto da Contratação" value={form.objeto} onChange={ff("objeto")} placeholder="Ex.: Aquisição de material permanente para reforma da UBS Central" required />
+        <TextArea label="Justificativa Resumida" value={form.justificativaResumida} onChange={ff("justificativaResumida")} rows={3} placeholder="Por que essa contratação é necessária, em poucas linhas" />
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Input label="Quantidade Estimada" value={form.quantidadeEstimada} onChange={ff("quantidadeEstimada")} placeholder="Ex.: 45 itens" />
+          <Input label="Valor Estimado (R$)" type="number" value={form.valorEstimado} onChange={ff("valorEstimado")} placeholder="Ex.: 187500.00" />
+        </div>
+        <Input label="Área/Unidade Requisitante" value={form.areaRequisitante} onChange={ff("areaRequisitante")} placeholder="Ex.: Secretaria Municipal de Saúde" required />
+        <Select label="Tipo de Contratação" value={form.tipoContratacao} onChange={ff("tipoContratacao")} options={TIPOS_CONTRATACAO_PLANEJAMENTO} />
+        <Input label="Número do Processo (opcional)" value={form.numeroProcesso} onChange={ff("numeroProcesso")} placeholder="Ex.: 2026.003.0091" />
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <Btn variant="outline" color={C.sub} onClick={onCancel} disabled={gerando}>Cancelar</Btn>
+          <Btn color={SX.laranja} onClick={gerar} disabled={gerando}>
+            {gerando ? "Gerando DFD..." : (<><Icon name="sparkle" size={14} /> Gerar DFD</>)}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanejamentoPecaCard({ label, peca, gerando, podeGerar, onGerar, gerarLabel, onAbrir, children }) {
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${peca ? C.green : SX.laranja}`, borderRadius:12, padding:16 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" }}>
+        <div style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif" }}>{label}</div>
+        <Badge label={peca ? (peca.status === "finalizado" ? "Finalizado" : "Rascunho pronto") : "Não gerado"} color={peca ? C.green : undefined} />
+      </div>
+
+      {peca && (
+        <div style={{ marginTop:12 }}>
+          <Btn variant="outline" color={SX.laranja} onClick={onAbrir}>
+            <Icon name="file" size={14} /> Abrir rascunho
+          </Btn>
+        </div>
+      )}
+
+      {!peca && children}
+
+      {!peca && podeGerar && (
+        <div style={{ marginTop:12 }}>
+          <Btn color={SX.laranja} onClick={onGerar} disabled={gerando}>
+            {gerando ? "Gerando..." : (<><Icon name="sparkle" size={14} /> {gerarLabel}</>)}
+          </Btn>
+        </div>
+      )}
+      {!peca && !podeGerar && (
+        <div style={{ marginTop:10, fontSize:12, color:C.sub }}>Aguardando a etapa anterior.</div>
+      )}
+    </div>
+  );
+}
+
+function PlanejamentoDetalhe({ processoId, toast, onVoltar, onAbrirPeca }) {
+  const { nome, prefeitura, municipio } = useAuth();
+  const [processo, setProcesso] = useState(null);
+  const [dfd, setDfd] = useState(null);
+  const [etp, setEtp] = useState(null);
+  const [tr, setTr] = useState(null);
+  const [mapaRiscos, setMapaRiscos] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [gerandoEtp, setGerandoEtp] = useState(false);
+  const [gerandoTr, setGerandoTr] = useState(false);
+  const [gerandoMapa, setGerandoMapa] = useState(false);
+  const [respostasEtp, setRespostasEtp] = useState({});
+  const [coerenciaChecks, setCoerenciaChecks] = useState([]);
+  const [verificandoCoerencia, setVerificandoCoerencia] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const [{ data: p, error: eP }, { data: d }, { data: e }, { data: t }, { data: m }, { data: checks }] = await Promise.all([
+      sbGetProcessoPlanejamento(processoId), sbGetDfd(processoId), sbGetEtp(processoId), sbGetTr(processoId), sbGetMapaRiscos(processoId),
+      sbListCoerenciaChecks(processoId),
+    ]);
+    if (eP) toast("Erro ao carregar processo: " + eP.message, "error");
+    setProcesso(p); setDfd(d); setEtp(e); setTr(t); setMapaRiscos(m); setCoerenciaChecks(checks || []);
+    setLoading(false);
+  }, [processoId, toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const intakeDoProcesso = () => ({
+    numeroProcesso: processo.numeroProcesso, objeto: processo.objeto, justificativaResumida: processo.justificativaResumida,
+    quantidadeEstimada: processo.quantidadeEstimada, valorEstimado: processo.valorEstimado,
+    areaRequisitante: processo.areaRequisitante, tipoContratacao: processo.tipoContratacao,
+  });
+
+  const gerarEtp = async () => {
+    setGerandoEtp(true);
+    try {
+      const intake = intakeDoProcesso();
+      const conteudoGerado = await chamarIAPlanejamento(buildEtpSystem(), buildEtpUserText({ intake, dfdConteudo: dfd.conteudoGerado, respostas: respostasEtp }), ETP_MAX_TOKENS);
+      const perguntasComplementares = ETP_PERGUNTAS_COMPLEMENTARES.map(p => ({ chave: p.chave, pergunta: p.pergunta, resposta: respostasEtp[p.chave] || null }));
+      const { error } = await sbCreateEtp({ processoId, perguntasComplementares, conteudoGerado });
+      if (error) throw error;
+      await sbUpdateStatusProcessoPlanejamento(processoId, "etp_gerado");
+      toast("ETP gerado com sucesso!");
+      carregar();
+    } catch (err) {
+      toast("Erro ao gerar ETP: " + err.message, "error");
+    } finally {
+      setGerandoEtp(false);
+    }
+  };
+
+  const gerarTr = async () => {
+    setGerandoTr(true);
+    try {
+      const intake = intakeDoProcesso();
+      const conteudoGerado = await chamarIAPlanejamento(buildTrSystem(), buildTrUserText({ intake, dfdConteudo: dfd.conteudoGerado, etpConteudo: etp.conteudoGerado }), TR_MAX_TOKENS);
+      const { error } = await sbCreateTr({ processoId, conteudoGerado });
+      if (error) throw error;
+      await sbUpdateStatusProcessoPlanejamento(processoId, "tr_gerado");
+      toast("TR gerado com sucesso!");
+      carregar();
+    } catch (err) {
+      toast("Erro ao gerar TR: " + err.message, "error");
+    } finally {
+      setGerandoTr(false);
+    }
+  };
+
+  const gerarMapaRiscos = async () => {
+    setGerandoMapa(true);
+    try {
+      const intake = intakeDoProcesso();
+      const riscosTexto = await chamarIAPlanejamento(buildMapaRiscosSystem(), buildMapaRiscosUserText({ intake, trConteudo: tr.conteudoGerado }), MAPA_RISCOS_MAX_TOKENS);
+      const riscos = parseRiscosJSON(riscosTexto);
+      const sb = getSupabase();
+      const { data: userData } = await sb.auth.getUser();
+      const agente = { nome, prefeitura, municipio, email: userData?.user?.email };
+      const conteudoGerado = montarConteudoMapaRiscos({ intake, agente, riscos });
+      const { error } = await sbCreateMapaRiscos({ processoId, riscos, conteudoGerado });
+      if (error) throw error;
+      await sbUpdateStatusProcessoPlanejamento(processoId, "completo");
+      toast("Mapa de Riscos gerado — planejamento completo!");
+      carregar();
+    } catch (err) {
+      toast("Erro ao gerar Mapa de Riscos: " + err.message, "error");
+    } finally {
+      setGerandoMapa(false);
+    }
+  };
+
+  const verificarCoerencia = async () => {
+    setVerificandoCoerencia(true);
+    try {
+      const resp = await chamarIAPlanejamento(
+        buildCoerenciaSystem(),
+        buildCoerenciaUserText({ dfdConteudo: dfd.conteudoGerado, etpConteudo: etp.conteudoGerado, trConteudo: tr.conteudoGerado, mapaRiscosConteudo: mapaRiscos.conteudoGerado }),
+        COERENCIA_MAX_TOKENS
+      );
+      const contradicoes = parseContradicoesJSON(resp);
+      const statusGeral = statusGeralCoerencia(contradicoes);
+      const { error } = await sbCreateCoerenciaCheck({ processoId, contradicoes, statusGeral });
+      if (error) throw error;
+      toast(statusGeral === "coerente" ? "Nenhuma divergência encontrada entre as peças" : `${contradicoes.length} divergência(s) encontrada(s)`, statusGeral === "coerente" ? "success" : "warn");
+      carregar();
+    } catch (err) {
+      toast("Erro ao verificar coerência: " + err.message, "error");
+    } finally {
+      setVerificandoCoerencia(false);
+    }
+  };
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando processo...</div>;
+  if (!processo) return <EmptyState icon="sparkle" title="Processo não encontrado" sub="" />;
+
+  const todasPecasProntas = !!dfd && !!etp && !!tr && !!mapaRiscos;
+  const ultimoCheck = coerenciaChecks[0] || null;
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onVoltar} />
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{processo.objeto}</div>
+          <div style={{ fontSize:12, color:C.sub, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+            {processo.numeroProcesso ? `Processo ${processo.numeroProcesso} · ` : ""}{processo.areaRequisitante} · <Badge label={STATUS_PROCESSO_LABEL[processo.status] || processo.status} color={processo.status === "completo" ? C.green : undefined} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <PlanejamentoPecaCard label="DFD — Documento de Formalização da Demanda" peca={dfd} podeGerar={false} onAbrir={() => onAbrirPeca("dfd")} />
+
+        <PlanejamentoPecaCard
+          label="ETP — Estudo Técnico Preliminar" peca={etp} gerando={gerandoEtp}
+          podeGerar={!!dfd} onGerar={gerarEtp} gerarLabel="Gerar ETP" onAbrir={() => onAbrirPeca("etp")}
+        >
+          {!!dfd && (
+            <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:12 }}>
+              {ETP_PERGUNTAS_COMPLEMENTARES.map(p => (
+                <TextArea key={p.chave} label={p.pergunta} rows={2}
+                  value={respostasEtp[p.chave] || ""} onChange={v => setRespostasEtp(r => ({ ...r, [p.chave]: v }))}
+                  placeholder="Deixe em branco para usar a resposta padrão" />
+              ))}
+            </div>
+          )}
+        </PlanejamentoPecaCard>
+
+        <PlanejamentoPecaCard
+          label="TR — Termo de Referência" peca={tr} gerando={gerandoTr}
+          podeGerar={!!etp} onGerar={gerarTr} gerarLabel="Gerar TR" onAbrir={() => onAbrirPeca("tr")}
+        />
+
+        <PlanejamentoPecaCard
+          label="Mapa de Riscos" peca={mapaRiscos} gerando={gerandoMapa}
+          podeGerar={!!tr} onGerar={gerarMapaRiscos} gerarLabel="Gerar Mapa de Riscos" onAbrir={() => onAbrirPeca("mapa_riscos")}
+        />
+
+        {todasPecasProntas && (
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${SX.laranja}`, borderRadius:12, padding:16 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" }}>
+              <div style={{ fontSize:14, fontWeight:700, color:SX.laranjaEsc, fontFamily:"Inter,system-ui,sans-serif", display:"flex", alignItems:"center", gap:8 }}>
+                <Icon name="warning" size={16} color={SX.laranjaEsc} />
+                Verificador de Coerência
+              </div>
+              <Btn color={SX.laranja} onClick={verificarCoerencia} disabled={verificandoCoerencia}>
+                {verificandoCoerencia ? "Verificando..." : (<><Icon name="sparkle" size={14} /> Verificar Coerência</>)}
+              </Btn>
+            </div>
+
+            {!ultimoCheck ? (
+              <div style={{ marginTop:12, fontSize:12.5, color:C.sub }}>Ainda não verificado. Clique em "Verificar Coerência" para cruzar as 4 peças e apontar contradições (valor, quantidade, objeto, prazos etc).</div>
+            ) : (
+              <div style={{ marginTop:14 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
+                  <Badge label={ultimoCheck.statusGeral === "coerente" ? "Coerente" : "Divergências encontradas"} color={ultimoCheck.statusGeral === "coerente" ? C.green : C.red} />
+                  <span style={{ fontSize:12, color:C.sub }}>Última verificação: {fmtDate(ultimoCheck.createdAt)}</span>
+                </div>
+
+                {ultimoCheck.contradicoes.length > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {ultimoCheck.contradicoes.map((c, i) => {
+                      const corSeveridade = c.severidade === "alta" ? C.red : c.severidade === "media" ? C.amber : C.sub;
+                      return (
+                        <div key={i} style={{ background:C.surface, border:`1px solid ${C.border}`, borderLeft:`3px solid ${corSeveridade}`, borderRadius:8, padding:"10px 14px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
+                            <Badge label={(c.severidade || "").toUpperCase()} color={corSeveridade} />
+                            <span style={{ fontSize:12.5, fontWeight:700, color:C.text }}>{c.campo}</span>
+                          </div>
+                          <div style={{ fontSize:12.5, color:C.text, lineHeight:1.5, marginBottom:6 }}>{c.descricao}</div>
+                          <div style={{ fontSize:11.5, color:C.sub }}>
+                            <b>{labelPecaCoerencia(c.peca_a)}</b>: {c.valor_a} — <b>{labelPecaCoerencia(c.peca_b)}</b>: {c.valor_b}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {coerenciaChecks.length > 1 && (
+                  <div style={{ marginTop:14, paddingTop:12, borderTop:`1px solid ${C.border}` }}>
+                    <div style={{ fontSize:11.5, color:C.sub, fontWeight:600, marginBottom:6 }}>Histórico de verificações</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {coerenciaChecks.slice(1).map(chk => (
+                        <div key={chk.id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:C.sub }}>
+                          <Badge label={chk.statusGeral === "coerente" ? "Coerente" : `${chk.contradicoes.length} divergência(s)`} color={chk.statusGeral === "coerente" ? C.green : C.red} />
+                          {fmtDate(chk.createdAt)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const PLANEJAMENTO_PECA_CONFIG = {
+  dfd: { label: "DFD — Documento de Formalização da Demanda", get: sbGetDfd, update: sbUpdateDfd },
+  etp: { label: "ETP — Estudo Técnico Preliminar", get: sbGetEtp, update: sbUpdateEtp },
+  tr: { label: "TR — Termo de Referência", get: sbGetTr, update: sbUpdateTr },
+  mapa_riscos: { label: "Mapa de Riscos", get: sbGetMapaRiscos, update: sbUpdateMapaRiscos },
+};
+
+function PlanejamentoPeca({ processoId, tipoPeca, toast, onVoltar }) {
+  const config = PLANEJAMENTO_PECA_CONFIG[tipoPeca];
+  const [processo, setProcesso] = useState(null);
+  const [peca, setPeca] = useState(null);
+  const [conteudo, setConteudo] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [exportando, setExportando] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([sbGetProcessoPlanejamento(processoId), config.get(processoId)]).then(([{ data: p, error: eP }, { data: pc, error: eC }]) => {
+      if (!ativo) return;
+      if (eP) toast("Erro ao carregar processo: " + eP.message, "error");
+      if (eC) toast("Erro ao carregar peça: " + eC.message, "error");
+      setProcesso(p);
+      setPeca(pc);
+      setConteudo(pc?.conteudoGerado || "");
+      setLoading(false);
+    });
+    return () => { ativo = false; };
+  }, [processoId, tipoPeca, toast]);
+
+  const salvar = async () => {
+    setSalvando(true);
+    const { data, error } = await config.update(peca.id, { conteudoGerado: conteudo });
+    setSalvando(false);
+    if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+    setPeca(data);
+    toast("Rascunho salvo");
+  };
+
+  const exportar = async () => {
+    setExportando(true);
+    try {
+      await salvar();
+      const { peca: atualizada, docxUrl } = await exportarPecaPlanejamentoDocx({
+        pecaId: peca.id, tipoPeca, conteudoGerado: conteudo,
+        processoObjeto: processo.objeto, numeroProcesso: processo.numeroProcesso,
+      });
+      setPeca(atualizada);
+      toast("Peça exportada em .docx");
+      window.open(docxUrl, "_blank", "noopener");
+    } catch (err) {
+      toast("Erro ao exportar: " + err.message, "error");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando peça...</div>;
+  if (!peca) return <EmptyState icon="sparkle" title="Peça não encontrada" sub="" />;
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        <IconBtn name="back" color={C.text} title="Voltar" onClick={onVoltar} />
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Inter,system-ui,sans-serif" }}>{config.label}</div>
+          <div style={{ fontSize:12, color:C.sub }}>{processo?.objeto} · <Badge label={peca.status === "finalizado" ? "Finalizado" : "Rascunho"} color={peca.status === "finalizado" ? C.green : undefined} /></div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="outline" color={SX.laranja} onClick={salvar} disabled={salvando || exportando}>{salvando ? "Salvando..." : "Salvar Rascunho"}</Btn>
+          <Btn color={SX.laranja} onClick={exportar} disabled={exportando}>
+            {exportando ? "Exportando..." : (<><Icon name="file" size={14} /> Exportar .docx</>)}
+          </Btn>
+        </div>
+      </div>
+
+      {peca.arquivoDocxUrl && (
+        <div style={{ marginBottom:12 }}>
+          <a href={peca.arquivoDocxUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12.5, color:SX.laranjaEsc, textDecoration:"none", fontWeight:600 }}>
+            <Icon name="externallink" size={12} /> Última versão exportada — abrir .docx
+          </a>
+        </div>
+      )}
+
+      <textarea value={conteudo} onChange={e => setConteudo(e.target.value)} rows={28}
+        style={{
+          width:"100%", boxSizing:"border-box", background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+          padding:"16px 18px", color:C.text, fontSize:13.5, lineHeight:1.7, fontFamily:"'Times New Roman',serif",
+          outline:"none", resize:"vertical",
+        }}
+        onFocus={e=>{ e.target.style.borderColor=SX.laranja; e.target.style.boxShadow=`0 0 0 3px ${SX.laranja}22`; }}
+        onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none"; }}
+      />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    APP ROOT
 ══════════════════════════════════════════════════════════════ */
 const TABS = [
@@ -4651,7 +5240,7 @@ const TABS = [
   { id:"atas",           icon:"atas",       label:"Ata de RP",        short:"Atas" },
   { id:"contratos",      icon:"contratos",  label:"Contratos",        short:"Contr." },
   { id:"dispensas",      icon:"dispensa",   label:"Dispensas",        short:"Disp." },
-  { id:"agentedispensas",icon:"sparkle",    label:"Agente de Dispensas", short:"Agente" },
+  { id:"planejamentoia", icon:"sparkle",    label:"Planejamento IA",  short:"Planej." },
   { id:"lexcore",        icon:"lexcore",    label:"LexCore",          short:"LexCore" },
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
@@ -4758,7 +5347,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}
-              {tab==="agentedispensas" && <TabAgenteDispensas toast={showToast} />}
+              {tab==="planejamentoia" && <TabPlanejamentoIA toast={showToast} />}
               {tab==="lexcore" && <TabLexCore toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
