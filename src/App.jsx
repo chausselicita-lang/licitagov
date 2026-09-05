@@ -47,6 +47,20 @@ import {
   COERENCIA_MAX_TOKENS, buildCoerenciaSystem, buildCoerenciaUserText, parseContradicoesJSON, statusGeralCoerencia,
 } from './lib/planejamentoPrompts.js';
 import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
+import {
+  CARIMBO_CONFIG_DEFAULTS, sbGetCarimboConfig, sbSaveCarimboConfig, uploadCarimboAsset,
+  sbListCarimboProcessamentos, sbCreateCarimboProcessamento, uploadCarimboProcessado,
+} from './lib/carimboDb.js';
+import { Rnd } from 'react-rnd';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS as DndCSS } from '@dnd-kit/utilities';
+import { PDFDocument as PDFDocumentClient } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import caveatFontUrl from './assets/fonts/Caveat-SemiBold.ttf?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 import Sidebar from "./components/Sidebar.jsx";
@@ -169,6 +183,12 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     dispensa:    <><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></>,
     inexigib:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     lexcore:     <><path d="M12 3v18"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/><path d="M5 7h14"/><path d="M12 3l-3 2 3 2 3-2z"/><path d="M7 21h10"/></>,
+    stamp:       <><path d="M5 22h14"/><path d="M9 22v-3a3 3 0 0 1 6 0v3"/><path d="M7 15a5 5 0 0 1 10 0"/><rect x="9" y="4" width="6" height="6" rx="1"/></>,
+    chevronDown: <><polyline points="6 9 12 15 18 9"/></>,
+    chevronUp:   <><polyline points="18 15 12 9 6 15"/></>,
+    grip:        <><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></>,
+    upload:      <><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></>,
+    refresh:     <><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -369,6 +389,7 @@ function KpiCard({ label, value, sub, color=C.accent }) {
 function GlobalStyles() {
   return (
     <style>{`
+      @font-face{font-family:'Caveat';src:url('${caveatFontUrl}') format('truetype');font-weight:600;font-display:swap;}
       *{box-sizing:border-box;margin:0;padding:0;}
       body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#111827;}
       ::-webkit-scrollbar{width:5px;height:5px;}
@@ -848,6 +869,517 @@ function TabProcessos({ processos, setProcessos, toast }) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROCESSOS — grupo com sub-navegação (Listagem / Carimbo Digital)
+   Não existe router neste app (tudo é `tab` em state) — então em vez
+   de uma rota "/processos/carimbo-digital", o item "Carimbo Digital"
+   vive como uma sub-view dentro da própria tela de Processos, com um
+   segmented control no topo. O Sidebar (item expansível) e este
+   segmented control controlam o mesmo estado `processosView`.
+══════════════════════════════════════════════════════════════ */
+function TabProcessosGroup({ processos, setProcessos, toast, processosView, setProcessosView }) {
+  return (
+    <div>
+      <div style={{ display:"inline-flex", padding:3, background:C.subtle, border:`1px solid ${C.border}`, borderRadius:9, marginBottom:18, gap:2 }}>
+        {[
+          { id:"listagem", label:"Listagem de Processos", icon:"processos" },
+          { id:"carimbo",  label:"Carimbo Digital",        icon:"stamp" },
+        ].map(v => {
+          const active = processosView === v.id;
+          return (
+            <button key={v.id} onClick={()=>setProcessosView(v.id)}
+              style={{
+                display:"flex", alignItems:"center", gap:7,
+                padding:"7px 14px", borderRadius:7, border:"none",
+                background: active ? C.card : "transparent",
+                color: active ? C.accent : C.sub,
+                fontSize:12.5, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+                boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition:"all 0.14s",
+              }}>
+              <Icon name={v.icon} size={14} strokeWidth={active?2:1.6} />
+              {v.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {processosView === "listagem"
+        ? <TabProcessos processos={processos} setProcessos={setProcessos} toast={toast} />
+        : <TabCarimboDigital toast={toast} />}
+    </div>
+  );
+}
+
+/* ── Carimbo Digital: constantes de layout ─────────────────────── */
+const PDF_PT = { w: 595.28, h: 841.89 }; // A4 em pontos, mesma referência usada pelo engine
+const CARIMBO_PREVIEW_W = 320;
+const CARIMBO_PREVIEW_H = CARIMBO_PREVIEW_W * (PDF_PT.h / PDF_PT.w);
+
+function loadImageSize(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
+    img.onerror = () => resolve({ width: 1, height: 1 });
+    img.src = url;
+  });
+}
+
+function AssetDropzone({ label, previewUrl, onFile }) {
+  const inputRef = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+  const pick = (fileList) => {
+    const file = fileList?.[0];
+    if (file && file.type === "image/png") onFile(file);
+    else if (file) alert("Envie um arquivo PNG (com fundo transparente).");
+  };
+  return (
+    <div>
+      <label style={{ fontSize:12, color:C.sub, fontWeight:500, display:"block", marginBottom:6 }}>{label}</label>
+      <div
+        onClick={()=>inputRef.current?.click()}
+        onDragOver={e=>{ e.preventDefault(); setDragOver(true); }}
+        onDragLeave={()=>setDragOver(false)}
+        onDrop={e=>{ e.preventDefault(); setDragOver(false); pick(e.dataTransfer.files); }}
+        style={{
+          border:`1.5px dashed ${dragOver?C.accent:C.borderStrong}`, borderRadius:10,
+          background: dragOver ? C.accentSubtle : C.overlay,
+          padding:16, textAlign:"center", cursor:"pointer", transition:"all 0.14s",
+          display:"flex", flexDirection:"column", alignItems:"center", gap:8, minHeight:120, justifyContent:"center",
+        }}>
+        <input ref={inputRef} type="file" accept="image/png" hidden onChange={e=>pick(e.target.files)} />
+        {previewUrl ? (
+          <img src={previewUrl} alt={label} style={{ maxHeight:80, maxWidth:"100%", objectFit:"contain" }} />
+        ) : (
+          <>
+            <Icon name="upload" size={22} color={C.sub} />
+            <span style={{ fontSize:12, color:C.sub }}>Arraste o PNG aqui ou clique para escolher</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CarimboConfigEditor({ initialConfig, tenantId, toast, onSaved, onCancel }) {
+  const [carimboFile, setCarimboFile] = useState(null);
+  const [carimboUrl, setCarimboUrl] = useState(initialConfig?.carimboImageUrl || null);
+  const [carimboNat, setCarimboNat] = useState({ width:1, height:0.5 });
+  const [cfg, setCfg] = useState(() => ({ ...CARIMBO_CONFIG_DEFAULTS, ...(initialConfig || {}) }));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (carimboUrl) loadImageSize(carimboUrl).then(setCarimboNat); }, [carimboUrl]);
+
+  const carimboAspect = carimboNat.height / carimboNat.width;
+
+  const carimboWpx = cfg.carimboWidthPct * CARIMBO_PREVIEW_W;
+  const carimboHpx = carimboWpx * carimboAspect;
+  const numeroFontPreview = Math.max(8, cfg.numeroFontSize * (CARIMBO_PREVIEW_W / PDF_PT.w));
+  const numMarkerW = Math.max(28, numeroFontPreview * 2.2);
+  const numMarkerH = Math.max(16, numeroFontPreview * 1.6);
+
+  const escolherCarimbo = (file) => { setCarimboFile(file); setCarimboUrl(URL.createObjectURL(file)); };
+
+  const restaurarPadrao = () => setCfg(c => ({ ...c, ...CARIMBO_CONFIG_DEFAULTS }));
+
+  const salvar = async () => {
+    if (!carimboUrl) { toast("Envie o PNG do carimbo antes de salvar", "error"); return; }
+    setSaving(true);
+    try {
+      let finalCarimboUrl = carimboUrl;
+      if (carimboFile) {
+        const { url, error } = await uploadCarimboAsset(carimboFile, tenantId, "carimbo");
+        if (error) throw error;
+        finalCarimboUrl = url;
+      }
+      const { data, error } = await sbSaveCarimboConfig({
+        ...cfg, id: initialConfig?.id, carimboImageUrl: finalCarimboUrl,
+      });
+      if (error) throw error;
+      toast("Padrão do carimbo salvo com sucesso!");
+      onSaved(data);
+    } catch (err) {
+      toast("Erro ao salvar: " + (err?.message || "tente novamente"), "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+      <AssetDropzone label="Carimbo oficial (PNG — já com a rubrica desenhada dentro, se for o caso)" previewUrl={carimboUrl} onFile={escolherCarimbo} />
+
+      {carimboUrl && (
+        <div>
+          <div style={{ fontSize:12, color:C.sub, marginBottom:8 }}>
+            Arraste o carimbo para posicionar na folha. Use a alça no canto para redimensionar. Dentro do carimbo, arraste o número pra ajustar onde a numeração de folha aparece.
+          </div>
+          <div style={{ display:"flex", justifyContent:"center", background:"#e5e7eb", borderRadius:10, padding:20 }}>
+            <div style={{
+              position:"relative", width:CARIMBO_PREVIEW_W, height:CARIMBO_PREVIEW_H,
+              background:"#fff", boxShadow:"0 4px 18px rgba(0,0,0,0.18)", overflow:"hidden",
+            }}>
+              {/* linhas fake simulando um documento */}
+              {Array.from({length:10}).map((_,i)=>(
+                <div key={i} style={{ position:"absolute", left:18, right:18, top:28+i*22, height:2, background:"#f1f5f9" }} />
+              ))}
+
+              <Rnd
+                bounds="parent"
+                size={{ width: carimboWpx, height: carimboHpx }}
+                position={{ x: cfg.posCarimboX * CARIMBO_PREVIEW_W, y: cfg.posCarimboY * CARIMBO_PREVIEW_H }}
+                lockAspectRatio={carimboAspect ? 1/carimboAspect : 1}
+                enableResizing={{ top:false,right:false,bottom:false,left:false,topRight:false,bottomLeft:false,topLeft:false,bottomRight:true }}
+                onDragStop={(e,d)=> setCfg(c=>({ ...c, posCarimboX: d.x/CARIMBO_PREVIEW_W, posCarimboY: d.y/CARIMBO_PREVIEW_H }))}
+                onResizeStop={(e,dir,ref,delta,pos)=> setCfg(c=>({
+                  ...c,
+                  carimboWidthPct: ref.offsetWidth / CARIMBO_PREVIEW_W,
+                  posCarimboX: pos.x / CARIMBO_PREVIEW_W,
+                  posCarimboY: pos.y / CARIMBO_PREVIEW_H,
+                }))}
+                style={{ border:`1.5px dashed ${C.accent}`, zIndex:2 }}
+              >
+                <div style={{ position:"relative", width:"100%", height:"100%" }}>
+                  <img src={carimboUrl} draggable={false} style={{ width:"100%", height:"100%", pointerEvents:"none", userSelect:"none" }} />
+
+                  <Rnd
+                    bounds="parent"
+                    size={{ width:numMarkerW, height:numMarkerH }}
+                    position={{ x: cfg.posNumeroX*carimboWpx - numMarkerW/2, y: cfg.posNumeroY*carimboHpx - numMarkerH/2 }}
+                    enableResizing={false}
+                    onDragStop={(e,d)=> setCfg(c=>({
+                      ...c,
+                      posNumeroX: (d.x + numMarkerW/2) / carimboWpx,
+                      posNumeroY: (d.y + numMarkerH/2) / carimboHpx,
+                    }))}
+                    style={{ zIndex:4, border:`1px dashed ${C.gold}`, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.55)" }}
+                  >
+                    <span style={{ fontFamily:"'Caveat',cursive", fontWeight:700, fontSize:numeroFontPreview, color:cfg.numeroColor, lineHeight:1, userSelect:"none" }}>001</span>
+                  </Rnd>
+                </div>
+              </Rnd>
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginTop:16 }}>
+            <Input label="Tamanho do número (pt)" type="number" value={String(cfg.numeroFontSize)} onChange={v=>setCfg(c=>({...c, numeroFontSize: parseFloat(v)||14}))} />
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ fontSize:12, color:C.sub, fontWeight:500 }}>Cor do número</label>
+              <input type="color" value={cfg.numeroColor} onChange={e=>setCfg(c=>({...c, numeroColor:e.target.value}))}
+                style={{ width:"100%", height:36, border:`1px solid ${C.border}`, borderRadius:6, padding:2, cursor:"pointer" }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display:"flex", gap:10, justifyContent:"space-between", flexWrap:"wrap" }}>
+        <Btn variant="outline" color={C.sub} onClick={restaurarPadrao}>
+          <span style={{ display:"flex", alignItems:"center", gap:6 }}><Icon name="refresh" size={13} /> Restaurar padrão de fábrica</span>
+        </Btn>
+        <div style={{ display:"flex", gap:10 }}>
+          {onCancel && <Btn variant="outline" color={C.sub} onClick={onCancel}>Cancelar</Btn>}
+          <Btn onClick={salvar} disabled={saving}>{saving ? "Salvando..." : "Salvar padrão"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Carimbo Digital: linha de arquivo reordenável (dnd-kit) ────── */
+function SortableArquivoRow({ item, index, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = {
+    transform: DndCSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={{
+      ...style,
+      display:"flex", alignItems:"center", gap:12, padding:"10px 14px",
+      background:C.card, border:`1px solid ${C.border}`, borderRadius:8, marginBottom:6,
+    }}>
+      <span {...attributes} {...listeners} style={{ cursor:"grab", color:C.sub, display:"flex", touchAction:"none" }}>
+        <Icon name="grip" size={15} />
+      </span>
+      <div style={{ width:34, height:44, background:C.subtle, borderRadius:4, overflow:"hidden", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", border:`1px solid ${C.border}` }}>
+        {item.thumb ? <img src={item.thumb} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : <Icon name="file-pdf" size={16} color={C.sub} />}
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.file.name}</div>
+        <div style={{ fontSize:11.5, color:C.sub }}>{item.pageCount == null ? "Lendo..." : `${item.pageCount} página${item.pageCount===1?"":"s"}`}{item.error ? " · arquivo inválido" : ""}</div>
+      </div>
+      <span style={{ fontSize:11, color:C.sub, fontWeight:600, minWidth:26, textAlign:"right" }}>#{index+1}</span>
+      <IconBtn name="trash" color={C.red} title="Remover" onClick={()=>onRemove(item.id)} />
+    </div>
+  );
+}
+
+function TabCarimboDigital({ toast }) {
+  const { tenantId } = useAuth();
+  const isMobile = useMobileCD();
+  const [config, setConfig] = useState(undefined); // undefined = carregando, null = não existe
+  const [showEditor, setShowEditor] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [startNumber, setStartNumber] = useState(1);
+  const [outputName, setOutputName] = useState(`processo-carimbado-${hoje()}.pdf`);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState({ done:0, total:0 });
+  const [result, setResult] = useState(null); // { url, bytes, totalFolhas, numeroFinal }
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const workerRef = useRef(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint:{ distance:5 } }));
+
+  const carregarConfig = useCallback(() => {
+    sbGetCarimboConfig().then(({ data }) => setConfig(data || null));
+  }, []);
+  const carregarHistorico = useCallback(() => {
+    setHistoryLoading(true);
+    sbListCarimboProcessamentos().then(({ data }) => { setHistory(data); setHistoryLoading(false); });
+  }, []);
+  useEffect(() => { carregarConfig(); carregarHistorico(); }, [carregarConfig, carregarHistorico]);
+  useEffect(() => () => { if (workerRef.current) workerRef.current.terminate(); }, []);
+
+  const totalFolhas = files.reduce((s,f)=>s+(f.pageCount||0), 0);
+
+  const adicionarArquivos = async (fileList) => {
+    const novos = Array.from(fileList).filter(f => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+    if (!novos.length) { toast("Envie apenas arquivos PDF", "error"); return; }
+    const entries = novos.map(file => ({ id: uid(), file, pageCount: null, thumb: null, error:false }));
+    setFiles(prev => [...prev, ...entries]);
+
+    for (const entry of entries) {
+      try {
+        const buf = await entry.file.arrayBuffer();
+        const doc = await PDFDocumentClient.load(buf, { ignoreEncryption:true });
+        const pageCount = doc.getPageCount();
+        let thumb = null;
+        try {
+          const pdf = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 0.25 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width; canvas.height = viewport.height;
+          await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+          thumb = canvas.toDataURL("image/png");
+        } catch {}
+        setFiles(prev => prev.map(f => f.id===entry.id ? { ...f, pageCount, thumb } : f));
+      } catch {
+        setFiles(prev => prev.map(f => f.id===entry.id ? { ...f, pageCount:0, error:true } : f));
+      }
+    }
+  };
+
+  const removerArquivo = (id) => setFiles(prev => prev.filter(f => f.id !== id));
+
+  const onDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setFiles(prev => {
+      const oldIndex = prev.findIndex(f=>f.id===active.id);
+      const newIndex = prev.findIndex(f=>f.id===over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  };
+
+  const processar = async () => {
+    if (!config) { toast("Configure o carimbo antes de processar", "error"); return; }
+    const validos = files.filter(f => !f.error);
+    if (!validos.length) { toast("Adicione ao menos um PDF válido", "error"); return; }
+    setProcessing(true);
+    setProgress({ done:0, total: totalFolhas });
+    setResult(null);
+    try {
+      const pdfBuffers = await Promise.all(validos.map(f => f.file.arrayBuffer()));
+      const [carimboResp, fontResp] = await Promise.all([
+        fetch(config.carimboImageUrl).then(r=>r.arrayBuffer()),
+        fetch(caveatFontUrl).then(r=>r.arrayBuffer()),
+      ]);
+
+      const worker = new Worker(new URL('./workers/carimbo.worker.js', import.meta.url), { type:'module' });
+      workerRef.current = worker;
+
+      const done = await new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+          const msg = e.data;
+          if (msg.type === 'progress') setProgress({ done: msg.done, total: msg.total });
+          else if (msg.type === 'done') resolve(msg);
+          else if (msg.type === 'error') reject(new Error(msg.message));
+        };
+        worker.onerror = (e) => reject(new Error(e.message || 'Erro no processamento'));
+        worker.postMessage({
+          pdfBuffers,
+          carimboPngBytes: carimboResp,
+          fontBytes: fontResp,
+          config,
+          startNumber: parseInt(startNumber, 10) || 1,
+        }, [...pdfBuffers, carimboResp, fontResp]);
+      });
+
+      const blob = new Blob([done.bytes], { type:'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      setResult({ url, bytes: done.bytes, totalFolhas: done.totalFolhas, numeroFinal: done.numeroFinal });
+      toast("PDF carimbado gerado com sucesso!");
+    } catch (err) {
+      toast("Erro ao processar: " + (err?.message || "tente novamente"), "error");
+    } finally {
+      setProcessing(false);
+      if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
+    }
+  };
+
+  const confirmarESalvar = async () => {
+    if (!result) return;
+    const { url: storageUrl, path, error } = await uploadCarimboProcessado(result.bytes, tenantId, outputName);
+    if (error) { toast("Erro ao salvar no histórico: " + error.message, "error"); return; }
+    const { error: dbError } = await sbCreateCarimboProcessamento({
+      nomeArquivo: outputName,
+      totalFolhas: result.totalFolhas,
+      numeroInicial: parseInt(startNumber,10) || 1,
+      numeroFinal: result.numeroFinal,
+      storagePath: path,
+    });
+    if (dbError) { toast("Erro ao salvar histórico: " + dbError.message, "error"); return; }
+    toast("Carimbagem salva no histórico!");
+    carregarHistorico();
+  };
+
+  const baixar = () => {
+    if (!result) return;
+    const a = document.createElement('a');
+    a.href = result.url;
+    a.download = outputName.endsWith('.pdf') ? outputName : outputName + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  if (config === undefined) {
+    return <div style={{ padding:40, textAlign:"center", color:C.sub, fontSize:13 }}>Carregando...</div>;
+  }
+
+  if (!config) {
+    return (
+      <div>
+        <div style={{ background:C.accentSubtle, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"12px 16px", fontSize:13, color:C.accent, marginBottom:20, lineHeight:1.6 }}>
+          Antes de carimbar processos, configure o carimbo oficial da prefeitura (a imagem do carimbo — já com a rubrica, se for o caso — e o posicionamento na folha). Essa configuração é feita uma única vez e vale para todos os processos.
+        </div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:24 }}>
+          <CarimboConfigEditor tenantId={tenantId} toast={toast} onSaved={(cfg)=>{ setConfig(cfg); }} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {showEditor && (
+        <Modal title="Configurar carimbo oficial" onClose={()=>setShowEditor(false)} wide>
+          <CarimboConfigEditor tenantId={tenantId} toast={toast} initialConfig={config}
+            onSaved={(cfg)=>{ setConfig(cfg); setShowEditor(false); }} onCancel={()=>setShowEditor(false)} />
+        </Modal>
+      )}
+
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:10 }}>
+        <div style={{ fontSize:13, color:C.sub }}>
+          Envie os PDFs na ordem correta do processo — cada página recebe o carimbo com número de folha sequencial.
+        </div>
+        <Btn variant="outline" size="sm" onClick={()=>setShowEditor(true)}>
+          <span style={{ display:"flex", alignItems:"center", gap:6 }}><Icon name="settings" size={13} /> Configurar carimbo</span>
+        </Btn>
+      </div>
+
+      <div
+        onDragOver={e=>e.preventDefault()}
+        onDrop={e=>{ e.preventDefault(); adicionarArquivos(e.dataTransfer.files); }}
+        style={{
+          border:`1.5px dashed ${C.borderStrong}`, borderRadius:10, padding:24, textAlign:"center",
+          background:C.overlay, marginBottom:16, cursor:"pointer",
+        }}
+        onClick={()=>document.getElementById('carimbo-file-input').click()}
+      >
+        <input id="carimbo-file-input" type="file" accept="application/pdf,.pdf" multiple hidden
+          onChange={e=>{ adicionarArquivos(e.target.files); e.target.value=""; }} />
+        <Icon name="upload" size={26} color={C.sub} />
+        <div style={{ fontSize:13, color:C.text, fontWeight:600, marginTop:8 }}>Arraste os PDFs aqui ou clique para selecionar</div>
+        <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>Apenas arquivos .pdf — múltiplos arquivos são mesclados na ordem da lista</div>
+      </div>
+
+      {files.length > 0 && (
+        <>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, flexWrap:"wrap", gap:8 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text }}>Total de folhas a carimbar: <span style={{ color:C.accent }}>{totalFolhas}</span></div>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={files.map(f=>f.id)} strategy={verticalListSortingStrategy}>
+              {files.map((f,i)=><SortableArquivoRow key={f.id} item={f} index={i} onRemove={removerArquivo} />)}
+            </SortableContext>
+          </DndContext>
+
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "200px 1fr", gap:12, marginTop:16, marginBottom:16 }}>
+            <Input label="Iniciar numeração em" type="number" value={String(startNumber)} onChange={setStartNumber} />
+            <Input label="Nome do arquivo de saída" value={outputName} onChange={setOutputName} />
+          </div>
+
+          {!processing && !result && (
+            <Btn size="lg" onClick={processar} style={{ width: isMobile ? "100%" : "auto" }}>Gerar PDF Carimbado</Btn>
+          )}
+
+          {processing && (
+            <div>
+              <div style={{ fontSize:12.5, color:C.sub, marginBottom:6 }}>Carimbando página {progress.done} de {progress.total}...</div>
+              <div style={{ height:8, background:C.subtle, borderRadius:99, overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${progress.total?(progress.done/progress.total*100):0}%`, background:C.accent, transition:"width 0.2s" }} />
+              </div>
+            </div>
+          )}
+
+          {result && (
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:18 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                <Icon name="check" size={16} color={C.green} />
+                <span style={{ fontSize:13, fontWeight:700, color:C.text }}>
+                  {result.totalFolhas} folhas carimbadas — numeração {startNumber} a {result.numeroFinal}
+                </span>
+              </div>
+              <iframe title="Preview do PDF carimbado" src={result.url} style={{ width:"100%", height: isMobile ? 360 : 520, border:`1px solid ${C.border}`, borderRadius:8, marginBottom:14 }} />
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                <Btn onClick={baixar}><span style={{ display:"flex", alignItems:"center", gap:6 }}><Icon name="download" size={14} /> Baixar PDF</span></Btn>
+                <Btn variant="outline" onClick={confirmarESalvar}>Salvar no histórico</Btn>
+                <Btn variant="outline" color={C.sub} onClick={()=>{ setResult(null); setFiles([]); }}>Nova carimbagem</Btn>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <div style={{ marginTop:32 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:10 }}>Histórico de carimbagens</div>
+        {historyLoading ? (
+          <div style={{ fontSize:12.5, color:C.sub }}>Carregando...</div>
+        ) : history.length === 0 ? (
+          <EmptyState icon="stamp" title="Nenhuma carimbagem ainda" sub="O histórico de PDFs carimbados aparece aqui" />
+        ) : (
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
+            {history.map((h,i)=>(
+              <div key={h.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"12px 16px", borderBottom:i<history.length-1?`1px solid ${C.border}`:"none", flexWrap:"wrap" }}>
+                <div style={{ minWidth:180 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{h.nomeArquivo}</div>
+                  <div style={{ fontSize:11.5, color:C.sub }}>{h.totalFolhas} folhas · nº {h.numeroInicial} a {h.numeroFinal} · {fmtDate(h.createdAt)}</div>
+                </div>
+                {h.storagePath && (
+                  <a href={getSupabase().storage.from('carimbo-processados').getPublicUrl(h.storagePath).data.publicUrl} target="_blank" rel="noreferrer">
+                    <Btn variant="outline" size="sm"><span style={{ display:"flex", alignItems:"center", gap:6 }}><Icon name="download" size={12} /> Baixar novamente</span></Btn>
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -5251,6 +5783,7 @@ const TABS = [
 /* ── AUTHED APP — renderizado dentro do AuthProvider ────────── */
 function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCotacoes, setDispensas, setInexigibilidades, showToast, toast, isMobile, sideOpen, setSideOpen, tab, setTab, deferredPrompt, installPWA, session, impersonating, setImpersonating }) {
   const { isSuperAdmin, profileLoading, role, prefeitura, municipio, nome } = useAuth();
+  const [processosView, setProcessosView] = useState("listagem");
 
   if (profileLoading) {
     return (
@@ -5279,6 +5812,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
   const { processos, atas, contratos, cotacoes, dispensas, inexigibilidades } = data;
   const curTab = TABS.find(t=>t.id===tab);
   const userEmail = session?.user?.email || "Usuário";
+  const irParaProcessos = (view) => { setTab("processos"); setProcessosView(view); };
 
   const stopImpersonating = () => setImpersonating(null);
 
@@ -5315,6 +5849,11 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
             installPWA={installPWA}
             prefeitura={prefeitura}
             municipio={municipio}
+            expandableTabId="processos"
+            subItems={[
+              { id:"listagem", label:"Listagem de Processos", icon:"processos", active: tab==="processos" && processosView==="listagem", onClick:()=>irParaProcessos("listagem") },
+              { id:"carimbo-digital", label:"Carimbo Digital", icon:"stamp", active: tab==="processos" && processosView==="carimbo", onClick:()=>irParaProcessos("carimbo") },
+            ]}
           />
         )}
 
@@ -5343,7 +5882,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
           <div style={{ flex:1, overflowY:"auto", padding: isMobile ? "12px 16px" : "24px 28px", paddingBottom: isMobile ? 82 : 24 }}>
             <div style={{ maxWidth:1200 }}>
               {tab==="dashboard"  && <TabDashboard data={data} onViewProcessos={() => setTab("processos")} />}
-              {tab==="processos"  && <TabProcessos processos={processos} setProcessos={setProcessos} toast={showToast} />}
+              {tab==="processos"  && <TabProcessosGroup processos={processos} setProcessos={setProcessos} toast={showToast} processosView={processosView} setProcessosView={setProcessosView} />}
               {tab==="atas"       && <TabAtas atas={atas} setAtas={setAtas} toast={showToast} />}
               {tab==="contratos"  && <TabContratos contratos={contratos} setContratos={setContratos} toast={showToast} />}
               {tab==="dispensas"       && <TabContratacaoDireta tipo="Dispensa"       color="#f59e0b" items={dispensas}        setItems={setDispensas}        toast={showToast} />}

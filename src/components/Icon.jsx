@@ -39,6 +39,8 @@ export default function Icon({ name, size = 16, strokeWidth = 1.8, color = "curr
     lock:       <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
     mail:       <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>,
     lexcore:    <><path d="M12 3v18"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/><path d="M5 7h14"/><path d="M12 3l-3 2 3 2 3-2z"/><path d="M7 21h10"/></>,
+    stamp:      <><path d="M5 22h14"/><path d="M9 22v-3a3 3 0 0 1 6 0v3"/><path d="M7 15a5 5 0 0 1 10 0"/><rect x="9" y="4" width="6" height="6" rx="1"/></>,
+    chevronDown:<><polyline points="6 9 12 15 18 9"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}

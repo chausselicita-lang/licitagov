@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Icon from "./Icon.jsx";
 
 const S = {
@@ -10,7 +11,10 @@ const S = {
   primary: "#FF7A00",
 };
 
-export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt, installPWA, prefeitura, municipio }) {
+export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt, installPWA, prefeitura, municipio, expandableTabId, subItems }) {
+  const hasSubNav = t => t.id === expandableTabId && subItems?.length > 0;
+  const subNavActive = subItems?.some(s => s.active);
+  const [expanded, setExpanded] = useState(subNavActive);
   const prefLabel = prefeitura || "Prefeitura Municipal";
   const subLabel  = municipio  || "Módulo Licitações";
   const initials  = prefLabel.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "PM";
@@ -51,37 +55,75 @@ export default function Sidebar({ TABS, tab, setTab, setSideOpen, deferredPrompt
           padding:"0 10px", marginBottom:6, marginTop:4,
         }}>Gestão</p>
         {TABS.map(t => {
-          const active = tab === t.id;
+          const active = tab === t.id && !(hasSubNav(t) && subNavActive);
+          const isExpandable = hasSubNav(t);
           return (
-            <button key={t.id}
-              onClick={() => { setTab(t.id); setSideOpen && setSideOpen(false); }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = S.hover; e.currentTarget.style.color = S.text; } }}
-              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = S.muted; } }}
-              style={{
-                display:"flex", alignItems:"center", gap:10,
-                padding:"10px 10px", borderRadius:8, border:"none",
-                borderLeft: active ? `3px solid ${S.primary}` : "3px solid transparent",
-                background: active ? S.active : "transparent",
-                color: active ? S.text : S.muted,
-                fontSize:13, fontWeight: active ? 600 : 400,
-                cursor:"pointer", transition:"background 0.12s, color 0.12s",
-                textAlign:"left", width:"100%", fontFamily:"inherit",
-              }}
-            >
-              <Icon
-                name={t.icon}
-                size={15}
-                strokeWidth={active ? 2 : 1.6}
-                color={active ? S.primary : "currentColor"}
-              />
-              <span style={{ flex:1 }}>{t.label}</span>
-              {t.id === "claude" && (
-                <span style={{
-                  background:"rgba(255,122,0,0.15)", color:S.primary,
-                  borderRadius:4, padding:"1px 6px", fontSize:9, fontWeight:700,
-                }}>AI</span>
+            <div key={t.id}>
+              <button
+                onClick={() => {
+                  if (isExpandable) {
+                    setExpanded(e => !e);
+                    if (!subNavActive) { subItems[0].onClick(); setSideOpen && setSideOpen(false); }
+                  } else {
+                    setTab(t.id); setSideOpen && setSideOpen(false);
+                  }
+                }}
+                onMouseEnter={e => { if (!active && !subNavActive) { e.currentTarget.style.background = S.hover; e.currentTarget.style.color = S.text; } }}
+                onMouseLeave={e => { if (!active && !subNavActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = S.muted; } }}
+                style={{
+                  display:"flex", alignItems:"center", gap:10,
+                  padding:"10px 10px", borderRadius:8, border:"none",
+                  borderLeft: (active || subNavActive) ? `3px solid ${S.primary}` : "3px solid transparent",
+                  background: (active || subNavActive) ? S.active : "transparent",
+                  color: (active || subNavActive) ? S.text : S.muted,
+                  fontSize:13, fontWeight: (active || subNavActive) ? 600 : 400,
+                  cursor:"pointer", transition:"background 0.12s, color 0.12s",
+                  textAlign:"left", width:"100%", fontFamily:"inherit",
+                }}
+              >
+                <Icon
+                  name={t.icon}
+                  size={15}
+                  strokeWidth={(active || subNavActive) ? 2 : 1.6}
+                  color={(active || subNavActive) ? S.primary : "currentColor"}
+                />
+                <span style={{ flex:1 }}>{t.label}</span>
+                {t.id === "claude" && (
+                  <span style={{
+                    background:"rgba(255,122,0,0.15)", color:S.primary,
+                    borderRadius:4, padding:"1px 6px", fontSize:9, fontWeight:700,
+                  }}>AI</span>
+                )}
+                {isExpandable && (
+                  <span style={{ display:"flex", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition:"transform 0.15s" }}>
+                    <Icon name="chevronDown" size={13} strokeWidth={2} color="currentColor" />
+                  </span>
+                )}
+              </button>
+              {isExpandable && expanded && (
+                <div style={{ display:"flex", flexDirection:"column", gap:2, margin:"2px 0 2px 14px", paddingLeft:12, borderLeft:`1px solid ${S.border}` }}>
+                  {subItems.map(s => (
+                    <button key={s.id}
+                      onClick={() => { s.onClick(); setSideOpen && setSideOpen(false); }}
+                      onMouseEnter={e => { if (!s.active) { e.currentTarget.style.background = S.hover; e.currentTarget.style.color = S.text; } }}
+                      onMouseLeave={e => { if (!s.active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = S.muted; } }}
+                      style={{
+                        display:"flex", alignItems:"center", gap:8,
+                        padding:"8px 10px", borderRadius:7, border:"none",
+                        background: s.active ? "rgba(255,122,0,0.12)" : "transparent",
+                        color: s.active ? S.primary : S.muted,
+                        fontSize:12.5, fontWeight: s.active ? 600 : 400,
+                        cursor:"pointer", transition:"background 0.12s, color 0.12s",
+                        textAlign:"left", width:"100%", fontFamily:"inherit",
+                      }}
+                    >
+                      <Icon name={s.icon} size={13} strokeWidth={s.active ? 2 : 1.6} color="currentColor" />
+                      <span>{s.label}</span>
+                    </button>
+                  ))}
+                </div>
               )}
-            </button>
+            </div>
           );
         })}
       </nav>
