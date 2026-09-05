@@ -929,6 +929,34 @@ function loadImageSize(url) {
   });
 }
 
+// Reencoda o PNG via canvas antes de usar. Muitas ferramentas de "remover
+// fundo" exportam PNG com paleta indexada + transparencia binaria (tRNS) em
+// vez de canal alfa RGBA completo — o pdf-lib nao le esse formato de
+// transparencia corretamente e desenha um fundo solido no lugar do
+// transparente. Desenhar num canvas e reexportar sempre produz RGBA puro,
+// que o pdf-lib embute com o alfa certo.
+function normalizePngAlpha(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        if (!blob) { reject(new Error("Falha ao processar a imagem")); return; }
+        resolve(new File([blob], file.name.replace(/\.\w+$/, "") + ".png", { type: "image/png" }));
+      }, "image/png");
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Não foi possível ler a imagem")); };
+    img.src = url;
+  });
+}
+
 function AssetDropzone({ label, previewUrl, onFile }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
@@ -982,7 +1010,16 @@ function CarimboConfigEditor({ initialConfig, tenantId, toast, onSaved, onCancel
   const numMarkerW = Math.max(28, numeroFontPreview * 2.2);
   const numMarkerH = Math.max(16, numeroFontPreview * 1.6);
 
-  const escolherCarimbo = (file) => { setCarimboFile(file); setCarimboUrl(URL.createObjectURL(file)); };
+  const escolherCarimbo = async (file) => {
+    try {
+      const normalized = await normalizePngAlpha(file);
+      setCarimboFile(normalized);
+      setCarimboUrl(URL.createObjectURL(normalized));
+    } catch {
+      setCarimboFile(file);
+      setCarimboUrl(URL.createObjectURL(file));
+    }
+  };
 
   const restaurarPadrao = () => setCfg(c => ({ ...c, ...CARIMBO_CONFIG_DEFAULTS }));
 
