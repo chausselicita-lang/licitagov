@@ -48,6 +48,10 @@ import {
 } from './lib/planejamentoPrompts.js';
 import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
 import {
+  CADERNOS, labelCaderno, sbListEdicoes, sbGetEdicao, sbCreateEdicao, sbDeleteEdicao, fecharEdicao,
+  sbListMaterias, sbCreateMateria, sbUpdateMateria, sbDeleteMateria, sbListOrgaosSimples,
+} from './lib/diarioDb.js';
+import {
   CARIMBO_CONFIG_DEFAULTS, sbGetCarimboConfig, sbSaveCarimboConfig, uploadCarimboAsset,
   sbListCarimboProcessamentos, sbCreateCarimboProcessamento, uploadCarimboProcessado,
 } from './lib/carimboDb.js';
@@ -184,6 +188,7 @@ function Icon({ name, size=16, strokeWidth=1.8, color="currentColor" }) {
     inexigib:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     lexcore:     <><path d="M12 3v18"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/><path d="M5 7h14"/><path d="M12 3l-3 2 3 2 3-2z"/><path d="M7 21h10"/></>,
     stamp:       <><path d="M5 22h14"/><path d="M9 22v-3a3 3 0 0 1 6 0v3"/><path d="M7 15a5 5 0 0 1 10 0"/><rect x="9" y="4" width="6" height="6" rx="1"/></>,
+    diario:      <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></>,
     chevronDown: <><polyline points="6 9 12 15 18 9"/></>,
     chevronUp:   <><polyline points="18 15 12 9 6 15"/></>,
     grip:        <><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></>,
@@ -5801,6 +5806,267 @@ function PlanejamentoPeca({ processoId, tipoPeca, toast, onVoltar }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DIÁRIO OFICIAL — cadastro de matérias + fechamento/numeração de edição
+══════════════════════════════════════════════════════════════ */
+const MATERIA_FORM_EMPTY = { caderno:"decreto", orgaoId:"", titulo:"", corpo:"" };
+
+function DiarioEdicaoDetalhe({ edicaoId, isMobile, toast, onVoltar }) {
+  const [edicao, setEdicao] = useState(null);
+  const [materias, setMaterias] = useState([]);
+  const [orgaos, setOrgaos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState(MATERIA_FORM_EMPTY);
+  const [fechando, setFechando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const [{ data: ed, error: eEd }, { data: mats, error: eMat }, { data: org }] = await Promise.all([
+      sbGetEdicao(edicaoId), sbListMaterias(edicaoId), sbListOrgaosSimples(),
+    ]);
+    if (eEd) toast("Erro ao carregar edição: " + eEd.message, "error");
+    if (eMat) toast("Erro ao carregar matérias: " + eMat.message, "error");
+    setEdicao(ed); setMaterias(mats); setOrgaos(org || []);
+    setLoading(false);
+  }, [edicaoId, toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const isRascunho = edicao?.status === "rascunho";
+
+  const openNova = () => { setEditId(null); setForm(MATERIA_FORM_EMPTY); setModal(true); };
+  const openEdit = (m) => { setEditId(m.id); setForm({ caderno:m.caderno, orgaoId:m.orgaoId, titulo:m.titulo, corpo:m.corpo }); setModal(true); };
+
+  const salvar = async () => {
+    if (!form.titulo.trim() || !form.corpo.trim()) { toast("Preencha título e corpo da matéria", "error"); return; }
+    if (editId) {
+      const ordem = materias.find(m=>m.id===editId)?.ordem || 0;
+      const { data, error } = await sbUpdateMateria(editId, { ...form, ordem });
+      if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+      setMaterias(prev => prev.map(m => m.id === editId ? data : m));
+      toast("Matéria atualizada");
+    } else {
+      const { data, error } = await sbCreateMateria({ edicaoId, ...form, ordem: materias.length });
+      if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+      setMaterias(prev => [...prev, data]);
+      toast("Matéria adicionada");
+    }
+    setModal(false); setForm(MATERIA_FORM_EMPTY);
+  };
+
+  const excluir = async (id) => {
+    if (!window.confirm("Excluir esta matéria?")) return;
+    const { error } = await sbDeleteMateria(id);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setMaterias(prev => prev.filter(m => m.id !== id));
+    toast("Matéria excluída");
+  };
+
+  const fecharEPublicar = async () => {
+    if (materias.length === 0) { toast("Adicione ao menos uma matéria antes de publicar", "error"); return; }
+    if (!window.confirm("Fechar e publicar esta edição? Depois de publicada, as matérias não podem mais ser alteradas.")) return;
+    setFechando(true);
+    try {
+      const { edicao: atualizada } = await fecharEdicao(edicaoId);
+      setEdicao(prev => ({ ...prev, status:"publicada", numero:atualizada.numero, anoSerie:atualizada.ano_serie, pdfUrl:atualizada.pdf_url }));
+      toast(`Edição ${atualizada.numero}/${atualizada.ano_serie} publicada!`);
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setFechando(false);
+    }
+  };
+
+  if (loading) return <div style={{ color:C.sub, fontSize:13 }}>Carregando...</div>;
+  if (!edicao) return <EmptyState icon="diario" title="Edição não encontrada" sub="" />;
+
+  const orgaoNome = id => orgaos.find(o=>o.id===id)?.nome || "";
+
+  return (
+    <div>
+      <button onClick={onVoltar} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:"none", color:C.sub, fontSize:13, cursor:"pointer", padding:0, marginBottom:14, fontFamily:"inherit" }}>
+        <Icon name="back" size={14} /> Voltar
+      </button>
+
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ fontSize:18, fontWeight:700, color:C.text }}>
+            {edicao.status === "publicada" ? `Edição ${edicao.numero}/${edicao.anoSerie}` : "Rascunho de edição"}
+          </div>
+          <div style={{ fontSize:13, color:C.sub, marginTop:2, display:"flex", alignItems:"center", gap:8 }}>
+            {fmtDate(edicao.dataPublicacao)} <Badge label={edicao.status==="publicada"?"Publicado":"Rascunho"} />
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {edicao.pdfUrl && <Btn variant="outline" onClick={()=>window.open(edicao.pdfUrl,"_blank","noopener")}>Baixar PDF</Btn>}
+          {isRascunho && <Btn variant="outline" onClick={openNova}>+ Nova Matéria</Btn>}
+          {isRascunho && <Btn color={C.green} onClick={fecharEPublicar} disabled={fechando}>{fechando ? "Publicando..." : "Fechar e Publicar"}</Btn>}
+        </div>
+      </div>
+
+      {materias.length === 0 ? (
+        <EmptyState icon="diario" title="Nenhuma matéria cadastrada" sub='Clique em "Nova Matéria" para começar' />
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {materias.map(m => (
+            <div key={m.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"14px 16px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, flexWrap:"wrap" }}>
+                <div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                    <Badge label={labelCaderno(m.caderno)} color={C.accent} />
+                    {m.orgaoId && <span style={{ fontSize:12, color:C.sub }}>{orgaoNome(m.orgaoId)}</span>}
+                  </div>
+                  <div style={{ fontWeight:600, fontSize:14 }}>{m.titulo}</div>
+                </div>
+                {isRascunho && (
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <Btn size="sm" variant="outline" onClick={()=>openEdit(m)}>Editar</Btn>
+                    <Btn size="sm" variant="outline" color={C.red} onClick={()=>excluir(m.id)}>Excluir</Btn>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modal && (
+        <Modal title={editId ? "Editar Matéria" : "Nova Matéria"} onClose={()=>setModal(false)}>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <Select label="Caderno" value={form.caderno} onChange={v=>setForm(p=>({...p, caderno:v}))} options={CADERNOS.map(c=>({value:c, label:labelCaderno(c)}))} />
+            <Select label="Órgão (opcional)" value={form.orgaoId} onChange={v=>setForm(p=>({...p, orgaoId:v}))} options={[{value:"", label:"—"}, ...orgaos.map(o=>({value:o.id, label:o.nome}))]} />
+            <Input label="Título" required value={form.titulo} onChange={v=>setForm(p=>({...p, titulo:v}))} placeholder="Ex.: Decreto nº 123/2026" />
+            <TextArea label="Corpo" rows={8} value={form.corpo} onChange={v=>setForm(p=>({...p, corpo:v}))} placeholder="Texto integral do ato..." />
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:4 }}>
+              <Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn>
+              <Btn onClick={salvar}>Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function TabDiarioOficial({ toast }) {
+  const isMobile = useMobileCD();
+  const [screen, setScreen] = useState({ name: "lista" });
+  const [edicoes, setEdicoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await sbListEdicoes();
+    if (error) toast("Erro ao carregar edições: " + error.message, "error");
+    setEdicoes(data);
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const rascunhoAberto = edicoes.find(e => e.status === "rascunho");
+
+  const abrirNova = async () => {
+    if (rascunhoAberto) { setScreen({ name: "edicao", id: rascunhoAberto.id }); return; }
+    const { data, error } = await sbCreateEdicao(hoje());
+    if (error) { toast("Erro ao criar edição: " + error.message, "error"); return; }
+    setEdicoes(prev => [data, ...prev]);
+    setScreen({ name: "edicao", id: data.id });
+  };
+
+  const excluirEdicao = async (edicao) => {
+    if (!window.confirm(`Excluir a edição de ${fmtDate(edicao.dataPublicacao)}? Todas as matérias serão perdidas.`)) return;
+    const { error } = await sbDeleteEdicao(edicao.id);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setEdicoes(prev => prev.filter(e => e.id !== edicao.id));
+    toast("Edição excluída");
+  };
+
+  if (screen.name === "edicao") {
+    return (
+      <DiarioEdicaoDetalhe
+        edicaoId={screen.id}
+        isMobile={isMobile}
+        toast={toast}
+        onVoltar={() => { setScreen({ name: "lista" }); carregar(); }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:10 }}>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <KpiCard label="Publicadas" value={edicoes.filter(e=>e.status==="publicada").length} color={C.accent} />
+          <KpiCard label="Em rascunho" value={edicoes.filter(e=>e.status==="rascunho").length} color={C.amber} />
+        </div>
+        <Btn onClick={abrirNova}>{rascunhoAberto ? "Continuar rascunho" : "+ Nova Edição"}</Btn>
+      </div>
+
+      {loading ? (
+        <div style={{ color:C.sub, fontSize:13 }}>Carregando...</div>
+      ) : edicoes.length === 0 ? (
+        <EmptyState icon="diario" title="Nenhuma edição criada" sub='Clique em "Nova Edição" para começar a publicar o Diário Oficial' />
+      ) : isMobile ? (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {edicoes.map(e => (
+            <div key={e.id} style={{
+              background:"#121212", border:"1px solid #2a2a2a",
+              borderLeft:`4px solid ${e.status==="publicada"?C.green:C.amber}`,
+              borderRadius:12, padding:16, boxShadow:"0 1px 3px rgba(0,0,0,0.25)",
+              display:"flex", flexDirection:"column", gap:8,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                <span style={{ fontSize:15, fontWeight:700, color:C.accent }}>
+                  {e.status==="publicada" ? `Edição ${e.numero}/${e.anoSerie}` : "Rascunho"}
+                </span>
+                <Badge label={e.status==="publicada" ? "Publicado" : "Rascunho"} />
+              </div>
+              <div style={{ fontSize:13, color:"#a0a0a0" }}>{fmtDate(e.dataPublicacao)}</div>
+              <div style={{ display:"flex", gap:8, marginTop:4 }}>
+                {e.pdfUrl && (
+                  <button onClick={()=>window.open(e.pdfUrl,"_blank","noopener")}
+                    style={{ flex:1, minHeight:36, background:`${C.accent}12`, border:`1px solid ${C.accent}44`, borderRadius:8, color:C.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                    PDF
+                  </button>
+                )}
+                <button onClick={()=>setScreen({ name:"edicao", id:e.id })}
+                  style={{ flex:1, minHeight:36, background:`${C.accent}12`, border:`1px solid ${C.accent}44`, borderRadius:8, color:C.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  {e.status==="rascunho" ? "Editar" : "Abrir"}
+                </button>
+                {e.status==="rascunho" && (
+                  <button onClick={()=>excluirEdicao(e)}
+                    style={{ flex:1, minHeight:36, background:`${C.red}12`, border:`1px solid ${C.red}44`, borderRadius:8, color:C.red, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                    Excluir
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
+          {edicoes.map((e,i) => (
+            <div key={e.id} style={{ padding:"13px 18px", borderBottom:i<edicoes.length-1?`1px solid ${C.border}`:"none", borderLeft:`3px solid ${e.status==="publicada"?C.green:C.amber}`, display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:14 }}>{e.status==="publicada" ? `Edição ${e.numero}/${e.anoSerie}` : "Rascunho"}</div>
+                <div style={{ fontSize:12, color:C.sub }}>{fmtDate(e.dataPublicacao)}</div>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                {e.pdfUrl && <Btn size="sm" variant="outline" onClick={()=>window.open(e.pdfUrl,"_blank","noopener")}>PDF</Btn>}
+                <Btn size="sm" onClick={()=>setScreen({ name:"edicao", id:e.id })}>{e.status==="rascunho" ? "Editar" : "Abrir"}</Btn>
+                {e.status==="rascunho" && <Btn size="sm" variant="outline" color={C.red} onClick={()=>excluirEdicao(e)}>Excluir</Btn>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    APP ROOT
 ══════════════════════════════════════════════════════════════ */
 const TABS = [
@@ -5813,6 +6079,7 @@ const TABS = [
   { id:"lexcore",        icon:"lexcore",    label:"LexCore",          short:"LexCore" },
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
+  { id:"diario",         icon:"diario",      label:"Diário Oficial",   short:"Diário" },
   { id:"relatorios",     icon:"relatorios",  label:"Relatórios",       short:"Relat." },
   { id:"claude",         icon:"claude",      label:"AGENTSERV",        short:"IA" },
 ];
@@ -5927,6 +6194,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="lexcore" && <TabLexCore toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
+              {tab==="diario"     && <TabDiarioOficial toast={showToast} />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
               {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
             </div>
