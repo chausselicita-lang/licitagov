@@ -365,6 +365,14 @@ function EmptyState({ icon, title, sub }) {
   );
 }
 
+// Aba reservada para uma futura configuração de checklist — sem
+// funcionalidade ainda, só o espaço no menu.
+function TabChecklist() {
+  return (
+    <EmptyState icon="check" title="CHECK-LIST" sub="Em breve — módulo em configuração." />
+  );
+}
+
 function KpiCard({ label, value, sub, color=C.accent }) {
   return (
     <div
@@ -5827,6 +5835,7 @@ const TABS = [
   { id:"lexcore",        icon:"lexcore",    label:"LexCore",          short:"LexCore" },
   { id:"inexigibilidades",icon:"inexigib",  label:"Inexigibilidade",  short:"Inex." },
   { id:"cotacoes",       icon:"cotacoes",    label:"Cotações",         short:"Cot." },
+  { id:"checklist",      icon:"check",       label:"CHECK-LIST",       short:"Check" },
   { id:"relatorios",     icon:"relatorios",  label:"Relatórios",       short:"Relat." },
   { id:"claude",         icon:"claude",      label:"AGENTSERV",        short:"IA" },
 ];
@@ -5941,6 +5950,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
               {tab==="lexcore" && <TabLexCore toast={showToast} />}
               {tab==="inexigibilidades" && <TabContratacaoDireta tipo="Inexigibilidade" color="#C0C0C0" items={inexigibilidades} setItems={setInexigibilidades} toast={showToast} />}
               {tab==="cotacoes"   && <TabCotacoes cotacoes={cotacoes} setCotacoes={setCotacoes} toast={showToast} />}
+              {tab==="checklist"  && <TabChecklist />}
               {tab==="relatorios" && <TabRelatorios data={data} />}
               {tab==="claude"     && <TabClaude data={data} setProcessos={setProcessos} setAtas={setAtas} setContratos={setContratos} setDispensas={setDispensas} setInexigibilidades={setInexigibilidades} toast={showToast} />}
             </div>
