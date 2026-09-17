@@ -5984,7 +5984,14 @@ export default function App() {
     });
     // Skip getSession for recovery URLs — the session comes via PASSWORD_RECOVERY event
     if (!window.location.hash.includes('type=recovery')) {
-      sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
+      // ?demo=1 força logout de qualquer sessão salva no navegador, garantindo
+      // que a tela de login apareça — usado para demonstrar o sistema a clientes
+      // sem correr o risco de abrir direto já autenticado.
+      if (new URLSearchParams(window.location.search).get('demo') === '1') {
+        sb.auth.signOut().then(() => setSession(null));
+      } else {
+        sb.auth.getSession().then(({ data }) => setSession(data?.session ?? null));
+      }
     }
     return () => subscription.unsubscribe();
   }, [supabaseReady]);
