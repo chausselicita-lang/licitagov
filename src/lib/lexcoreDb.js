@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 
 function analiseFromDb(row) {
   return {
@@ -46,7 +47,7 @@ function pecaFromDb(row) {
 // ── Análises ───────────────────────────────────────────────────
 export async function sbListLexcoreAnalises() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('lexcore_analises').select('*').order('created_at', { ascending: false });
+  const { data, error } = await withTenantScope(sb.from('lexcore_analises').select('*')).order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return { data: data.map(analiseFromDb), error: null };
 }
@@ -60,6 +61,7 @@ export async function sbCreateLexcoreAnalise({ nomeEdital, numeroProcesso, arqui
     arquivo_original_url: arquivoOriginalUrl || null,
     status: 'processando',
     criado_por: userData?.user?.id || null,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? analiseFromDb(data) : null, error };
 }
@@ -105,6 +107,7 @@ export async function sbInsertPontosCriticos(analiseId, pontos) {
     fundamentacao_legal: p.fundamentacao_legal,
     artigo_lei: p.artigo_lei,
     nivel_risco: p.nivel_risco,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }));
   const { data, error } = await sb.from('lexcore_pontos_criticos').insert(payload).select();
   return { data: data ? data.map(pontoFromDb) : [], error };
@@ -128,8 +131,8 @@ export async function sbListPecas(analiseId) {
 // "LexCore Peças Jurídicas", que não é mais escopada por análise.
 export async function sbListTodasPecas() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('lexcore_pecas')
-    .select('*, lexcore_analises(nome_edital, numero_processo)')
+  const { data, error } = await withTenantScope(sb.from('lexcore_pecas')
+    .select('*, lexcore_analises(nome_edital, numero_processo)'))
     .order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return {
@@ -157,6 +160,7 @@ export async function sbCreatePeca({ analiseId, tipoPeca, pontosCriticosIds, con
     pontos_criticos_ids: pontosCriticosIds,
     conteudo_gerado: conteudoGerado,
     status: 'rascunho',
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? pecaFromDb(data) : null, error };
 }

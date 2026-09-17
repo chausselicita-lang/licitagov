@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 
 function processoFromDb(row) {
   return {
@@ -24,7 +25,7 @@ function processoFromDb(row) {
 
 export async function sbListDispensaProcessos() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('dispensa_processos').select('*').order('created_at', { ascending: false });
+  const { data, error } = await withTenantScope(sb.from('dispensa_processos').select('*')).order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return { data: data.map(processoFromDb), error: null };
 }
@@ -46,7 +47,9 @@ export async function sbSaveRascunho(input) {
     const { data, error } = await sb.from('dispensa_processos').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', input.id).select().single();
     return { data: data ? processoFromDb(data) : null, error };
   }
-  const { data, error } = await sb.from('dispensa_processos').insert(payload).select().single();
+  const { data, error } = await sb.from('dispensa_processos')
+    .insert(getTenantScope() ? { ...payload, tenant_id: getTenantScope() } : payload)
+    .select().single();
   return { data: data ? processoFromDb(data) : null, error };
 }
 
@@ -80,7 +83,7 @@ function configFromDb(row) {
 
 export async function sbGetDispensaConfig() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('dispensa_config').select('*').limit(1).maybeSingle();
+  const { data, error } = await withTenantScope(sb.from('dispensa_config').select('*')).limit(1).maybeSingle();
   if (error) return { data: null, error };
   return { data: configFromDb(data), error: null };
 }
@@ -109,7 +112,9 @@ export async function sbSaveDispensaConfig(cfg) {
     const { data, error } = await sb.from('dispensa_config').update(payload).eq('id', cfg.id).select().single();
     return { data: configFromDb(data), error };
   }
-  const { data, error } = await sb.from('dispensa_config').insert(payload).select().single();
+  const { data, error } = await sb.from('dispensa_config')
+    .insert(getTenantScope() ? { ...payload, tenant_id: getTenantScope() } : payload)
+    .select().single();
   return { data: configFromDb(data), error };
 }
 

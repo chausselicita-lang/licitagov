@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.js';
 import { sanitizeStorageFileName } from './storageSafeName.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 
 function configFromDb(row) {
   if (!row) return null;
@@ -31,7 +32,7 @@ export const CARIMBO_CONFIG_DEFAULTS = {
 // ── Configuracao do carimbo (1 por tenant) ───────────────────────
 export async function sbGetCarimboConfig() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('carimbo_config').select('*').maybeSingle();
+  const { data, error } = await withTenantScope(sb.from('carimbo_config').select('*')).maybeSingle();
   if (error) return { data: null, error };
   return { data: configFromDb(data), error: null };
 }
@@ -54,7 +55,9 @@ export async function sbSaveCarimboConfig(config) {
     const { data, error } = await sb.from('carimbo_config').update(payload).eq('id', config.id).select().single();
     return { data: data ? configFromDb(data) : null, error };
   }
-  const { data, error } = await sb.from('carimbo_config').insert(payload).select().single();
+  const { data, error } = await sb.from('carimbo_config')
+    .insert(getTenantScope() ? { ...payload, tenant_id: getTenantScope() } : payload)
+    .select().single();
   return { data: data ? configFromDb(data) : null, error };
 }
 
@@ -92,7 +95,7 @@ function processamentoFromDb(row) {
 
 export async function sbListCarimboProcessamentos() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('carimbo_processamentos').select('*').order('created_at', { ascending: false });
+  const { data, error } = await withTenantScope(sb.from('carimbo_processamentos').select('*')).order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return { data: data.map(processamentoFromDb), error: null };
 }
@@ -107,6 +110,7 @@ export async function sbCreateCarimboProcessamento({ nomeArquivo, totalFolhas, n
     numero_final: numeroFinal,
     storage_path: storagePath || null,
     created_by: userData?.user?.id || null,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? processamentoFromDb(data) : null, error };
 }

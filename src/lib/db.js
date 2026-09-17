@@ -1,11 +1,7 @@
 import { getSupabase } from './supabase.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 
-// ── Escopo de tenant (só usado pelo super_admin via "Acessar como"/"Minha
-// Área" — RLS já isola sozinha um usuário cliente normal, então nesse caso
-// scopedTenantId fica null e nada muda) ───────────────────────────
-let scopedTenantId = null;
-export function setTenantScope(tenantId) { scopedTenantId = tenantId || null; }
-const withTenantScope = q => scopedTenantId ? q.eq('tenant_id', scopedTenantId) : q;
+export { setTenantScope } from './tenantScope.js';
 
 // ── Mappers DB → App ─────────────────────────────────────────────
 
@@ -105,7 +101,7 @@ export async function loadAllData() {
 // ── Processos ────────────────────────────────────────────────────
 
 export const sbCreateProcesso = (row) =>
-  getSupabase().from('processos').insert(scopedTenantId ? { ...row, tenant_id: scopedTenantId } : row);
+  getSupabase().from('processos').insert(getTenantScope() ? { ...row, tenant_id: getTenantScope() } : row);
 
 export const sbUpdateProcesso = (id, fields) =>
   getSupabase().from('processos').update(fields).eq('id', id);
@@ -116,7 +112,7 @@ export const sbDeleteProcesso = (id) =>
 // ── Atas ─────────────────────────────────────────────────────────
 
 export const sbCreateAta = (row) =>
-  getSupabase().from('atas').insert(scopedTenantId ? { ...row, tenant_id: scopedTenantId } : row);
+  getSupabase().from('atas').insert(getTenantScope() ? { ...row, tenant_id: getTenantScope() } : row);
 
 export const sbUpdateAta = (id, fields) =>
   getSupabase().from('atas').update(fields).eq('id', id);
@@ -133,7 +129,7 @@ export const sbCreateAtaItem = (ataId, item) =>
     qtd_registrada: item.qtdRegistrada,
     qtd_utilizada: item.qtdUtilizada,
     valor_unit: item.valorUnit,
-    ...(scopedTenantId ? { tenant_id: scopedTenantId } : {}),
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   });
 
 export const sbDeleteAtaItem = (itemId) =>
@@ -145,7 +141,7 @@ export const sbUpdateAtaSaldo = (ataId, saldoDisponivel) =>
 // ── Contratos ────────────────────────────────────────────────────
 
 export const sbCreateContrato = (row) =>
-  getSupabase().from('contratos').insert(scopedTenantId ? { ...row, tenant_id: scopedTenantId } : row);
+  getSupabase().from('contratos').insert(getTenantScope() ? { ...row, tenant_id: getTenantScope() } : row);
 
 export const sbUpdateContrato = (id, fields) =>
   getSupabase().from('contratos').update(fields).eq('id', id);
@@ -156,7 +152,7 @@ export const sbDeleteContrato = (id) =>
 // ── Dispensas ────────────────────────────────────────────────────
 
 export const sbCreateDispensa = (row) =>
-  getSupabase().from('dispensas').insert(scopedTenantId ? { ...row, tenant_id: scopedTenantId } : row);
+  getSupabase().from('dispensas').insert(getTenantScope() ? { ...row, tenant_id: getTenantScope() } : row);
 
 export const sbUpdateDispensa = (id, fields) =>
   getSupabase().from('dispensas').update(fields).eq('id', id);
@@ -167,7 +163,7 @@ export const sbDeleteDispensa = (id) =>
 // ── Inexigibilidades ─────────────────────────────────────────────
 
 export const sbCreateInexigibilidade = (row) =>
-  getSupabase().from('inexigibilidades').insert(scopedTenantId ? { ...row, tenant_id: scopedTenantId } : row);
+  getSupabase().from('inexigibilidades').insert(getTenantScope() ? { ...row, tenant_id: getTenantScope() } : row);
 
 export const sbUpdateInexigibilidade = (id, fields) =>
   getSupabase().from('inexigibilidades').update(fields).eq('id', id);
@@ -179,7 +175,7 @@ export const sbDeleteInexigibilidade = (id) =>
 
 export async function sbCreateCotacao(cot) {
   const sb = getSupabase();
-  const tid = scopedTenantId;
+  const tid = getTenantScope();
   const withTid = obj => tid ? { ...obj, tenant_id: tid } : obj;
 
   const { error: e1 } = await sb.from('cotacoes').insert(withTid({

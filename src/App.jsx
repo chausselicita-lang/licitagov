@@ -18,6 +18,7 @@ export class ErrorBoundary extends Component {
   }
 }
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
+import { getTenantScope } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
@@ -1157,7 +1158,11 @@ function SortableArquivoRow({ item, index, onRemove }) {
 }
 
 function TabCarimboDigital({ toast }) {
-  const { tenantId } = useAuth();
+  const { tenantId: ownTenantId } = useAuth();
+  // Durante "Acessar como" (impersonação), os uploads/config precisam ir para
+  // o tenant da prefeitura impersonada, não para o tenant do próprio
+  // super_admin — getTenantScope() reflete o tenant impersonado quando ativo.
+  const tenantId = getTenantScope() || ownTenantId;
   const isMobile = useMobileCD();
   const [config, setConfig] = useState(undefined); // undefined = carregando, null = não existe
   const [showEditor, setShowEditor] = useState(false);

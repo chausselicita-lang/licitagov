@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 
 function respostaFromDb(row) {
   return {
@@ -19,7 +20,7 @@ function respostaFromDb(row) {
 // ── Respostas ──────────────────────────────────────────────────
 export async function sbListRespostas() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('lexcore_respostas').select('*').order('created_at', { ascending: false });
+  const { data, error } = await withTenantScope(sb.from('lexcore_respostas').select('*')).order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return { data: data.map(respostaFromDb), error: null };
 }
@@ -35,6 +36,7 @@ export async function sbCreateResposta({ tipoResposta, nomeReferencia, numeroPro
     conteudo_gerado: conteudoGerado,
     status: 'rascunho',
     criado_por: userData?.user?.id || null,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? respostaFromDb(data) : null, error };
 }

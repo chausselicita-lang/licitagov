@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 
 function processoFromDb(row) {
   return {
@@ -84,6 +85,7 @@ export async function sbCreateProcessoPlanejamento(input) {
     area_requisitante: input.areaRequisitante,
     tipo_contratacao: input.tipoContratacao,
     criado_por: userData?.user?.id || null,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? processoFromDb(data) : null, error };
 }
@@ -97,7 +99,7 @@ export async function sbGetProcessoPlanejamento(id) {
 
 export async function sbListProcessosPlanejamento() {
   const sb = getSupabase();
-  const { data, error } = await sb.from('planejamento_processos').select('*').order('created_at', { ascending: false });
+  const { data, error } = await withTenantScope(sb.from('planejamento_processos').select('*')).order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return { data: data.map(processoFromDb), error: null };
 }
@@ -122,6 +124,7 @@ export async function sbCreateDfd({ processoId, conteudoGerado }) {
   const { data, error } = await sb.from('planejamento_dfd').insert({
     processo_id: processoId,
     conteudo_gerado: conteudoGerado,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? dfdFromDb(data) : null, error };
 }
@@ -151,6 +154,7 @@ export async function sbCreateEtp({ processoId, perguntasComplementares, conteud
     processo_id: processoId,
     perguntas_complementares: perguntasComplementares || [],
     conteudo_gerado: conteudoGerado,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? etpFromDb(data) : null, error };
 }
@@ -179,6 +183,7 @@ export async function sbCreateTr({ processoId, conteudoGerado }) {
   const { data, error } = await sb.from('planejamento_tr').insert({
     processo_id: processoId,
     conteudo_gerado: conteudoGerado,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? trFromDb(data) : null, error };
 }
@@ -208,6 +213,7 @@ export async function sbCreateMapaRiscos({ processoId, riscos, conteudoGerado })
     processo_id: processoId,
     riscos: riscos || [],
     conteudo_gerado: conteudoGerado,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? mapaRiscosFromDb(data) : null, error };
 }
@@ -251,6 +257,7 @@ export async function sbCreateCoerenciaCheck({ processoId, contradicoes, statusG
     contradicoes: contradicoes || [],
     status_geral: statusGeral,
     executado_por: userData?.user?.id || null,
+    ...(getTenantScope() ? { tenant_id: getTenantScope() } : {}),
   }).select().single();
   return { data: data ? coerenciaFromDb(data) : null, error };
 }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getSupabase } from '../lib/supabase.js';
+import { getTenantScope } from '../lib/tenantScope.js';
 import Icon from '../components/Icon.jsx';
 
 /* ── DESIGN TOKENS ────────────────────────────────────────────── */
@@ -853,7 +854,7 @@ export default function ChecklistHabilitacao({ toast: extToast }) {
         } else {
           const { data, error } = await sb
             .from('checklist_habilitacao')
-            .insert(record)
+            .insert(getTenantScope() ? { ...record, tenant_id: getTenantScope() } : record)
             .select('id')
             .single();
           if (error) throw error;
