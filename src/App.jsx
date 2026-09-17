@@ -18,7 +18,7 @@ export class ErrorBoundary extends Component {
   }
 }
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
-import { getTenantScope } from './lib/tenantScope.js';
+import { getTenantScope, getTenantInfo } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
@@ -5371,7 +5371,12 @@ function TabPlanejamentoIA({ toast }) {
 }
 
 function PlanejamentoIntake({ toast, onCancel, onCriado }) {
-  const { nome, prefeitura, municipio } = useAuth();
+  const { nome, prefeitura: ownPrefeitura, municipio: ownMunicipio } = useAuth();
+  // Durante "Acessar como" uma prefeitura real, o documento gerado deve citar
+  // o nome/município dela, não os do próprio super_admin (ver tenantScope.js).
+  const tenantInfo = getTenantInfo();
+  const prefeitura = tenantInfo?.nome || ownPrefeitura;
+  const municipio = tenantInfo?.municipio || ownMunicipio;
   const [form, setForm] = useState({
     numeroProcesso: "", objeto: "", justificativaResumida: "", quantidadeEstimada: "", valorEstimado: "",
     areaRequisitante: "", tipoContratacao: "bens",
@@ -5488,7 +5493,11 @@ function PlanejamentoPecaCard({ label, peca, gerando, podeGerar, onGerar, gerarL
 }
 
 function PlanejamentoDetalhe({ processoId, toast, onVoltar, onAbrirPeca }) {
-  const { nome, prefeitura, municipio } = useAuth();
+  const { nome, prefeitura: ownPrefeitura, municipio: ownMunicipio } = useAuth();
+  // Ver comentário equivalente em PlanejamentoIntake.
+  const tenantInfo = getTenantInfo();
+  const prefeitura = tenantInfo?.nome || ownPrefeitura;
+  const municipio = tenantInfo?.municipio || ownMunicipio;
   const [processo, setProcesso] = useState(null);
   const [dfd, setDfd] = useState(null);
   const [etp, setEtp] = useState(null);
@@ -5845,7 +5854,7 @@ function AuthedApp({ signOut, data, setProcessos, setAtas, setContratos, setCota
         signOut={signOut}
         session={session}
         onImpersonate={(pref) => {
-          setImpersonating({ id: pref.id, nome: pref.prefeitura_nome, tenantId: pref.tenant_id || null });
+          setImpersonating({ id: pref.id, nome: pref.prefeitura_nome, tenantId: pref.tenant_id || null, municipio: pref.prefeitura_municipio || null });
         }}
       />
     );
@@ -6044,7 +6053,14 @@ export default function App() {
     const scopeKey = `${userId}:${impersonating?.tenantId || ''}`;
     if (loadedScopeRef.current === scopeKey) return; // refresh de token em segundo plano — dados já carregados
     setDataLoading(true);
-    setTenantScope(impersonating?.tenantId || null);
+    // "Minha Área" também passa por aqui com impersonating.id === userId (o
+    // próprio super_admin) — nesse caso NÃO é uma prefeitura real, então não
+    // deve sobrescrever o nome/município exibido em documentos gerados.
+    const isImpersonandoOutraPrefeitura = impersonating && impersonating.id !== userId;
+    setTenantScope(
+      impersonating?.tenantId || null,
+      isImpersonandoOutraPrefeitura ? { nome: impersonating.nome, municipio: impersonating.municipio } : null
+    );
     loadAllData()
       .then(data => { setAppData(data); setDataLoading(false); loadedScopeRef.current = scopeKey; })
       .catch(err => {

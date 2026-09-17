@@ -7,7 +7,17 @@
 // em vez de confiar so no trigger set_tenant_id_from_auth() (que resolve pelo
 // usuario REALMENTE autenticado, nao pelo tenant impersonado).
 let scopedTenantId = null;
+// Nome/municipio da prefeitura impersonada — usados só para preencher texto
+// exibido/gerado (ex.: documentos do Planejamento IA), nunca para gravação
+// no banco. Fica null fora de impersonação real (inclui "Minha Área", que
+// tecnicamente também passa por setTenantScope mas não deve trocar o nome
+// exibido pelo do próprio super_admin).
+let scopedTenantInfo = null;
 
-export function setTenantScope(tenantId) { scopedTenantId = tenantId || null; }
+export function setTenantScope(tenantId, info = null) {
+  scopedTenantId = tenantId || null;
+  scopedTenantInfo = scopedTenantId ? info : null;
+}
 export function getTenantScope() { return scopedTenantId; }
+export function getTenantInfo() { return scopedTenantInfo; }
 export const withTenantScope = query => scopedTenantId ? query.eq('tenant_id', scopedTenantId) : query;
