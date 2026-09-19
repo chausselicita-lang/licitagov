@@ -46,7 +46,9 @@ import {
   TR_MAX_TOKENS, buildTrSystem, buildTrUserText,
   MAPA_RISCOS_MAX_TOKENS, buildMapaRiscosSystem, buildMapaRiscosUserText, parseRiscosJSON, montarConteudoMapaRiscos,
   COERENCIA_MAX_TOKENS, buildCoerenciaSystem, buildCoerenciaUserText, parseContradicoesJSON, statusGeralCoerencia,
+  buildFewShotContext,
 } from './lib/planejamentoPrompts.js';
+import { ragObterExemplosFewShot } from './lib/ragBaseConhecimento.js';
 import { markModalOpen, markModalClosed } from './lib/modalGuard.js';
 import {
   CARIMBO_CONFIG_DEFAULTS, sbGetCarimboConfig, sbSaveCarimboConfig, uploadCarimboAsset,
@@ -5542,7 +5544,13 @@ function PlanejamentoDetalhe({ processoId, toast, onVoltar, onAbrirPeca }) {
     setGerandoEtp(true);
     try {
       const intake = intakeDoProcesso();
-      const conteudoGerado = await chamarIAPlanejamento(buildEtpSystem(), buildEtpUserText({ intake, dfdConteudo: dfd.conteudoGerado, respostas: respostasEtp }), ETP_MAX_TOKENS);
+      const exemplos = await ragObterExemplosFewShot({
+        tipoDocumento: 'ETP',
+        textoConsulta: `${intake.objeto}\n${intake.justificativaResumida || ''}`,
+        tipoContratacao: intake.tipoContratacao,
+      });
+      const userText = buildFewShotContext(exemplos) + buildEtpUserText({ intake, dfdConteudo: dfd.conteudoGerado, respostas: respostasEtp });
+      const conteudoGerado = await chamarIAPlanejamento(buildEtpSystem(), userText, ETP_MAX_TOKENS);
       const perguntasComplementares = ETP_PERGUNTAS_COMPLEMENTARES.map(p => ({ chave: p.chave, pergunta: p.pergunta, resposta: respostasEtp[p.chave] || null }));
       const { error } = await sbCreateEtp({ processoId, perguntasComplementares, conteudoGerado });
       if (error) throw error;
@@ -5560,7 +5568,13 @@ function PlanejamentoDetalhe({ processoId, toast, onVoltar, onAbrirPeca }) {
     setGerandoTr(true);
     try {
       const intake = intakeDoProcesso();
-      const conteudoGerado = await chamarIAPlanejamento(buildTrSystem(), buildTrUserText({ intake, dfdConteudo: dfd.conteudoGerado, etpConteudo: etp.conteudoGerado }), TR_MAX_TOKENS);
+      const exemplosTr = await ragObterExemplosFewShot({
+        tipoDocumento: 'TR',
+        textoConsulta: `${intake.objeto}\n${intake.justificativaResumida || ''}`,
+        tipoContratacao: intake.tipoContratacao,
+      });
+      const userTextTr = buildFewShotContext(exemplosTr) + buildTrUserText({ intake, dfdConteudo: dfd.conteudoGerado, etpConteudo: etp.conteudoGerado });
+      const conteudoGerado = await chamarIAPlanejamento(buildTrSystem(), userTextTr, TR_MAX_TOKENS);
       const { error } = await sbCreateTr({ processoId, conteudoGerado });
       if (error) throw error;
       await sbUpdateStatusProcessoPlanejamento(processoId, "tr_gerado");
@@ -5577,7 +5591,13 @@ function PlanejamentoDetalhe({ processoId, toast, onVoltar, onAbrirPeca }) {
     setGerandoMapa(true);
     try {
       const intake = intakeDoProcesso();
-      const riscosTexto = await chamarIAPlanejamento(buildMapaRiscosSystem(), buildMapaRiscosUserText({ intake, trConteudo: tr.conteudoGerado }), MAPA_RISCOS_MAX_TOKENS);
+      const exemplosMapa = await ragObterExemplosFewShot({
+        tipoDocumento: 'MAPA_RISCO',
+        textoConsulta: `${intake.objeto}\n${intake.justificativaResumida || ''}`,
+        tipoContratacao: intake.tipoContratacao,
+      });
+      const userTextMapa = buildFewShotContext(exemplosMapa) + buildMapaRiscosUserText({ intake, trConteudo: tr.conteudoGerado });
+      const riscosTexto = await chamarIAPlanejamento(buildMapaRiscosSystem(), userTextMapa, MAPA_RISCOS_MAX_TOKENS);
       const riscos = parseRiscosJSON(riscosTexto);
       const sb = getSupabase();
       const { data: userData } = await sb.auth.getUser();

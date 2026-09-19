@@ -24,6 +24,26 @@ export function labelTipoContratacao(tipo) {
   return TIPO_CONTRATACAO_LABEL[tipo] || tipo;
 }
 
+// ── Base de Conhecimento IA (RAG) — contexto few-shot ────────────
+// Prependado ao userText de ETP/TR/Mapa de Riscos quando a busca por
+// similaridade (ragObterExemplosFewShot) encontra peças já aprovadas do
+// mesmo município para contratações semelhantes. Vazio (nenhum exemplo)
+// não muda em nada o prompt final — a peça é gerada normalmente.
+export function buildFewShotContext(exemplos) {
+  if (!exemplos || !exemplos.length) return '';
+  const blocos = exemplos.map((ex, i) =>
+    `Exemplo ${i + 1}:\n"""\n${ex.conteudo_texto}\n"""`
+  ).join('\n\n');
+  return [
+    `Exemplos de peças já aprovadas por este município para contratações semelhantes — use-os como referência de estilo, estrutura e nível de detalhamento (nunca copie trechos literalmente, adapte ao objeto atual):`,
+    ``,
+    blocos,
+    ``,
+    `--- Fim dos exemplos de referência ---`,
+    ``,
+  ].join('\n');
+}
+
 // ── DFD — Documento de Formalização da Demanda ──────────────────
 export function buildDfdSystem() {
   return `Você é um assistente técnico especializado em planejamento de contratações públicas, sob a Lei nº 14.133/2021 (Nova Lei de Licitações), atuando para uma prefeitura municipal brasileira dentro do sistema LicitaGov.

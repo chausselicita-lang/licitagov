@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getSupabase } from "../lib/supabase.js";
 import { useOverlayBack } from "../lib/useOverlayBack.js";
 import { markModalOpen, markModalClosed } from "../lib/modalGuard.js";
+import { ragObterStats, ragSyncBatch } from "../lib/ragBaseConhecimento.js";
 
 const C = {
   bg: "#f5f5f5",
@@ -43,6 +44,7 @@ function Icon({ name, size = 16, color = "currentColor" }) {
     orgaos:   <><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></>,
     trash:    <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>,
     edit:     <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    database: <><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -276,6 +278,7 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
     { id: "dashboard",    label: "Dashboard",    icon: "dashboard" },
     { id: "prefeituras",  label: "Prefeituras",  icon: "buildings" },
     { id: "orgaos",       label: "Órgãos",       icon: "orgaos" },
+    { id: "rag",          label: "Base de Conhecimento IA", icon: "database" },
     { id: "configuracoes",label: "Configurações", icon: "settings" },
   ];
 
@@ -393,6 +396,9 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
           )}
           {activeTab === "orgaos" && (
             <TabOrgaosAdmin showMsg={showMsg} />
+          )}
+          {activeTab === "rag" && (
+            <TabBaseConhecimento session={session} prefeituras={prefeituras} showMsg={showMsg} />
           )}
           {activeTab === "configuracoes" && (
             <TabConfiguracoes />
@@ -676,6 +682,157 @@ function TabOrgaosAdmin({ showMsg }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const TIPO_DOC_LABEL = { DFD: "DFD", ETP: "ETP", TR: "TR", MAPA_RISCO: "Mapa de Riscos" };
+
+function TabBaseConhecimento({ session, prefeituras, showMsg }) {
+  const [stats, setStats] = useState({ porTenant: [], pendentes: 0 });
+  const [loading, setLoading] = useState(true);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [progresso, setProgresso] = useState(null); // { processados, falhas, restantes, total }
+  const [log, setLog] = useState([]);
+
+  const nomeTenant = tenantId => {
+    const p = prefeituras.find(x => x.tenant_id === tenantId);
+    return p?.prefeitura_nome || p?.prefeitura_municipio || "GovCore (próprio)";
+  };
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      const s = await ragObterStats();
+      setStats(s);
+    } catch (e) {
+      showMsg("Erro ao carregar estatísticas da base de conhecimento: " + e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const aprovados = stats.porTenant.filter(r => r.status === "aprovado").reduce((s, r) => s + r.total, 0);
+  const descartados = stats.porTenant.filter(r => r.status === "descartado").reduce((s, r) => s + r.total, 0);
+
+  const porTenantAgrupado = {};
+  for (const r of stats.porTenant) {
+    if (!porTenantAgrupado[r.tenant_id]) porTenantAgrupado[r.tenant_id] = { aprovado: 0, descartado: 0 };
+    porTenantAgrupado[r.tenant_id][r.status] += r.total;
+  }
+
+  const sincronizar = async () => {
+    setSincronizando(true);
+    setLog([]);
+    let totalProcessados = 0;
+    let totalFalhas = 0;
+    let semProgressoSeguidas = 0;
+    const totalInicial = stats.pendentes;
+    setProgresso({ processados: 0, falhas: 0, restantes: totalInicial, total: totalInicial });
+
+    try {
+      for (let i = 0; i < 300; i++) {
+        const r = await ragSyncBatch(session?.access_token, 15);
+        totalProcessados += r.processados;
+        totalFalhas += r.falhas.length;
+        setProgresso({ processados: totalProcessados, falhas: totalFalhas, restantes: r.restantes, total: Math.max(totalInicial, totalProcessados + r.restantes) });
+        if (r.falhas.length) {
+          setLog(prev => [...prev, ...r.falhas.map(f => `${TIPO_DOC_LABEL[f.tipo] || f.tipo} (${f.pecaId.slice(0, 8)}…): ${f.erro}`)].slice(-50));
+        }
+        if (r.processados === 0 && r.falhas.length > 0) semProgressoSeguidas++;
+        else semProgressoSeguidas = 0;
+
+        if (r.concluido) break;
+        if (semProgressoSeguidas >= 3) {
+          setLog(prev => [...prev, "Sincronização interrompida: falhas repetidas sem progresso. Tente novamente mais tarde."]);
+          break;
+        }
+      }
+      showMsg(`Sincronização concluída: ${totalProcessados} indexados, ${totalFalhas} falhas.`, totalFalhas ? "warn" : "success");
+      carregar();
+    } catch (e) {
+      showMsg("Erro na sincronização: " + e.message, "error");
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
+  const pct = progresso && progresso.total > 0 ? Math.min(100, Math.round((progresso.processados / progresso.total) * 100)) : 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1100 }}>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 4 }}>Base de Conhecimento IA</div>
+        <div style={{ fontSize: 13, color: C.sub }}>Exemplos reais já aprovados que alimentam os agentes de ETP, TR e Mapa de Riscos com estilo e estrutura de cada município.</div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14 }}>
+        <KPICard label="Indexados" value={loading ? "—" : aprovados} icon="check" color={C.green} />
+        <KPICard label="Descartados" value={loading ? "—" : descartados} icon="block" color={C.sub} />
+        <KPICard label="Pendentes" value={loading ? "—" : stats.pendentes} icon="file" color={C.gold} />
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: sincronizando || progresso ? 16 : 0 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Sincronizar Base de Conhecimento</div>
+            <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>Gera embeddings para todas as peças já finalizadas que ainda não estão indexadas. Pode rodar quantas vezes quiser — nunca duplica.</div>
+          </div>
+          <button onClick={sincronizar} disabled={sincronizando || loading || stats.pendentes === 0}
+            style={{ background: C.accent, color: "#121212", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: (sincronizando || stats.pendentes === 0) ? "not-allowed" : "pointer", opacity: (sincronizando || stats.pendentes === 0) ? 0.6 : 1, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+            <Icon name="database" size={14} color="#121212" />
+            {sincronizando ? "Sincronizando..." : stats.pendentes === 0 ? "Tudo sincronizado" : "Sincronizar Base de Conhecimento"}
+          </button>
+        </div>
+
+        {progresso && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ height: 8, background: "#e4e8ef", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${pct}%`, background: C.accent, transition: "width 0.25s ease" }} />
+            </div>
+            <div style={{ fontSize: 12, color: C.sub, display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <span>Processados: <b style={{ color: C.text }}>{progresso.processados}</b></span>
+              <span>Falhas: <b style={{ color: progresso.falhas ? C.red : C.text }}>{progresso.falhas}</b></span>
+              <span>Restantes: <b style={{ color: C.text }}>{progresso.restantes}</b></span>
+            </div>
+            {log.length > 0 && (
+              <div style={{ maxHeight: 160, overflowY: "auto", background: "#f8fafc", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 11, color: C.sub, fontFamily: "monospace", lineHeight: 1.6 }}>
+                {log.map((l, i) => <div key={i}>{l}</div>)}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 14 }}>Documentos indexados por prefeitura</div>
+        {loading ? (
+          <div style={{ fontSize: 13, color: C.sub }}>Carregando...</div>
+        ) : Object.keys(porTenantAgrupado).length === 0 ? (
+          <div style={{ fontSize: 13, color: C.sub }}>Nenhum documento indexado ainda.</div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                <th style={{ textAlign: "left", padding: "8px 6px", color: C.sub, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Prefeitura</th>
+                <th style={{ textAlign: "right", padding: "8px 6px", color: C.sub, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Indexados</th>
+                <th style={{ textAlign: "right", padding: "8px 6px", color: C.sub, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Descartados</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(porTenantAgrupado).map(([tenantId, v]) => (
+                <tr key={tenantId} style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <td style={{ padding: "8px 6px", color: C.text }}>{nomeTenant(tenantId)}</td>
+                  <td style={{ padding: "8px 6px", color: C.green, fontWeight: 600, textAlign: "right" }}>{v.aprovado || 0}</td>
+                  <td style={{ padding: "8px 6px", color: C.sub, textAlign: "right" }}>{v.descartado || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
