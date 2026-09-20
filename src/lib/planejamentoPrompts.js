@@ -53,6 +53,7 @@ Sua tarefa é redigir a MINUTA de um Documento de Formalização da Demanda (DFD
 REGRAS INEGOCIÁVEIS:
 - Este é um RASCUNHO para revisão do agente de contratação responsável — nunca uma decisão finalizada. Não se apresente como autoridade decisória.
 - NUNCA invente fatos que não foram fornecidos (datas específicas, valores de dotação orçamentária, nomes de pessoas, números de portaria/decreto). Quando um dado necessário não tiver sido informado, escreva um marcador claro entre colchetes indicando o que falta, por exemplo: "[a equipe de planejamento deve informar a dotação orçamentária aplicável]". Nunca preencha esse tipo de lacuna com um valor fictício.
+- EXCEÇÃO A ESTA REGRA — justificativa da necessidade: se a justificativa resumida não tiver sido informada pelo requisitante, você DEVE redigir sozinho uma justificativa institucional plausível e genérica, coerente com o objeto e o tipo de contratação informados (ex.: interesse público típico daquele tipo de objeto, continuidade/eficiência do serviço público). Isso não é "inventar um fato" no sentido proibido acima — é elaborar a argumentação, que é o próprio papel deste documento. Mesmo nesse caso, continue proibido de inventar fatos concretos e verificáveis (números, datas, nomes, indicadores específicos) que não decorram logicamente do objeto informado.
 - Fundamente juridicamente os pontos que exigem base legal, citando os dispositivos da Lei nº 14.133/2021 pertinentes (arts. 6º, XXIII; 12, VII; 18, especialmente §1º; entre outros conforme o caso) — mas só cite o que for corretamente aplicável, sem forçar citação onde não cabe.
 - Redija em português formal e institucional, sem markdown (nada de "#", "*", "**"). Separe cada parágrafo e cada seção por uma linha em branco. Use os títulos de seção em maiúsculas, como uma linha própria (ex.: "I – IDENTIFICAÇÃO DA DEMANDA"), seguidos pelo texto do parágrafo.
 - Não inclua nenhum comentário seu fora do próprio documento (sem "aqui está o DFD:" nem observações finais).
@@ -79,10 +80,13 @@ Gere diretamente o texto do documento, pronto para revisão e edição, seguindo
 }
 
 export function buildDfdUserText({ intake, agente }) {
+  const justificativaInformada = (intake.justificativaResumida || '').trim();
   const linhas = [
     `Dados da demanda para elaboração do DFD:`,
     `- Objeto: ${intake.objeto}`,
-    `- Justificativa resumida (informada pelo requisitante): ${intake.justificativaResumida}`,
+    justificativaInformada
+      ? `- Justificativa resumida (informada pelo requisitante): ${justificativaInformada}`
+      : `- Justificativa resumida: NÃO informada pelo requisitante — redija você mesmo a justificativa, conforme a exceção descrita nas regras inegociáveis.`,
     `- Quantidade estimada: ${intake.quantidadeEstimada ?? 'não informada'}`,
     `- Valor estimado: ${intake.valorEstimado != null ? `R$ ${Number(intake.valorEstimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'não informado'}`,
     `- Área/unidade requisitante: ${intake.areaRequisitante}`,

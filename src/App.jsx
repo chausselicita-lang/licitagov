@@ -5396,7 +5396,6 @@ function PlanejamentoIntake({ toast, onCancel, onCriado }) {
 
   const gerar = async () => {
     if (!form.objeto.trim()) { toast("Informe o objeto da contratação", "error"); return; }
-    if (!form.justificativaResumida.trim()) { toast("Informe a justificativa resumida", "error"); return; }
     if (!form.areaRequisitante.trim()) { toast("Informe a área/unidade requisitante", "error"); return; }
 
     setGerando(true);
@@ -5450,7 +5449,7 @@ function PlanejamentoIntake({ toast, onCancel, onCriado }) {
         </div>
 
         <Input label="Objeto da Contratação" value={form.objeto} onChange={ff("objeto")} placeholder="Ex.: Aquisição de material permanente para reforma da UBS Central" required />
-        <TextArea label="Justificativa Resumida" value={form.justificativaResumida} onChange={ff("justificativaResumida")} rows={3} placeholder="Por que essa contratação é necessária, em poucas linhas" />
+        <TextArea label="Justificativa Resumida (opcional)" value={form.justificativaResumida} onChange={ff("justificativaResumida")} rows={3} placeholder="Deixe em branco para a IA elaborar automaticamente a partir do objeto" />
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Input label="Quantidade Estimada" value={form.quantidadeEstimada} onChange={ff("quantidadeEstimada")} placeholder="Ex.: 45 itens" />
           <Input label="Valor Estimado (R$)" type="number" value={form.valorEstimado} onChange={ff("valorEstimado")} placeholder="Ex.: 187500.00" />
