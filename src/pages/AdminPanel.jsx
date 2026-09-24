@@ -154,10 +154,11 @@ function ModalAddPrefeitura({ onClose, onSuccess, session }) {
     setLoading(true); setErr("");
     try {
       const token = session?.access_token;
-      const res = await fetch("/api/admin-create-user", {
+      const res = await fetch("/api/admin-users", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
+          action: "create",
           email, nome, prefeitura_nome: prefNome, prefeitura_municipio: municipio,
           uf, cnpj, responsavel_telefone: telefone,
         }),
@@ -261,10 +262,10 @@ export default function AdminPanel({ signOut, onImpersonate, session }) {
     if (!window.confirm(`Gerar uma nova senha provisória para ${p.email}?`)) return;
     try {
       const token = session?.access_token;
-      const res = await fetch("/api/admin-reset-password", {
+      const res = await fetch("/api/admin-users", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ userId: p.id }),
+        body: JSON.stringify({ action: "reset-password", userId: p.id }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erro ao resetar senha");
