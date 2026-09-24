@@ -98,37 +98,29 @@ function parseResultadoIA(finalText) {
   return { fontes, mediana: parsed.mediana ?? null };
 }
 
-async function handlePesquisar(req, res, sb) {
+async function handlePesquisar(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(400).json({ error: { message: 'ANTHROPIC_API_KEY não configurada nas variáveis de ambiente do Vercel.' } });
   }
 
-  const { cotacaoId, itemId, termo, unidadeMedida, uf } = req.body || {};
-  if (!cotacaoId || !itemId || !termo || !String(termo).trim()) {
-    return res.status(400).json({ error: { message: 'cotacaoId, itemId e termo são obrigatórios' } });
+  const { termo, unidadeMedida, uf } = req.body || {};
+  if (!termo || !String(termo).trim()) {
+    return res.status(400).json({ error: { message: 'termo é obrigatório' } });
   }
 
+  // Sem persistência aqui — chamado durante o wizard "Nova Pesquisa Manual",
+  // antes de a cotação existir no banco (mesmo padrão do fluxo objeto-a-objeto
+  // existente: a busca só devolve dados, quem grava é sbCreateCotacao quando
+  // o usuário finaliza). O client anexa fonte.id local (uid()) já que não
+  // há linha real em cot_fontes_ia ainda.
   try {
-    // Resolve o tenant_id REAL a partir da cotação no banco — nunca aceita
-    // tenant_id vindo do client, mesmo sob service role (que bypassa RLS).
-    const { data: cot, error: eCot } = await sb
-      .from('cotacoes')
-      .select('id, tenant_id')
-      .eq('id', cotacaoId)
-      .single();
-    if (eCot) throw eCot;
-    if (!cot) return res.status(404).json({ error: { message: 'Cotação não encontrada' } });
-
     const finalText = await chamarClaudeComMcp({ termo, unidadeMedida, uf });
     const { fontes, mediana } = parseResultadoIA(finalText);
 
-    const linhas = fontes
+    const fontesValidas = fontes
       .filter(f => Number(f.valor_unitario) > 0)
       .map(f => ({
-        cotacao_id: cotacaoId,
-        item_id: itemId,
-        tenant_id: cot.tenant_id,
         fonte: f.fonte === 'pncp' || f.fonte === 'painel_precos' ? f.fonte : 'painel_precos',
         descricao: f.descricao || null,
         fornecedor: f.fornecedor || null,
@@ -137,17 +129,9 @@ async function handlePesquisar(req, res, sb) {
         orgao_referencia: f.orgao_referencia || null,
         data_referencia: f.data_referencia || null,
         url: f.url || null,
-        selecionado: true,
       }));
 
-    let inseridas = [];
-    if (linhas.length) {
-      const { data, error: eInsert } = await sb.from('cot_fontes_ia').insert(linhas).select();
-      if (eInsert) throw eInsert;
-      inseridas = data;
-    }
-
-    return res.json({ fontes: inseridas, mediana });
+    return res.json({ fontes: fontesValidas, mediana });
   } catch (err) {
     return res.status(500).json({ error: { message: err.message || String(err) } });
   }
@@ -218,16 +202,21 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!serviceKey) {
-    return res.status(500).json({ error: { message: 'SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel' } });
-  }
-  const sb = createClient(SUPABASE_URL, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
   const { action } = req.body || {};
-  if (action === 'exportar') return handleExportar(req, res, sb);
-  if (action === 'pesquisar') return handlePesquisar(req, res, sb);
+
+  // "pesquisar" não toca o banco (ver handlePesquisar) — não exige a service
+  // key. Só "exportar" (lê/grava cotacoes/cot_fontes_ia) precisa dela.
+  if (action === 'pesquisar') return handlePesquisar(req, res);
+
+  if (action === 'exportar') {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!serviceKey) {
+      return res.status(500).json({ error: { message: 'SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel' } });
+    }
+    const sb = createClient(SUPABASE_URL, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    return handleExportar(req, res, sb);
+  }
   return res.status(400).json({ error: { message: 'action deve ser "pesquisar" ou "exportar"' } });
 }

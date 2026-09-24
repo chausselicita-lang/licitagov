@@ -232,6 +232,31 @@ export async function sbCreateCotacao(cot) {
       const { error: e4 } = await sb.from('cot_valores').insert(valoresInsert);
       if (e4) throw e4;
     }
+
+    // Fontes de preço oficiais (PNCP/Painel) pesquisadas por item durante o
+    // wizard — gravadas junto com o item, uma linha por fonte selecionada.
+    const fontesPesquisaInsert = [];
+    cot.itens.forEach(it => {
+      (it.fontesPesquisa || []).forEach(f => {
+        fontesPesquisaInsert.push(withTid({
+          cotacao_id: cot.id,
+          item_id: it.id,
+          fonte: f.fonte || 'painel_precos',
+          descricao: f.descricao || null,
+          fornecedor: f.fornecedor || null,
+          valor_unitario: f.valor_unitario || null,
+          unidade_medida: f.unidade_medida || null,
+          orgao_referencia: f.orgao_referencia || null,
+          data_referencia: f.data_referencia || null,
+          url: f.url || null,
+          selecionado: f.selecionado !== false,
+        }));
+      });
+    });
+    if (fontesPesquisaInsert.length) {
+      const { error: e5 } = await sb.from('cot_fontes_ia').insert(fontesPesquisaInsert);
+      if (e5) throw e5;
+    }
   }
 
   if (cot.fontes_ia?.length) {

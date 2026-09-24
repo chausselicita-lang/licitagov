@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component {
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 import { getTenantScope, getTenantInfo } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
-import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao, sbSelecionarFonteIa } from './lib/db.js';
+import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
@@ -2067,26 +2067,27 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     sbCreateCotacao(newCot).catch(err=>toast("Erro ao salvar no banco: "+err.message,"error"));
   };
 
-  const pesquisarPrecoItem = async (cotId, item) => {
-    if (!item.descricao?.trim()) { toast("Item sem descrição — não é possível pesquisar","error"); return; }
+  // Pesquisa por item dentro do wizard "Nova Pesquisa Manual" (Etapa 3) —
+  // opera em estado LOCAL (a cotação ainda não foi salva). Nada é gravado no
+  // banco aqui; as fontes pesquisadas viajam junto quando salvarCotacao()
+  // roda, igual ao padrão já usado pelo fluxo objeto-a-objeto (fontes_ia).
+  const pesquisarPrecoItemWizard = async (item) => {
+    if (!item.descricao?.trim()) { toast("Preencha a descrição do item antes de pesquisar","error"); return; }
     setPesquisaItens(p=>({ ...p, [item.id]:{ loading:true, erro:null } }));
     try {
       const res = await fetch("/api/cotacao-mcp", {
         method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ action:"pesquisar", cotacaoId:cotId, itemId:item.id, termo:item.descricao, unidadeMedida:item.unidade||undefined }),
+        body: JSON.stringify({ action:"pesquisar", termo:item.descricao, unidadeMedida:item.unidade||undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message || `HTTP ${res.status}`);
       const novasFontes = (json.fontes||[]).map(f=>({
-        id:f.id, fonte:f.fonte, descricao:f.descricao||"", fornecedor:f.fornecedor||"",
+        id:f.id || uid(), fonte:f.fonte, descricao:f.descricao||"", fornecedor:f.fornecedor||"",
         valor_unitario:parseFloat(f.valor_unitario)||0, unidade_medida:f.unidade_medida||"",
         orgao_referencia:f.orgao_referencia||"", data_referencia:f.data_referencia||null,
         url:f.url||"", selecionado:true,
       }));
-      setCotacoes(prev=>prev.map(c=>c.id!==cotId?c:{
-        ...c,
-        itens:c.itens.map(i=>i.id!==item.id?i:{ ...i, fontesPesquisa:[...(i.fontesPesquisa||[]), ...novasFontes] }),
-      }));
+      setItens(prev=>prev.map(i=>i.id!==item.id?i:{ ...i, fontesPesquisa:[...(i.fontesPesquisa||[]), ...novasFontes] }));
       toast(novasFontes.length ? `${novasFontes.length} preço(s) encontrado(s) via PNCP/Painel de Preços!` : "Nenhum preço encontrado para este item nas fontes oficiais.", novasFontes.length?"success":"error");
       setPesquisaItens(p=>({ ...p, [item.id]:{ loading:false, erro:null } }));
     } catch(err) {
@@ -2095,14 +2096,10 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     }
   };
 
-  const toggleSelecaoFonte = (cotId, itemId, fonteId, selecionado) => {
-    setCotacoes(prev=>prev.map(c=>c.id!==cotId?c:{
-      ...c,
-      itens:c.itens.map(i=>i.id!==itemId?i:{
-        ...i, fontesPesquisa:(i.fontesPesquisa||[]).map(f=>f.id!==fonteId?f:{ ...f, selecionado }),
-      }),
+  const toggleSelecaoFonteWizard = (itemId, fonteId, selecionado) => {
+    setItens(prev=>prev.map(i=>i.id!==itemId?i:{
+      ...i, fontesPesquisa:(i.fontesPesquisa||[]).map(f=>f.id!==fonteId?f:{ ...f, selecionado }),
     }));
-    sbSelecionarFonteIa(fonteId, selecionado).then(({error})=>{ if(error) toast("Erro ao salvar seleção: "+error.message,"error"); });
   };
 
   const exportarMapaComparativo = async (cotId) => {
@@ -2394,91 +2391,19 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
           </div>
         </div>
 
-        {/* Pesquisa Oficial de Preços por Item — PNCP + Painel de Preços via MCP.
-            Fluxo NOVO e independente do painel de Pesquisa Automática com IA
-            (web_search) — consulta direta às APIs oficiais, sem busca na web. */}
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-          <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}` }}>
-            <div style={{ fontSize:13, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:8 }}>
-              <Icon name="globe" size={14} color={C.accent} /> Pesquisa Oficial de Preços (PNCP + Painel de Preços)
-            </div>
-            <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>Consulta direta às APIs públicas oficiais, por item — dados estruturados, sem busca na web</div>
-          </div>
-          <div style={{ padding:16, display:"flex", flexDirection:"column", gap:14 }}>
-            {cot.itens.map(it => {
-              const pesquisa = pesquisaItens[it.id] || {};
-              const fontes = it.fontesPesquisa || [];
-              return (
-                <div key={it.id} style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:12 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{it.descricao}</div>
-                      <div style={{ fontSize:11, color:C.sub }}>{it.unidade}{it.qtd?` · Qtd ${it.qtd}`:""}</div>
-                    </div>
-                    <Btn size="sm" variant="outline" color={C.accent} disabled={pesquisa.loading}
-                      onClick={()=>pesquisarPrecoItem(cot.id, it)}
-                      style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      {pesquisa.loading ? (
-                        <><div style={{ width:12, height:12, border:"2px solid rgba(37,99,235,0.3)", borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Pesquisando...</>
-                      ) : (
-                        <>🔎 Pesquisar Preço via IA</>
-                      )}
-                    </Btn>
-                  </div>
-                  {pesquisa.erro && (
-                    <div style={{ marginTop:8, fontSize:12, color:C.red }}>Erro: {pesquisa.erro}</div>
-                  )}
-                  {fontes.length > 0 && (
-                    <div style={{ marginTop:10, overflowX:"auto" }}>
-                      <table style={{ width:"100%", borderCollapse:"collapse", minWidth:480 }}>
-                        <thead>
-                          <tr style={{ background:C.overlay }}>
-                            <th style={{ padding:"6px 10px", fontSize:10 }}></th>
-                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.04em" }}>Fonte</th>
-                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.04em" }}>Órgão / Fornecedor</th>
-                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.04em" }}>Data</th>
-                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"right", textTransform:"uppercase", letterSpacing:"0.04em" }}>Vlr. Unit.</th>
-                            <th style={{ padding:"6px 10px", fontSize:10 }}>Link</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {fontes.map(f => (
-                            <tr key={f.id} style={{ borderTop:`1px solid ${C.border}` }}>
-                              <td style={{ padding:"6px 10px", textAlign:"center" }}>
-                                <input type="checkbox" checked={f.selecionado!==false}
-                                  onChange={e=>toggleSelecaoFonte(cot.id, it.id, f.id, e.target.checked)} />
-                              </td>
-                              <td style={{ padding:"6px 10px" }}>
-                                <Badge label={f.fonte==="pncp"?"PNCP":"Painel de Preços"} color={f.fonte==="pncp"?C.accent:C.gold} />
-                              </td>
-                              <td style={{ padding:"6px 10px", fontSize:12, color:C.text }}>{f.orgao_referencia || f.fornecedor || "—"}</td>
-                              <td style={{ padding:"6px 10px", fontSize:12, color:C.sub, textAlign:"center" }}>{fmtDate(f.data_referencia)}</td>
-                              <td style={{ padding:"6px 10px", fontSize:12, fontWeight:600, color:C.text, textAlign:"right" }}>{fmtBRL(f.valor_unitario)}</td>
-                              <td style={{ padding:"6px 10px", textAlign:"center" }}>
-                                {f.url ? (
-                                  <button onClick={()=>window.open(f.url,"_blank","noopener,noreferrer")}
-                                    style={{ background:"none", border:"none", color:C.accent, cursor:"pointer", fontSize:12 }}>↗</button>
-                                ) : <span style={{ color:C.tertiary }}>—</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ padding:"14px 18px", borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"flex-end", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+        {/* Export do Mapa Comparativo (.docx) — usa as fontes de preço oficiais
+            (PNCP/Painel) pesquisadas por item durante a criação da cotação
+            (Etapa "Itens e Preços" do wizard "+ Nova Pesquisa Manual"). */}
+        {cot.itens.some(it => (it.fontesPesquisa || []).length > 0) && (
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"14px 18px", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", justifyContent:"flex-end", alignItems:"center", gap:12, flexWrap:"wrap" }}>
             {cot.mapaDocxUrl && (
               <a href={cot.mapaDocxUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:C.accent }}>Último mapa gerado ↗</a>
             )}
             <Btn color={C.green} disabled={exportandoMapa} onClick={()=>exportarMapaComparativo(cot.id)}>
-              {exportandoMapa ? "Gerando..." : "📄 Exportar Mapa Comparativo (.docx)"}
+              {exportandoMapa ? "Gerando..." : "📄 Exportar Mapa Comparativo — Fontes Oficiais (.docx)"}
             </Btn>
           </div>
-        </div>
+        )}
 
         <div style={{ display:"flex", justifyContent:"center" }}>
           <Btn color={C.sub} variant="outline" onClick={()=>setRelatorioCot(true)}>🖨 Imprimir Mapa de Preços</Btn>
@@ -2622,6 +2547,69 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
                     <Input label="Unidade" value={it.unidade} onChange={v=>updItem(it.id,"unidade",v)} placeholder="Un, Kg, L..." />
                     <Input label="Quantidade" value={it.qtd} onChange={v=>updItem(it.id,"qtd",v)} type="number" placeholder="0" />
                   </div>
+
+                  {/* Pesquisa Oficial de Preços (PNCP + Painel de Preços via MCP) —
+                      por item, dentro do wizard, sem depender de busca na web.
+                      Independente do painel de Pesquisa Automática com IA no topo
+                      da aba (esse continua intocado, usa web_search). */}
+                  <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:10, marginBottom:10 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:11, color:C.sub, display:"flex", alignItems:"center", gap:5 }}>
+                        <Icon name="globe" size={12} color={C.accent} /> Pesquisa Oficial (PNCP + Painel de Preços)
+                      </span>
+                      <Btn size="sm" variant="outline" color={C.accent} disabled={pesquisaItens[it.id]?.loading}
+                        onClick={()=>pesquisarPrecoItemWizard(it)}
+                        style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        {pesquisaItens[it.id]?.loading ? (
+                          <><div style={{ width:11, height:11, border:"2px solid rgba(37,99,235,0.3)", borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Pesquisando...</>
+                        ) : (
+                          <>🔎 Pesquisar Preço via IA</>
+                        )}
+                      </Btn>
+                    </div>
+                    {pesquisaItens[it.id]?.erro && (
+                      <div style={{ marginTop:6, fontSize:12, color:C.red }}>Erro: {pesquisaItens[it.id].erro}</div>
+                    )}
+                    {(it.fontesPesquisa||[]).length > 0 && (
+                      <div style={{ marginTop:8, overflowX:"auto" }}>
+                        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:440 }}>
+                          <thead>
+                            <tr style={{ background:C.overlay }}>
+                              <th style={{ padding:"5px 8px", fontSize:10 }}></th>
+                              <th style={{ padding:"5px 8px", fontSize:10, color:C.sub, textAlign:"left", textTransform:"uppercase" }}>Fonte</th>
+                              <th style={{ padding:"5px 8px", fontSize:10, color:C.sub, textAlign:"left", textTransform:"uppercase" }}>Órgão / Fornecedor</th>
+                              <th style={{ padding:"5px 8px", fontSize:10, color:C.sub, textAlign:"center", textTransform:"uppercase" }}>Data</th>
+                              <th style={{ padding:"5px 8px", fontSize:10, color:C.sub, textAlign:"right", textTransform:"uppercase" }}>Vlr. Unit.</th>
+                              <th style={{ padding:"5px 8px", fontSize:10 }}>Link</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {it.fontesPesquisa.map(f => (
+                              <tr key={f.id} style={{ borderTop:`1px solid ${C.border}` }}>
+                                <td style={{ padding:"5px 8px", textAlign:"center" }}>
+                                  <input type="checkbox" checked={f.selecionado!==false}
+                                    onChange={e=>toggleSelecaoFonteWizard(it.id, f.id, e.target.checked)} />
+                                </td>
+                                <td style={{ padding:"5px 8px" }}>
+                                  <Badge label={f.fonte==="pncp"?"PNCP":"Painel de Preços"} color={f.fonte==="pncp"?C.accent:C.gold} />
+                                </td>
+                                <td style={{ padding:"5px 8px", fontSize:12, color:C.text }}>{f.orgao_referencia || f.fornecedor || "—"}</td>
+                                <td style={{ padding:"5px 8px", fontSize:12, color:C.sub, textAlign:"center" }}>{fmtDate(f.data_referencia)}</td>
+                                <td style={{ padding:"5px 8px", fontSize:12, fontWeight:600, color:C.text, textAlign:"right" }}>{fmtBRL(f.valor_unitario)}</td>
+                                <td style={{ padding:"5px 8px", textAlign:"center" }}>
+                                  {f.url ? (
+                                    <button onClick={()=>window.open(f.url,"_blank","noopener,noreferrer")}
+                                      style={{ background:"none", border:"none", color:C.accent, cursor:"pointer", fontSize:12 }}>↗</button>
+                                  ) : <span style={{ color:C.tertiary }}>—</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
                   <div style={{ fontSize:12, color:C.sub, marginBottom:6, fontWeight:500 }}>Preços por fornecedor:</div>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:8 }}>
                     {fornecedores.filter(f=>f.razao.trim()).map((f,fi)=>(
