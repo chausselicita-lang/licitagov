@@ -2071,9 +2071,9 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     if (!item.descricao?.trim()) { toast("Item sem descrição — não é possível pesquisar","error"); return; }
     setPesquisaItens(p=>({ ...p, [item.id]:{ loading:true, erro:null } }));
     try {
-      const res = await fetch("/api/cotacao-pesquisa-mcp", {
+      const res = await fetch("/api/cotacao-mcp", {
         method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ cotacaoId:cotId, itemId:item.id, termo:item.descricao, unidadeMedida:item.unidade||undefined }),
+        body: JSON.stringify({ action:"pesquisar", cotacaoId:cotId, itemId:item.id, termo:item.descricao, unidadeMedida:item.unidade||undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message || `HTTP ${res.status}`);
@@ -2108,9 +2108,9 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   const exportarMapaComparativo = async (cotId) => {
     setExportandoMapa(true);
     try {
-      const res = await fetch("/api/cotacao-mapa-exportar", {
+      const res = await fetch("/api/cotacao-mcp", {
         method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ cotacaoId:cotId }),
+        body: JSON.stringify({ action:"exportar", cotacaoId:cotId }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);

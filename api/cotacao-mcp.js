@@ -1,13 +1,15 @@
-// Pesquisa de preço por item via MCP Server dedicado (PNCP + Painel de
-// Preços) — fluxo NOVO, independente do fluxo objeto-a-objeto existente em
-// TabCotacoes (que usa web_search e continua intocado). Monta o payload
-// mcp_servers inteiramente aqui (server-side): a URL e o token do MCP Server
-// nunca chegam ao client, só {cotacaoId, itemId, termo, unidadeMedida, uf}.
+// Pesquisa de preço por item (PNCP + Painel de Preços via MCP Server) e
+// export do mapa comparativo em .docx — combinados num único arquivo por
+// causa do teto de 12 Serverless Functions do plano Hobby da Vercel
+// (o projeto já estava no limite antes desta feature). Roteado por
+// req.body.action: "pesquisar" | "exportar".
 import { createClient } from '@supabase/supabase-js';
+import { buildMapaComparativoDocx, nomeArquivoMapaComparativo } from '../src/lib/cotacaoMapaDocx.js';
 
-export const config = { api: { bodyParser: { sizeLimit: '1mb' } } };
+export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
 
 const SUPABASE_URL = 'https://xqlrfsrjvqmucchzpapk.supabase.co';
+const BUCKET = 'cotacoes-docs';
 
 // TODO(validar contra a doc oficial no primeiro teste real — risco aberto do
 // Execution Plan): valor do header beta do MCP connector e se o modelo abaixo
@@ -24,10 +26,9 @@ Depois de receber o resultado da ferramenta, responda SOMENTE com um JSON válid
 Se a ferramenta não retornar nenhum resultado, responda {"fontes":[],"mediana":null}. Nunca inclua fontes com valor_unitario ausente ou igual a zero.`;
 
 function anthropicHeaders() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
   return {
     'Content-Type': 'application/json',
-    'x-api-key': apiKey,
+    'x-api-key': process.env.ANTHROPIC_API_KEY,
     'anthropic-version': '2023-06-01',
     'anthropic-beta': ANTHROPIC_BETA_MCP,
   };
@@ -97,30 +98,16 @@ function parseResultadoIA(finalText) {
   return { fontes, mediana: parsed.mediana ?? null };
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
-
+async function handlePesquisar(req, res, sb) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(400).json({ error: { message: 'ANTHROPIC_API_KEY não configurada nas variáveis de ambiente do Vercel.' } });
-  }
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!serviceKey) {
-    return res.status(500).json({ error: { message: 'SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel' } });
   }
 
   const { cotacaoId, itemId, termo, unidadeMedida, uf } = req.body || {};
   if (!cotacaoId || !itemId || !termo || !String(termo).trim()) {
     return res.status(400).json({ error: { message: 'cotacaoId, itemId e termo são obrigatórios' } });
   }
-
-  const sb = createClient(SUPABASE_URL, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   try {
     // Resolve o tenant_id REAL a partir da cotação no banco — nunca aceita
@@ -164,4 +151,83 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: { message: err.message || String(err) } });
   }
+}
+
+async function handleExportar(req, res, sb) {
+  const { cotacaoId } = req.body || {};
+  if (!cotacaoId) return res.status(400).json({ error: 'cotacaoId é obrigatório' });
+
+  try {
+    // service role bypassa RLS — o filtro por cotacaoId já restringe ao
+    // registro certo; não há necessidade de tenant_id aqui pois estamos
+    // lendo (não gravando) e o id já identifica a cotação de forma única.
+    const { data: cot, error: eCot } = await sb
+      .from('cotacoes')
+      .select('id, numero, objeto, processo, data_criacao, cot_itens(id, descricao, unidade, qtd, cot_fontes_ia(fonte, fornecedor, descricao, valor_unitario, unidade_medida, orgao_referencia, data_referencia, url, selecionado, item_id))')
+      .eq('id', cotacaoId)
+      .single();
+    if (eCot) throw eCot;
+    if (!cot) return res.status(404).json({ error: 'Cotação não encontrada' });
+
+    const itens = (cot.cot_itens || [])
+      .map(it => ({
+        descricao: it.descricao,
+        unidade: it.unidade,
+        qtd: it.qtd,
+        fontes: (it.cot_fontes_ia || []).filter(f => f.item_id === it.id && f.selecionado !== false),
+      }))
+      .filter(it => it.fontes.length > 0);
+
+    if (!itens.length) {
+      return res.status(400).json({ error: 'Nenhum item com fontes de preço selecionadas para gerar o mapa. Pesquise e selecione ao menos um resultado antes de exportar.' });
+    }
+
+    const docxBuf = await buildMapaComparativoDocx({
+      cotacao: { numero: cot.numero, objeto: cot.objeto, processo: cot.processo, dataCriacao: cot.data_criacao },
+      itens,
+    });
+    const nomeArquivo = nomeArquivoMapaComparativo({ numero: cot.numero });
+    const path = `mapas/${cot.id}/${nomeArquivo}`;
+
+    const upload = await sb.storage.from(BUCKET).upload(path, docxBuf, {
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      upsert: true,
+    });
+    if (upload.error) throw upload.error;
+
+    const docxUrl = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+
+    const { data: row, error: eUpdate } = await sb
+      .from('cotacoes')
+      .update({ mapa_docx_url: docxUrl })
+      .eq('id', cotacaoId)
+      .select()
+      .single();
+    if (eUpdate) throw eUpdate;
+
+    return res.json({ cotacao: row, docxUrl });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey) {
+    return res.status(500).json({ error: { message: 'SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel' } });
+  }
+  const sb = createClient(SUPABASE_URL, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { action } = req.body || {};
+  if (action === 'exportar') return handleExportar(req, res, sb);
+  if (action === 'pesquisar') return handlePesquisar(req, res, sb);
+  return res.status(400).json({ error: { message: 'action deve ser "pesquisar" ou "exportar"' } });
 }
