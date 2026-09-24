@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component {
 import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/supabase.js';
 import { getTenantScope, getTenantInfo } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
-import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
+import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao, sbSelecionarFonteIa } from './lib/db.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
@@ -1957,6 +1957,14 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
   // Estado INDEPENDENTE para visualizar uma fonte — não interfere em nenhum outro estado
   const [fonteAberta, setFonteAberta] = useState(null);
 
+  // ── Pesquisa de Preço por Item via MCP (PNCP + Painel de Preços) ──
+  // Fluxo NOVO, independente do painel de Pesquisa Automática com IA acima
+  // (que usa web_search e continua intocado). Opera sobre uma cotação já
+  // salva (tela de detalhe, cotAtiva) — cada item pode ter sua própria
+  // pesquisa estruturada, com seleção de resultados e export em .docx real.
+  const [pesquisaItens, setPesquisaItens] = useState({});
+  const [exportandoMapa, setExportandoMapa] = useState(false);
+
   useOverlayBack(!!cotAtiva, () => setCotAtiva(null));
   useOverlayBack(!!resultadoIA, () => setResultadoIA(null));
   useOverlayBack(!!fonteAberta, () => setFonteAberta(null));
@@ -2057,6 +2065,63 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
     setModal(null); resetForm();
     toast("Cotação finalizada — mapa de preços gerado!");
     sbCreateCotacao(newCot).catch(err=>toast("Erro ao salvar no banco: "+err.message,"error"));
+  };
+
+  const pesquisarPrecoItem = async (cotId, item) => {
+    if (!item.descricao?.trim()) { toast("Item sem descrição — não é possível pesquisar","error"); return; }
+    setPesquisaItens(p=>({ ...p, [item.id]:{ loading:true, erro:null } }));
+    try {
+      const res = await fetch("/api/cotacao-pesquisa-mcp", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ cotacaoId:cotId, itemId:item.id, termo:item.descricao, unidadeMedida:item.unidade||undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error?.message || `HTTP ${res.status}`);
+      const novasFontes = (json.fontes||[]).map(f=>({
+        id:f.id, fonte:f.fonte, descricao:f.descricao||"", fornecedor:f.fornecedor||"",
+        valor_unitario:parseFloat(f.valor_unitario)||0, unidade_medida:f.unidade_medida||"",
+        orgao_referencia:f.orgao_referencia||"", data_referencia:f.data_referencia||null,
+        url:f.url||"", selecionado:true,
+      }));
+      setCotacoes(prev=>prev.map(c=>c.id!==cotId?c:{
+        ...c,
+        itens:c.itens.map(i=>i.id!==item.id?i:{ ...i, fontesPesquisa:[...(i.fontesPesquisa||[]), ...novasFontes] }),
+      }));
+      toast(novasFontes.length ? `${novasFontes.length} preço(s) encontrado(s) via PNCP/Painel de Preços!` : "Nenhum preço encontrado para este item nas fontes oficiais.", novasFontes.length?"success":"error");
+      setPesquisaItens(p=>({ ...p, [item.id]:{ loading:false, erro:null } }));
+    } catch(err) {
+      setPesquisaItens(p=>({ ...p, [item.id]:{ loading:false, erro:err.message } }));
+      toast(`Erro na pesquisa: ${err.message}`,"error");
+    }
+  };
+
+  const toggleSelecaoFonte = (cotId, itemId, fonteId, selecionado) => {
+    setCotacoes(prev=>prev.map(c=>c.id!==cotId?c:{
+      ...c,
+      itens:c.itens.map(i=>i.id!==itemId?i:{
+        ...i, fontesPesquisa:(i.fontesPesquisa||[]).map(f=>f.id!==fonteId?f:{ ...f, selecionado }),
+      }),
+    }));
+    sbSelecionarFonteIa(fonteId, selecionado).then(({error})=>{ if(error) toast("Erro ao salvar seleção: "+error.message,"error"); });
+  };
+
+  const exportarMapaComparativo = async (cotId) => {
+    setExportandoMapa(true);
+    try {
+      const res = await fetch("/api/cotacao-mapa-exportar", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ cotacaoId:cotId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setCotacoes(prev=>prev.map(c=>c.id!==cotId?c:{ ...c, mapaDocxUrl:json.docxUrl }));
+      toast("Mapa comparativo exportado em .docx!");
+      window.open(json.docxUrl, "_blank", "noopener,noreferrer");
+    } catch(err) {
+      toast(`Erro ao exportar mapa: ${err.message}`,"error");
+    } finally {
+      setExportandoMapa(false);
+    }
   };
 
   // ── Tela de resultado IA ──────────────────────────────────
@@ -2328,6 +2393,93 @@ function TabCotacoes({ cotacoes, setCotacoes, toast }) {
             </table>
           </div>
         </div>
+
+        {/* Pesquisa Oficial de Preços por Item — PNCP + Painel de Preços via MCP.
+            Fluxo NOVO e independente do painel de Pesquisa Automática com IA
+            (web_search) — consulta direta às APIs oficiais, sem busca na web. */}
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}` }}>
+            <div style={{ fontSize:13, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:8 }}>
+              <Icon name="globe" size={14} color={C.accent} /> Pesquisa Oficial de Preços (PNCP + Painel de Preços)
+            </div>
+            <div style={{ fontSize:12, color:C.sub, marginTop:2 }}>Consulta direta às APIs públicas oficiais, por item — dados estruturados, sem busca na web</div>
+          </div>
+          <div style={{ padding:16, display:"flex", flexDirection:"column", gap:14 }}>
+            {cot.itens.map(it => {
+              const pesquisa = pesquisaItens[it.id] || {};
+              const fontes = it.fontesPesquisa || [];
+              return (
+                <div key={it.id} style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{it.descricao}</div>
+                      <div style={{ fontSize:11, color:C.sub }}>{it.unidade}{it.qtd?` · Qtd ${it.qtd}`:""}</div>
+                    </div>
+                    <Btn size="sm" variant="outline" color={C.accent} disabled={pesquisa.loading}
+                      onClick={()=>pesquisarPrecoItem(cot.id, it)}
+                      style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      {pesquisa.loading ? (
+                        <><div style={{ width:12, height:12, border:"2px solid rgba(37,99,235,0.3)", borderTopColor:C.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} /> Pesquisando...</>
+                      ) : (
+                        <>🔎 Pesquisar Preço via IA</>
+                      )}
+                    </Btn>
+                  </div>
+                  {pesquisa.erro && (
+                    <div style={{ marginTop:8, fontSize:12, color:C.red }}>Erro: {pesquisa.erro}</div>
+                  )}
+                  {fontes.length > 0 && (
+                    <div style={{ marginTop:10, overflowX:"auto" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", minWidth:480 }}>
+                        <thead>
+                          <tr style={{ background:C.overlay }}>
+                            <th style={{ padding:"6px 10px", fontSize:10 }}></th>
+                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.04em" }}>Fonte</th>
+                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.04em" }}>Órgão / Fornecedor</th>
+                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.04em" }}>Data</th>
+                            <th style={{ padding:"6px 10px", fontSize:10, color:C.sub, textAlign:"right", textTransform:"uppercase", letterSpacing:"0.04em" }}>Vlr. Unit.</th>
+                            <th style={{ padding:"6px 10px", fontSize:10 }}>Link</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fontes.map(f => (
+                            <tr key={f.id} style={{ borderTop:`1px solid ${C.border}` }}>
+                              <td style={{ padding:"6px 10px", textAlign:"center" }}>
+                                <input type="checkbox" checked={f.selecionado!==false}
+                                  onChange={e=>toggleSelecaoFonte(cot.id, it.id, f.id, e.target.checked)} />
+                              </td>
+                              <td style={{ padding:"6px 10px" }}>
+                                <Badge label={f.fonte==="pncp"?"PNCP":"Painel de Preços"} color={f.fonte==="pncp"?C.accent:C.gold} />
+                              </td>
+                              <td style={{ padding:"6px 10px", fontSize:12, color:C.text }}>{f.orgao_referencia || f.fornecedor || "—"}</td>
+                              <td style={{ padding:"6px 10px", fontSize:12, color:C.sub, textAlign:"center" }}>{fmtDate(f.data_referencia)}</td>
+                              <td style={{ padding:"6px 10px", fontSize:12, fontWeight:600, color:C.text, textAlign:"right" }}>{fmtBRL(f.valor_unitario)}</td>
+                              <td style={{ padding:"6px 10px", textAlign:"center" }}>
+                                {f.url ? (
+                                  <button onClick={()=>window.open(f.url,"_blank","noopener,noreferrer")}
+                                    style={{ background:"none", border:"none", color:C.accent, cursor:"pointer", fontSize:12 }}>↗</button>
+                                ) : <span style={{ color:C.tertiary }}>—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ padding:"14px 18px", borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"flex-end", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+            {cot.mapaDocxUrl && (
+              <a href={cot.mapaDocxUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:C.accent }}>Último mapa gerado ↗</a>
+            )}
+            <Btn color={C.green} disabled={exportandoMapa} onClick={()=>exportarMapaComparativo(cot.id)}>
+              {exportandoMapa ? "Gerando..." : "📄 Exportar Mapa Comparativo (.docx)"}
+            </Btn>
+          </div>
+        </div>
+
         <div style={{ display:"flex", justifyContent:"center" }}>
           <Btn color={C.sub} variant="outline" onClick={()=>setRelatorioCot(true)}>🖨 Imprimir Mapa de Preços</Btn>
         </div>

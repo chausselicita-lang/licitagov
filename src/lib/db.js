@@ -34,12 +34,28 @@ function ataFromDb(row) {
   };
 }
 
+function fonteIaFromDb(f) {
+  return {
+    id: f.id,
+    fonte: f.fonte || 'web_search',
+    descricao: f.descricao || '',
+    fornecedor: f.fornecedor || '',
+    valor_unitario: parseFloat(f.valor_unitario) || 0,
+    unidade_medida: f.unidade_medida || '',
+    orgao_referencia: f.orgao_referencia || '',
+    data_referencia: f.data_referencia || null,
+    url: f.url || '',
+    selecionado: f.selecionado !== false,
+  };
+}
+
 function cotacaoFromDb(row) {
   const fornecedores = (row.cot_fornecedores || []).map(f => ({
     id: f.id,
     razao: f.razao || '',
     cnpj: f.cnpj || '',
   }));
+  const todasFontes = row.cot_fontes_ia || [];
   const itens = (row.cot_itens || []).map(it => {
     const valores = {};
     (it.cot_valores || []).forEach(v => {
@@ -51,6 +67,9 @@ function cotacaoFromDb(row) {
       unidade: it.unidade || '',
       qtd: String(it.qtd || ''),
       valores,
+      // resultados da pesquisa de preço por item via MCP (PNCP/Painel) —
+      // fluxo novo, independente das `fontes_ia` de objeto-a-objeto abaixo.
+      fontesPesquisa: todasFontes.filter(f => f.item_id === it.id).map(fonteIaFromDb),
     };
   });
   return {
@@ -63,14 +82,11 @@ function cotacaoFromDb(row) {
     geradoPorIA: row.gerado_por_ia || false,
     mediana: parseFloat(row.mediana) || 0,
     texto_mapa_precos: row.texto_mapa_precos || '',
+    mapaDocxUrl: row.mapa_docx_url || '',
     fornecedores,
     itens,
-    fontes_ia: (row.cot_fontes_ia || []).map(f => ({
-      descricao: f.descricao || '',
-      fornecedor: f.fornecedor || '',
-      valor_unitario: parseFloat(f.valor_unitario) || 0,
-      url: f.url || '',
-    })),
+    // fluxo antigo (objeto-a-objeto, web_search) — só as linhas sem item_id.
+    fontes_ia: todasFontes.filter(f => !f.item_id).map(fonteIaFromDb),
   };
 }
 
@@ -233,3 +249,8 @@ export async function sbCreateCotacao(cot) {
 
 export const sbDeleteCotacao = (id) =>
   getSupabase().from('cotacoes').delete().eq('id', id);
+
+// Toggle de seleção de uma fonte de preço (pesquisa por item via MCP) — RLS
+// tenant_isolation já garante que só a linha do tenant certo é afetada.
+export const sbSelecionarFonteIa = (fonteId, selecionado) =>
+  getSupabase().from('cot_fontes_ia').update({ selecionado }).eq('id', fonteId);
