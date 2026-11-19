@@ -21,6 +21,7 @@ import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/sup
 import { getTenantScope, getTenantInfo } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
+import { extrairEmpenhoDoPdf, sugerirItemAta, calcularImpacto, aplicarEmpenhoNaAta, parseValorBR, soDigitos, sbListEmpenhos, uploadEmpenhoPdf, urlAssinadaEmpenho, sbCreateEmpenho, sbDeleteEmpenho, sbUpdateAtaItemUtilizada } from './lib/ataEmpenhos.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
@@ -1441,6 +1442,267 @@ function TabCarimboDigital({ toast }) {
 ══════════════════════════════════════════════════════════════ */
 const ATA_FORM_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:"", valorTotal:"", link_drive:"", endereco:"", telefone:"", email:"" };
 
+/* ── Controle de despesas da Ata: notas de empenho ─────────────
+   Compras anexa o PDF da nota de empenho → IA lê → usuário confere →
+   saldo (R$) e quantidade por item da ata são abatidos sozinhos.      */
+const EMPENHO_FORM_EMPTY = { numero:"", dataEmissao:"", unidadeGestora:"", valor:"", observacao:"", cnpjNota:"", credorNota:"", linhas:[] };
+
+function EmpenhosAta({ ata, onAplicar, toast }) {
+  const { tenantId: ownTenantId } = useAuth();
+  const [empenhos, setEmpenhos] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroTabela, setErroTabela] = useState("");
+  const [modal, setModal] = useState(false);
+  const [file, setFile] = useState(null);
+  const [extraindo, setExtraindo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [form, setForm] = useState(EMPENHO_FORM_EMPTY);
+  const [excluir, setExcluir] = useState(null);
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    let vivo = true;
+    setCarregando(true);
+    sbListEmpenhos(ata.id).then(({ data, error }) => {
+      if (!vivo) return;
+      setEmpenhos(data); setErroTabela(error ? error.message : ""); setCarregando(false);
+    });
+    return () => { vivo = false; };
+  }, [ata.id]);
+
+  const totalEmpenhado = empenhos.reduce((s, e) => s + (e.valor || 0), 0);
+
+  const abrir = () => { setForm(EMPENHO_FORM_EMPTY); setFile(null); setModal(true); };
+  const fechar = () => { if (!salvando && !extraindo) setModal(false); };
+
+  const lerPdf = async (f) => {
+    if (!f) return;
+    if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) { toast("Envie a nota de empenho em PDF", "error"); return; }
+    setFile(f); setExtraindo(true);
+    try {
+      const x = await extrairEmpenhoDoPdf(f);
+      setForm({
+        numero: x.numero, dataEmissao: x.dataEmissao, unidadeGestora: x.unidadeGestora,
+        valor: x.valor ? String(x.valor).replace(".", ",") : "", observacao: x.observacao,
+        cnpjNota: x.cnpj, credorNota: x.credor,
+        linhas: x.itens.map(i => ({ ...i, ataItemId: sugerirItemAta(i.descricao, ata.itens) })),
+      });
+      toast("Nota lida! Confira os dados antes de confirmar.");
+    } catch (e) {
+      toast(e.message, "error");
+    } finally { setExtraindo(false); }
+  };
+
+  const valorNum = parseValorBR(form.valor);
+  const impacto = calcularImpacto({ ata, valor: valorNum, linhas: form.linhas, empenhoExistenteNumero: form.numero, empenhos });
+  const cnpjDiverge = form.cnpjNota && ata.cnpj && soDigitos(form.cnpjNota) !== soDigitos(ata.cnpj);
+  const avisoBloqueia = impacto.avisos.some(a => a.nivel === "erro");
+
+  const setLinha = (i, campo, v) => setForm(f => ({ ...f, linhas: f.linhas.map((l, k) => k === i ? { ...l, [campo]: v } : l) }));
+
+  const confirmar = async () => {
+    if (!form.numero.trim()) { toast("Informe o número do empenho", "error"); return; }
+    if (avisoBloqueia) { toast("Informe o valor do empenho", "error"); return; }
+    if (impacto.avisos.some(a => a.nivel === "duplicado")) {
+      toast("Este número de empenho já está lançado nesta ata", "error"); return;
+    }
+    if (impacto.avisos.some(a => a.nivel === "excede") &&
+        !window.confirm("Este empenho EXCEDE o saldo da ata. Deseja lançar mesmo assim?")) return;
+
+    setSalvando(true);
+    const id = uid();
+    let arquivoPath = "";
+    try {
+      if (file) {
+        const up = await uploadEmpenhoPdf(file, getTenantScope() || ownTenantId, ata.id);
+        if (up.error) throw new Error("Não foi possível guardar o PDF: " + up.error.message);
+        arquivoPath = up.path;
+      }
+      const linhasSalvas = form.linhas.map(l => ({
+        ataItemId: l.ataItemId || null, descricao: l.descricao, unidade: l.unidade,
+        qtd: Number(l.qtd) || 0, valorUnit: Number(l.valorUnit) || 0,
+      }));
+      const { data, error } = await sbCreateEmpenho({
+        id, ataId: ata.id, numero: form.numero.trim(), dataEmissao: form.dataEmissao,
+        unidadeGestora: form.unidadeGestora.trim(), valor: valorNum, itens: linhasSalvas,
+        observacao: form.observacao.trim(), arquivoPath, arquivoNome: file?.name || "",
+      });
+      if (error) {
+        if (arquivoPath) getSupabase().storage.from("ata-empenhos").remove([arquivoPath]);
+        throw new Error(error.message);
+      }
+      setEmpenhos(prev => [data, ...prev]);
+      onAplicar(ata, { valor: valorNum, linhas: linhasSalvas }, 1);
+      toast(`Empenho ${data.numero} lançado — saldo atualizado!`);
+      setModal(false);
+    } catch (e) {
+      toast("Erro ao lançar empenho: " + e.message, "error");
+    } finally { setSalvando(false); }
+  };
+
+  const abrirPdf = async (emp) => {
+    const { url, error } = await urlAssinadaEmpenho(emp.arquivoPath);
+    if (error || !url) { toast("Não foi possível abrir o PDF", "error"); return; }
+    window.open(url, "_blank", "noopener");
+  };
+
+  const confirmarExclusao = async () => {
+    const emp = excluir;
+    const { error } = await sbDeleteEmpenho(emp);
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    setEmpenhos(prev => prev.filter(e => e.id !== emp.id));
+    onAplicar(ata, { valor: emp.valor, linhas: emp.itens }, -1);
+    setExcluir(null);
+    toast("Empenho excluído — saldo devolvido à ata");
+  };
+
+  const selStyle = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 8px", color:C.text, fontSize:12, fontFamily:"inherit", maxWidth:220 };
+  const numStyle = { ...selStyle, width:84, maxWidth:84 };
+
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", marginTop:14 }}>
+      <div style={{ padding:"13px 18px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:600, color:C.text }}>Despesas / Notas de Empenho</div>
+          <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>
+            {empenhos.length} empenho(s) · total empenhado <b style={{ color:C.gold }}>{fmtBRL(totalEmpenhado)}</b>
+          </div>
+        </div>
+        <Btn onClick={abrir} color={C.accent} size="sm" disabled={!!erroTabela}>📎 Anexar Nota de Empenho</Btn>
+      </div>
+
+      {erroTabela ? (
+        <div style={{ padding:"18px", fontSize:12, color:C.red, lineHeight:1.6 }}>
+          O controle de empenhos ainda não foi ativado no banco de dados (tabela <code>ata_empenhos</code>).
+          Execute a migração <code>supabase/migration_ata_empenhos.sql</code> no SQL Editor do Supabase.
+          <div style={{ color:C.sub, marginTop:4 }}>Detalhe: {erroTabela}</div>
+        </div>
+      ) : carregando ? (
+        <div style={{ padding:18, fontSize:12, color:C.sub }}>Carregando empenhos…</div>
+      ) : empenhos.length === 0 ? (
+        <EmptyState icon="file" title="Nenhum empenho lançado" sub="Anexe a nota de empenho em PDF: a plataforma lê os dados e abate o saldo da ata automaticamente" />
+      ) : (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:560 }}>
+            <thead>
+              <tr style={{ background:C.overlay }}>
+                {["Empenho","Data","Unidade","Valor","Itens",""].map(h => (
+                  <th key={h} style={{ padding:"9px 14px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", whiteSpace:"nowrap", textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {empenhos.map(e => (
+                <tr key={e.id} style={{ borderBottom:`1px solid ${C.border}` }}>
+                  <td style={{ padding:"11px 14px", fontSize:13, fontWeight:600, color:C.accent2 }}>{e.numero}</td>
+                  <td style={{ padding:"11px 14px", fontSize:12, color:C.sub }}>{e.dataEmissao ? fmtDate(e.dataEmissao) : "—"}</td>
+                  <td style={{ padding:"11px 14px", fontSize:12, color:C.sub, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.unidadeGestora || "—"}</td>
+                  <td style={{ padding:"11px 14px", fontSize:13, fontWeight:600, color:C.gold }}>{fmtBRL(e.valor)}</td>
+                  <td style={{ padding:"11px 14px", fontSize:12, color:C.sub }}>{e.itens.filter(i => i.ataItemId).length}/{e.itens.length || "—"}</td>
+                  <td style={{ padding:"11px 14px", display:"flex", gap:6 }}>
+                    {e.arquivoPath && <IconBtn name="externallink" color={C.accent} title="Abrir PDF da nota" onClick={() => abrirPdf(e)} />}
+                    <IconBtn name="trash" color={C.red} title="Excluir empenho (devolve o saldo)" onClick={() => setExcluir(e)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal && (
+        <Modal title="Lançar Nota de Empenho" onClose={fechar} wide>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <div
+              onDragOver={e => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={e => { e.preventDefault(); setDrag(false); lerPdf(e.dataTransfer.files?.[0]); }}
+              onClick={() => !extraindo && inputRef.current?.click()}
+              style={{ border:`2px dashed ${drag ? C.accent : C.borderStrong}`, background: drag ? C.accentSubtle : C.overlay, borderRadius:10, padding:"18px 16px", textAlign:"center", cursor: extraindo ? "wait" : "pointer", fontSize:13, color:C.sub }}>
+              <input ref={inputRef} type="file" accept="application/pdf,.pdf" style={{ display:"none" }}
+                onChange={e => { lerPdf(e.target.files?.[0]); e.target.value = ""; }} />
+              {extraindo ? "⏳ Lendo a nota de empenho com IA…"
+                : file ? <>📄 <b style={{ color:C.text }}>{file.name}</b> — clique para trocar o PDF</>
+                : <>📎 <b style={{ color:C.text }}>Arraste a nota de empenho (PDF) aqui</b> ou clique para anexar<div style={{ fontSize:11, marginTop:4 }}>A plataforma preenche os dados e você só confere. Também dá para digitar manualmente abaixo.</div></>}
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Input label="Nº do Empenho" value={form.numero} onChange={v => setForm(f => ({ ...f, numero:v }))} placeholder="2026NE000123" required />
+              <Input label="Data de emissão" value={form.dataEmissao} onChange={v => setForm(f => ({ ...f, dataEmissao:v }))} type="date" />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Input label="Secretaria / Unidade gestora" value={form.unidadeGestora} onChange={v => setForm(f => ({ ...f, unidadeGestora:v }))} placeholder="Ex.: Secretaria de Saúde" />
+              <Input label="Valor do empenho (R$)" value={form.valor} onChange={v => setForm(f => ({ ...f, valor:v }))} placeholder="0,00" required />
+            </div>
+            <Input label="Histórico / observação" value={form.observacao} onChange={v => setForm(f => ({ ...f, observacao:v }))} />
+
+            {form.linhas.length > 0 && (
+              <div>
+                <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:6 }}>Itens do empenho — vincule ao item da ata para baixar a quantidade</div>
+                <div style={{ overflowX:"auto", border:`1px solid ${C.border}`, borderRadius:8 }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse", minWidth:560 }}>
+                    <thead><tr style={{ background:C.overlay }}>
+                      {["Descrição na nota","Qtd","Vincular ao item da ata"].map(h => <th key={h} style={{ padding:"7px 10px", fontSize:11, color:C.sub, textAlign:"left", textTransform:"uppercase" }}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {form.linhas.map((l, i) => (
+                        <tr key={i} style={{ borderTop:`1px solid ${C.border}` }}>
+                          <td style={{ padding:"7px 10px", fontSize:12, color:C.text }}>{l.descricao}{l.unidade ? ` (${l.unidade})` : ""}</td>
+                          <td style={{ padding:"7px 10px" }}><input style={numStyle} value={l.qtd} onChange={e => setLinha(i, "qtd", e.target.value.replace(",", "."))} /></td>
+                          <td style={{ padding:"7px 10px" }}>
+                            <select style={selStyle} value={l.ataItemId} onChange={e => setLinha(i, "ataItemId", e.target.value)}>
+                              <option value="">— não vincular —</option>
+                              {ata.itens.map(it => <option key={it.id} value={it.id}>{it.descricao.slice(0, 60)}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div style={{ background:C.subtle, borderRadius:8, padding:"12px 14px", fontSize:12, color:C.text, display:"flex", gap:20, flexWrap:"wrap" }}>
+              <span>Saldo atual: <b style={{ color:C.green }}>{fmtBRL(ata.saldoDisponivel)}</b></span>
+              <span>Este empenho: <b style={{ color:C.gold }}>− {fmtBRL(impacto.valor)}</b></span>
+              <span>Saldo após: <b style={{ color: impacto.saldoDepois < 0 ? C.red : C.green }}>{fmtBRL(impacto.saldoDepois)}</b></span>
+            </div>
+
+            {cnpjDiverge && (
+              <div style={{ background:"#fef2f2", color:C.red, borderRadius:8, padding:"9px 12px", fontSize:12 }}>
+                ⚠ O CNPJ da nota ({form.cnpjNota}{form.credorNota ? ` — ${form.credorNota}` : ""}) é diferente do fornecedor da ata ({ata.cnpj}). Confira se é a ata certa.
+              </div>
+            )}
+            {impacto.avisos.filter(a => a.nivel !== "erro").map((a, i) => (
+              <div key={i} style={{ background:"#fff1e6", color:C.gold, borderRadius:8, padding:"9px 12px", fontSize:12 }}>⚠ {a.texto}</div>
+            ))}
+
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <Btn variant="outline" onClick={fechar} color={C.sub} disabled={salvando}>Cancelar</Btn>
+              <Btn onClick={confirmar} color={C.accent2} disabled={salvando || extraindo}>{salvando ? "Lançando…" : "Confirmar e abater do saldo"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {excluir && (
+        <Modal title="Excluir empenho" onClose={() => setExcluir(null)}>
+          <div style={{ fontSize:13, color:C.text, lineHeight:1.6 }}>
+            Excluir o empenho <b>{excluir.numero}</b>? O valor de <b>{fmtBRL(excluir.valor)}</b> e as quantidades dos itens
+            voltam para o saldo da ata, e o PDF anexado é removido.
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:18 }}>
+            <Btn variant="outline" onClick={() => setExcluir(null)} color={C.sub}>Cancelar</Btn>
+            <Btn onClick={confirmarExclusao} color={C.red}>Excluir e devolver saldo</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function TabAtas({ atas, setAtas, toast }) {
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -1527,6 +1789,17 @@ function TabAtas({ atas, setAtas, toast }) {
       sbDeleteAtaItem(itemId),
       sbUpdateAtaSaldo(ataAtiva, newSaldo),
     ]).then(results=>{ const err=results.find(r=>r.error); if(err) toast("Erro ao remover item: "+err.error.message,"error"); });
+  };
+
+  // Abate (sinal=1) ou devolve (sinal=-1) um empenho no saldo/itens da ata e persiste.
+  const aplicarEmpenho = (ata, emp, sinal) => {
+    const { itens, saldoDisponivel } = aplicarEmpenhoNaAta(ata, emp, sinal);
+    const alterados = itens.filter((it, i) => it.qtdUtilizada !== ata.itens[i].qtdUtilizada);
+    setAtas(prev=>prev.map(a=>a.id===ata.id?{ ...a, itens, saldoDisponivel }:a));
+    Promise.all([
+      sbUpdateAtaSaldo(ata.id, saldoDisponivel),
+      ...alterados.map(it=>sbUpdateAtaItemUtilizada(it.id, it.qtdUtilizada)),
+    ]).then(rs=>{ const err=rs.find(r=>r.error); if(err) toast("Erro ao atualizar saldo da ata: "+err.error.message,"error"); });
   };
 
   if (ataAtiva) {
@@ -1616,6 +1889,7 @@ function TabAtas({ atas, setAtas, toast }) {
             </div>
           )}
         </div>
+        <EmpenhosAta key={ata.id} ata={ata} onAplicar={aplicarEmpenho} toast={toast} />
         {modalItem && (
           <Modal title="Adicionar Item à Ata" onClose={()=>setModalItem(false)}>
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
