@@ -8,7 +8,7 @@
 // testadas isoladamente.
 
 import { getSupabase } from './supabase.js';
-import { getTenantScope } from './tenantScope.js';
+import { getTenantScope, withTenantScope } from './tenantScope.js';
 import { sanitizeStorageFileName } from './storageSafeName.js';
 
 const BUCKET = 'ata-empenhos';
@@ -66,13 +66,13 @@ export function sugerirItemAta(descricao, itensAta) {
 // ── Impacto no saldo ─────────────────────────────────────────────
 // linhas: [{ataItemId, qtd, ...}] — só as vinculadas a um item da ata consomem
 // quantidade. `valor` é o valor total do empenho (sempre abatido do saldo em R$).
-export function calcularImpacto({ ata, valor, linhas, empenhoExistenteNumero, empenhos = [] }) {
+export function calcularImpacto({ ata, valor, linhas, empenhoExistenteNumero, empenhos = [], rotulo = 'da ata' }) {
   const avisos = [];
   const v = round2(valor);
   const saldoDepois = round2((ata.saldoDisponivel || 0) - v);
   if (v <= 0) avisos.push({ nivel: 'erro', texto: 'Informe o valor do empenho.' });
   if (saldoDepois < 0) {
-    avisos.push({ nivel: 'excede', texto: `O valor do empenho excede o saldo da ata em ${fmt(-saldoDepois)}.` });
+    avisos.push({ nivel: 'excede', texto: `O valor do empenho excede o saldo ${rotulo} em ${fmt(-saldoDepois)}.` });
   }
 
   const consumoPorItem = {};
@@ -89,7 +89,7 @@ export function calcularImpacto({ ata, valor, linhas, empenhoExistenteNumero, em
     }
   }
   if (empenhoExistenteNumero && empenhos.some(e => (e.numero || '').trim().toLowerCase() === empenhoExistenteNumero.trim().toLowerCase())) {
-    avisos.push({ nivel: 'duplicado', texto: `O empenho ${empenhoExistenteNumero} já está lançado nesta ata.` });
+    avisos.push({ nivel: 'duplicado', texto: `O empenho ${empenhoExistenteNumero} já está lançado aqui.` });
   }
   return { valor: v, saldoDepois, consumoPorItem, avisos };
 }
@@ -180,10 +180,17 @@ export async function extrairEmpenhoDoPdf(file) {
 }
 
 // ── Persistência ─────────────────────────────────────────────────
+// modo 'ata'      -> tabela ata_empenhos      (fk ata_id)
+// modo 'contrato' -> tabela contrato_empenhos (fk contrato_id)
+const ALVO = {
+  ata:      { tabela: 'ata_empenhos',      fk: 'ata_id' },
+  contrato: { tabela: 'contrato_empenhos', fk: 'contrato_id' },
+};
+
 function empenhoFromDb(r) {
   return {
     id: r.id,
-    ataId: r.ata_id,
+    parentId: r.ata_id || r.contrato_id,
     numero: r.numero || '',
     dataEmissao: r.data_emissao || '',
     unidadeGestora: r.unidade_gestora || '',
@@ -196,16 +203,25 @@ function empenhoFromDb(r) {
   };
 }
 
-export async function sbListEmpenhos(ataId) {
-  const { data, error } = await getSupabase().from('ata_empenhos').select('*')
-    .eq('ata_id', ataId).order('data_emissao', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
+export async function sbListEmpenhos(parentId, modo = 'ata') {
+  const { tabela, fk } = ALVO[modo];
+  const { data, error } = await getSupabase().from(tabela).select('*')
+    .eq(fk, parentId).order('data_emissao', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
   if (error) return { data: [], error };
   return { data: data.map(empenhoFromDb), error: null };
 }
 
-export async function uploadEmpenhoPdf(file, tenantId, ataId) {
+// Todos os empenhos de contratos do tenant (para mostrar o saldo na lista).
+export async function sbListTodosEmpenhosContratos() {
+  const { data, error } = await withTenantScope(getSupabase().from('contrato_empenhos').select('id, contrato_id, valor'));
+  if (error) return { data: [], error };
+  return { data, error: null };
+}
+
+export async function uploadEmpenhoPdf(file, tenantId, parentId, modo = 'ata') {
   if (!tenantId) return { path: null, error: new Error('Tenant não identificado para salvar o PDF.') };
-  const path = `${tenantId}/${ataId}/${Date.now()}-${sanitizeStorageFileName(file.name)}`;
+  const pasta = modo === 'contrato' ? `contrato-${parentId}` : parentId;
+  const path = `${tenantId}/${pasta}/${Date.now()}-${sanitizeStorageFileName(file.name)}`;
   const { error } = await getSupabase().storage.from(BUCKET).upload(path, file, { contentType: 'application/pdf', upsert: false });
   return { path: error ? null : path, error };
 }
@@ -215,12 +231,13 @@ export async function urlAssinadaEmpenho(path) {
   return { url: data?.signedUrl || null, error };
 }
 
-export async function sbCreateEmpenho(e) {
+export async function sbCreateEmpenho(e, modo = 'ata') {
+  const { tabela, fk } = ALVO[modo];
   const sb = getSupabase();
   const { data: u } = await sb.auth.getUser();
-  const { data, error } = await sb.from('ata_empenhos').insert({
+  const { data, error } = await sb.from(tabela).insert({
     id: e.id,
-    ata_id: e.ataId,
+    [fk]: e.parentId,
     numero: e.numero,
     data_emissao: e.dataEmissao || null,
     unidade_gestora: e.unidadeGestora || null,
@@ -235,9 +252,9 @@ export async function sbCreateEmpenho(e) {
   return { data: data ? empenhoFromDb(data) : null, error };
 }
 
-export async function sbDeleteEmpenho(emp) {
+export async function sbDeleteEmpenho(emp, modo = 'ata') {
   const sb = getSupabase();
-  const { error } = await sb.from('ata_empenhos').delete().eq('id', emp.id);
+  const { error } = await sb.from(ALVO[modo].tabela).delete().eq('id', emp.id);
   if (error) return { error };
   if (emp.arquivoPath) await sb.storage.from(BUCKET).remove([emp.arquivoPath]); // best-effort
   return { error: null };

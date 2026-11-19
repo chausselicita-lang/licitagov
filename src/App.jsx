@@ -21,7 +21,7 @@ import { getSupabase, isSupabaseReady, saveAnonKey, getAnonKey } from './lib/sup
 import { getTenantScope, getTenantInfo } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
-import { extrairEmpenhoDoPdf, sugerirItemAta, calcularImpacto, aplicarEmpenhoNaAta, parseValorBR, soDigitos, sbListEmpenhos, uploadEmpenhoPdf, urlAssinadaEmpenho, sbCreateEmpenho, sbDeleteEmpenho, sbUpdateAtaItemUtilizada } from './lib/ataEmpenhos.js';
+import { extrairEmpenhoDoPdf, sugerirItemAta, calcularImpacto, aplicarEmpenhoNaAta, parseValorBR, soDigitos, sbListEmpenhos, uploadEmpenhoPdf, urlAssinadaEmpenho, sbCreateEmpenho, sbDeleteEmpenho, sbUpdateAtaItemUtilizada, sbListTodosEmpenhosContratos } from './lib/ataEmpenhos.js';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
@@ -1447,8 +1447,10 @@ const ATA_FORM_EMPTY = { numero:"", objeto:"", fornecedor:"", cnpj:"", vigencia:
    saldo (R$) e quantidade por item da ata são abatidos sozinhos.      */
 const EMPENHO_FORM_EMPTY = { numero:"", dataEmissao:"", unidadeGestora:"", valor:"", observacao:"", cnpjNota:"", credorNota:"", linhas:[] };
 
-function EmpenhosAta({ ata, onAplicar, toast }) {
+function EmpenhosAta({ ata: ataProp, onAplicar, toast, modo="ata", onLista }) {
   const { tenantId: ownTenantId } = useAuth();
+  const ehContrato = modo === "contrato";
+  const rotulo = ehContrato ? "contrato" : "ata";
   const [empenhos, setEmpenhos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erroTabela, setErroTabela] = useState("");
@@ -1464,14 +1466,17 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
   useEffect(() => {
     let vivo = true;
     setCarregando(true);
-    sbListEmpenhos(ata.id).then(({ data, error }) => {
+    sbListEmpenhos(ataProp.id, modo).then(({ data, error }) => {
       if (!vivo) return;
       setEmpenhos(data); setErroTabela(error ? error.message : ""); setCarregando(false);
     });
     return () => { vivo = false; };
-  }, [ata.id]);
+  }, [ataProp.id, modo]);
 
   const totalEmpenhado = empenhos.reduce((s, e) => s + (e.valor || 0), 0);
+  // Contrato: saldo é sempre derivado (valor − empenhos), sem itens. Ata: saldo vem gravado na própria ata.
+  const ata = ehContrato ? { ...ataProp, saldoDisponivel: (ataProp.valorTotal || 0) - totalEmpenhado, itens: [] } : ataProp;
+  useEffect(() => { if (onLista && !carregando && !erroTabela) onLista(empenhos); }, [empenhos, carregando, erroTabela]); // eslint-disable-line
 
   const abrir = () => { setForm(EMPENHO_FORM_EMPTY); setFile(null); setModal(true); };
   const fechar = () => { if (!salvando && !extraindo) setModal(false); };
@@ -1495,7 +1500,7 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
   };
 
   const valorNum = parseValorBR(form.valor);
-  const impacto = calcularImpacto({ ata, valor: valorNum, linhas: form.linhas, empenhoExistenteNumero: form.numero, empenhos });
+  const impacto = calcularImpacto({ ata, valor: valorNum, linhas: form.linhas, empenhoExistenteNumero: form.numero, empenhos, rotulo: ehContrato ? "do contrato" : "da ata" });
   const cnpjDiverge = form.cnpjNota && ata.cnpj && soDigitos(form.cnpjNota) !== soDigitos(ata.cnpj);
   const avisoBloqueia = impacto.avisos.some(a => a.nivel === "erro");
 
@@ -1505,17 +1510,17 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
     if (!form.numero.trim()) { toast("Informe o número do empenho", "error"); return; }
     if (avisoBloqueia) { toast("Informe o valor do empenho", "error"); return; }
     if (impacto.avisos.some(a => a.nivel === "duplicado")) {
-      toast("Este número de empenho já está lançado nesta ata", "error"); return;
+      toast(`Este número de empenho já está lançado neste ${rotulo}`, "error"); return;
     }
     if (impacto.avisos.some(a => a.nivel === "excede") &&
-        !window.confirm("Este empenho EXCEDE o saldo da ata. Deseja lançar mesmo assim?")) return;
+        !window.confirm(`Este empenho EXCEDE o saldo ${ehContrato ? "do contrato" : "da ata"}. Deseja lançar mesmo assim?`)) return;
 
     setSalvando(true);
     const id = uid();
     let arquivoPath = "";
     try {
       if (file) {
-        const up = await uploadEmpenhoPdf(file, getTenantScope() || ownTenantId, ata.id);
+        const up = await uploadEmpenhoPdf(file, getTenantScope() || ownTenantId, ata.id, modo);
         if (up.error) throw new Error("Não foi possível guardar o PDF: " + up.error.message);
         arquivoPath = up.path;
       }
@@ -1524,16 +1529,16 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
         qtd: Number(l.qtd) || 0, valorUnit: Number(l.valorUnit) || 0,
       }));
       const { data, error } = await sbCreateEmpenho({
-        id, ataId: ata.id, numero: form.numero.trim(), dataEmissao: form.dataEmissao,
+        id, parentId: ata.id, numero: form.numero.trim(), dataEmissao: form.dataEmissao,
         unidadeGestora: form.unidadeGestora.trim(), valor: valorNum, itens: linhasSalvas,
         observacao: form.observacao.trim(), arquivoPath, arquivoNome: file?.name || "",
-      });
+      }, modo);
       if (error) {
         if (arquivoPath) getSupabase().storage.from("ata-empenhos").remove([arquivoPath]);
         throw new Error(error.message);
       }
       setEmpenhos(prev => [data, ...prev]);
-      onAplicar(ata, { valor: valorNum, linhas: linhasSalvas }, 1);
+      if (onAplicar) onAplicar(ataProp, { valor: valorNum, linhas: linhasSalvas }, 1);
       toast(`Empenho ${data.numero} lançado — saldo atualizado!`);
       setModal(false);
     } catch (e) {
@@ -1549,10 +1554,10 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
 
   const confirmarExclusao = async () => {
     const emp = excluir;
-    const { error } = await sbDeleteEmpenho(emp);
+    const { error } = await sbDeleteEmpenho(emp, modo);
     if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
     setEmpenhos(prev => prev.filter(e => e.id !== emp.id));
-    onAplicar(ata, { valor: emp.valor, linhas: emp.itens }, -1);
+    if (onAplicar) onAplicar(ataProp, { valor: emp.valor, linhas: emp.itens }, -1);
     setExcluir(null);
     toast("Empenho excluído — saldo devolvido à ata");
   };
@@ -1574,20 +1579,20 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
 
       {erroTabela ? (
         <div style={{ padding:"18px", fontSize:12, color:C.red, lineHeight:1.6 }}>
-          O controle de empenhos ainda não foi ativado no banco de dados (tabela <code>ata_empenhos</code>).
-          Execute a migração <code>supabase/migration_ata_empenhos.sql</code> no SQL Editor do Supabase.
+          O controle de empenhos ainda não foi ativado no banco de dados (tabela <code>{ehContrato ? "contrato_empenhos" : "ata_empenhos"}</code>).
+          Execute a migração <code>{ehContrato ? "supabase/migration_contrato_empenhos.sql" : "supabase/migration_ata_empenhos.sql"}</code> no SQL Editor do Supabase.
           <div style={{ color:C.sub, marginTop:4 }}>Detalhe: {erroTabela}</div>
         </div>
       ) : carregando ? (
         <div style={{ padding:18, fontSize:12, color:C.sub }}>Carregando empenhos…</div>
       ) : empenhos.length === 0 ? (
-        <EmptyState icon="file" title="Nenhum empenho lançado" sub="Anexe a nota de empenho em PDF: a plataforma lê os dados e abate o saldo da ata automaticamente" />
+        <EmptyState icon="file" title="Nenhum empenho lançado" sub={`Anexe a nota de empenho em PDF: a plataforma lê os dados e abate o saldo ${ehContrato ? "do contrato" : "da ata"} automaticamente`} />
       ) : (
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", minWidth:560 }}>
             <thead>
               <tr style={{ background:C.overlay }}>
-                {["Empenho","Data","Unidade","Valor","Itens",""].map(h => (
+                {["Empenho","Data","Unidade","Valor",...(ehContrato ? [] : ["Itens"]),""].map(h => (
                   <th key={h} style={{ padding:"9px 14px", fontSize:11, color:C.sub, fontWeight:600, textAlign:"left", whiteSpace:"nowrap", textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</th>
                 ))}
               </tr>
@@ -1599,7 +1604,7 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
                   <td style={{ padding:"11px 14px", fontSize:12, color:C.sub }}>{e.dataEmissao ? fmtDate(e.dataEmissao) : "—"}</td>
                   <td style={{ padding:"11px 14px", fontSize:12, color:C.sub, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.unidadeGestora || "—"}</td>
                   <td style={{ padding:"11px 14px", fontSize:13, fontWeight:600, color:C.gold }}>{fmtBRL(e.valor)}</td>
-                  <td style={{ padding:"11px 14px", fontSize:12, color:C.sub }}>{e.itens.filter(i => i.ataItemId).length}/{e.itens.length || "—"}</td>
+                  {!ehContrato && <td style={{ padding:"11px 14px", fontSize:12, color:C.sub }}>{e.itens.filter(i => i.ataItemId).length}/{e.itens.length || "—"}</td>}
                   <td style={{ padding:"11px 14px", display:"flex", gap:6 }}>
                     {e.arquivoPath && <IconBtn name="externallink" color={C.accent} title="Abrir PDF da nota" onClick={() => abrirPdf(e)} />}
                     <IconBtn name="trash" color={C.red} title="Excluir empenho (devolve o saldo)" onClick={() => setExcluir(e)} />
@@ -1637,7 +1642,7 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
             </div>
             <Input label="Histórico / observação" value={form.observacao} onChange={v => setForm(f => ({ ...f, observacao:v }))} />
 
-            {form.linhas.length > 0 && (
+            {!ehContrato && form.linhas.length > 0 && (
               <div>
                 <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:6 }}>Itens do empenho — vincule ao item da ata para baixar a quantidade</div>
                 <div style={{ overflowX:"auto", border:`1px solid ${C.border}`, borderRadius:8 }}>
@@ -1672,7 +1677,7 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
 
             {cnpjDiverge && (
               <div style={{ background:"#fef2f2", color:C.red, borderRadius:8, padding:"9px 12px", fontSize:12 }}>
-                ⚠ O CNPJ da nota ({form.cnpjNota}{form.credorNota ? ` — ${form.credorNota}` : ""}) é diferente do fornecedor da ata ({ata.cnpj}). Confira se é a ata certa.
+                ⚠ O CNPJ da nota ({form.cnpjNota}{form.credorNota ? ` — ${form.credorNota}` : ""}) é diferente do fornecedor {ehContrato ? "do contrato" : "da ata"} ({ata.cnpj}). Confira se é {ehContrato ? "o contrato certo" : "a ata certa"}.
               </div>
             )}
             {impacto.avisos.filter(a => a.nivel !== "erro").map((a, i) => (
@@ -1691,7 +1696,7 @@ function EmpenhosAta({ ata, onAplicar, toast }) {
         <Modal title="Excluir empenho" onClose={() => setExcluir(null)}>
           <div style={{ fontSize:13, color:C.text, lineHeight:1.6 }}>
             Excluir o empenho <b>{excluir.numero}</b>? O valor de <b>{fmtBRL(excluir.valor)}</b> e as quantidades dos itens
-            voltam para o saldo da ata, e o PDF anexado é removido.
+            voltam para o saldo {ehContrato ? "do contrato" : "da ata"}, e o PDF anexado é removido.
           </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:18 }}>
             <Btn variant="outline" onClick={() => setExcluir(null)} color={C.sub}>Cancelar</Btn>
@@ -2074,6 +2079,20 @@ function TabContratos({ contratos, setContratos, toast }) {
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState("Todos");
   const [form, setForm] = useState(FORM_CT_EMPTY);
+  const [contratoAtivo, setContratoAtivo] = useState(null);
+  const [empenhadoPorContrato, setEmpenhadoPorContrato] = useState({}); // contratoId -> total empenhado (R$)
+  useOverlayBack(!!contratoAtivo, () => setContratoAtivo(null));
+
+  useEffect(() => {
+    let vivo = true;
+    sbListTodosEmpenhosContratos().then(({ data, error }) => {
+      if (!vivo || error) return; // tabela ainda não migrada: lista segue normal, sem saldo
+      const m = {};
+      data.forEach(e => { m[e.contrato_id] = (m[e.contrato_id] || 0) + (parseFloat(e.valor) || 0); });
+      setEmpenhadoPorContrato(m);
+    });
+    return () => { vivo = false; };
+  }, []);
 
   const filtered = contratos.filter(c=>{
     const ok = filtro==="Todos" || c.status===filtro;
@@ -2124,6 +2143,43 @@ function TabContratos({ contratos, setContratos, toast }) {
 
   const borderColor = (status) => status==="A vencer"?C.gold:status==="Vencido"?C.red:status==="Vigente"?C.green:"transparent";
 
+  if (contratoAtivo) {
+    const ct = contratos.find(c=>c.id===contratoAtivo);
+    if (!ct) { setContratoAtivo(null); return null; }
+    const emp = empenhadoPorContrato[ct.id] || 0;
+    const saldo = (ct.valor||0) - emp;
+    const pct = ct.valor>0 ? Math.min(100, emp/ct.valor*100) : 0;
+    const dias = diasParaVencer(ct.fim);
+    return (
+      <div>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+          <button onClick={()=>setContratoAtivo(null)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 12px", color:C.sub, cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
+            <Icon name="back" size={13} /> Voltar
+          </button>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700, color:C.text }}>{ct.numero}</div>
+            <div style={{ fontSize:12, color:C.sub }}>{ct.objeto} · {ct.fornecedor}</div>
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))", gap:12, marginBottom:18 }}>
+          <KpiCard label="Valor do Contrato" value={fmtBRL(ct.valor)} color={C.accent2} />
+          <KpiCard label="Empenhado" value={fmtBRL(emp)} sub={`${pct.toFixed(1)}% utilizado`} color={C.gold} />
+          <KpiCard label="Saldo" value={fmtBRL(saldo)} color={saldo<0?C.red:C.green} />
+          <KpiCard label="Vigência até" value={fmtDate(ct.fim)} sub={dias!==null?`${dias} dias`:""} color={dias!==null&&dias<30?C.red:C.amber} />
+        </div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:16, boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ background:C.subtle, borderRadius:4, height:6, overflow:"hidden" }}>
+            <div style={{ width:`${pct}%`, height:"100%", background:pct>80?C.red:C.accent, borderRadius:4, transition:"width 0.6s" }} />
+          </div>
+        </div>
+        <EmpenhosAta key={ct.id} modo="contrato"
+          ata={{ id:ct.id, valorTotal:ct.valor||0, cnpj:ct.cnpj }}
+          toast={toast}
+          onLista={(lista)=>setEmpenhadoPorContrato(prev=>({ ...prev, [ct.id]: lista.reduce((s,e)=>s+(e.valor||0),0) }))} />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
@@ -2162,7 +2218,13 @@ function TabContratos({ contratos, setContratos, toast }) {
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <div style={{ textAlign:"right", marginRight:4 }}>
                     <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmtBRL(c.valor)}</div>
+                    {empenhadoPorContrato[c.id] > 0 && (
+                      <div style={{ fontSize:11, color:(c.valor-empenhadoPorContrato[c.id])<0?C.red:C.green, marginTop:2 }}>
+                        saldo {fmtBRL((c.valor||0)-empenhadoPorContrato[c.id])}
+                      </div>
+                    )}
                   </div>
+                  <Btn onClick={()=>setContratoAtivo(c.id)} color={C.accent} variant="outline" size="sm">💰 Despesas</Btn>
                   {c.link_drive && (
                     <IconBtn name="externallink" color={C.accent} title="Abrir no Google Drive"
                       onClick={()=>window.open(c.link_drive,"_blank","noopener")} />
