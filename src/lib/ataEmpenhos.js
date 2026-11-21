@@ -211,6 +211,13 @@ export async function sbListEmpenhos(parentId, modo = 'ata') {
   return { data: data.map(empenhoFromDb), error: null };
 }
 
+// Todos os empenhos de atas do tenant (dashboard de Relatórios).
+export async function sbListTodosEmpenhosAtas() {
+  const { data, error } = await withTenantScope(getSupabase().from('ata_empenhos').select('*'));
+  if (error) return { data: [], error };
+  return { data: data.map(empenhoFromDb), error: null };
+}
+
 // Todos os empenhos de contratos do tenant (para mostrar o saldo na lista).
 export async function sbListTodosEmpenhosContratos() {
   const { data, error } = await withTenantScope(getSupabase().from('contrato_empenhos').select('id, contrato_id, valor'));

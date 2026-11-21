@@ -22,6 +22,7 @@ import { getTenantScope, getTenantInfo } from './lib/tenantScope.js';
 import { useOverlayBack } from './lib/useOverlayBack.js';
 import { loadAllData, setTenantScope, sbCreateProcesso, sbUpdateProcesso, sbDeleteProcesso, sbCreateAta, sbUpdateAta, sbDeleteAta, sbCreateAtaItem, sbDeleteAtaItem, sbUpdateAtaSaldo, sbCreateContrato, sbUpdateContrato, sbDeleteContrato, sbCreateDispensa, sbUpdateDispensa, sbDeleteDispensa, sbCreateInexigibilidade, sbUpdateInexigibilidade, sbDeleteInexigibilidade, sbCreateCotacao, sbDeleteCotacao } from './lib/db.js';
 import { extrairEmpenhoDoPdf, sugerirItemAta, calcularImpacto, aplicarEmpenhoNaAta, parseValorBR, soDigitos, sbListEmpenhos, uploadEmpenhoPdf, urlAssinadaEmpenho, sbCreateEmpenho, sbDeleteEmpenho, sbUpdateAtaItemUtilizada, sbListTodosEmpenhosContratos } from './lib/ataEmpenhos.js';
+import DashboardAtas from './components/DashboardAtas.jsx';
 import { sbListDispensaProcessos, sbSaveRascunho, sbDeleteDispensaProcesso, sbGetDispensaConfig, sbSaveDispensaConfig, gerarProcessoDispensa } from './lib/dbDispensas.js';
 import { validarLimiteLegal, TIPOS_OBJETO } from './lib/dispensaLegal.js';
 import {
@@ -5058,6 +5059,7 @@ function RelProcessos({ processos, onClose }) {
 function TabRelatorios({ data }) {
   const { processos, atas, contratos, dispensas, inexigibilidades } = data;
   const [relatorio, setRelatorio] = useState(null); // { titulo, corpo }
+  const [subAba, setSubAba] = useState("dashboard"); // dashboard | impressos
   const iframeRef = useRef(null);
   useOverlayBack(!!relatorio, () => setRelatorio(null));
 
@@ -5084,8 +5086,16 @@ function TabRelatorios({ data }) {
     );
   }
 
+  const abaBtn = ativo => ({ background:ativo?C.accent:"#fff", color:ativo?"#121212":C.sub, border:`1px solid ${ativo?C.accent:C.border}`, borderRadius:8, padding:"8px 18px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" });
+
   return (
     <div>
+      <div style={{ display:"flex", gap:8, marginBottom:18, flexWrap:"wrap" }}>
+        <button style={abaBtn(subAba==="dashboard")} onClick={()=>setSubAba("dashboard")}>Dashboard de Atas</button>
+        <button style={abaBtn(subAba==="impressos")} onClick={()=>setSubAba("impressos")}>Relatórios para imprimir</button>
+      </div>
+      {subAba==="dashboard" && <DashboardAtas atas={atas} />}
+      {subAba==="impressos" && <>
       <div style={{ fontSize:13, color:C.sub, marginBottom:20 }}>Selecione o relatório para visualizar e imprimir.</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:16 }}>
         {cards.map(r=>(
@@ -5101,6 +5111,7 @@ function TabRelatorios({ data }) {
           </div>
         ))}
       </div>
+      </>}
     </div>
   );
 }
